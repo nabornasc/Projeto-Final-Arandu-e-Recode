@@ -1,389 +1,190 @@
 # Aranduê
 
-Aplicação web de gestão para pequenos empreendedores (MEIs). O projeto centraliza produtos e serviços, clientes, pedidos, despesas, contas bancárias e movimentações financeiras em um único painel integrado.
+SaaS de gestão para microempreendedores individuais (MEIs): vendas, estoque, clientes e caixa em um só lugar, com dados isolados por empresa e controle de acesso por papel.
 
-O protótipo foi desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco em organização financeira, controle de estoque e apoio à tomada de decisões estratégicas para quem empreende por conta própria.
+Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco em organização financeira e apoio à decisão para quem empreende por conta própria.
+
+> **Versão 2 em desenvolvimento.** A v1 (monousuário, MySQL) está preservada na tag `v1.0.0`. O andamento da v2 segue o [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md).
 
 ## Índice
 
-- [Funcionalidades](#funcionalidades)
+- [Situação atual](#situação-atual)
 - [Tecnologias](#tecnologias)
+- [Execução local](#execução-local)
+- [Usuários de demonstração](#usuários-de-demonstração)
+- [Scripts](#scripts)
 - [Arquitetura](#arquitetura)
-- [Pré-requisitos](#pré-requisitos)
-- [Execução rápida](#execução-rápida)
-- [Execução em desenvolvimento](#execução-em-desenvolvimento)
-- [Configuração](#configuração)
-- [Banco de dados](#banco-de-dados)
+- [Segurança](#segurança)
 - [API](#api)
-- [Regras de automação financeira e estoque](#regras-de-automação-financeira-e-estoque)
-- [Testes manuais](#testes-manuais)
+- [Regras de negócio](#regras-de-negócio)
+- [Testes](#testes)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Solução de problemas](#solução-de-problemas)
-- [Plano de escalabilidade](#plano-de-escalabilidade)
+- [Planejamento](#planejamento)
 - [Licença](#licença)
 
 ---
 
-## Funcionalidades
+## Situação atual
 
-- **Dashboard financeiro integrado:** faturamento de vendas, despesas pagas, saldo estimado real (contas bancárias + movimentações) e contagem de pedidos pendentes.
-- **Catálogo de produtos e serviços:** cadastro, edição e exclusão de itens com preços, custos e controle de quantidade em estoque.
-- **Gestão de clientes:** cadastro e histórico de contatos (nome, documento, telefone, e-mail e endereço).
-- **Contas bancárias e carteiras:** suporte a contas correntes, poupanças e caixa físico da loja.
-- **Gestão de despesas:** controle de saídas pendentes e pagas com vinculação direta à conta bancária de débito.
-- **Gestão de vendas e pedidos:**
-  - Criação de pedidos com seleção reativa de produtos, cálculo automático de totais com desconto.
-  - Baixa automática no estoque físico ao confirmar a venda.
-  - Atualização dinâmica de status do pedido (**Pendente**, **Pago** ou **Cancelado**).
-- **Sincronização de fluxo de caixa:**
-  - Pedidos marcados como **Pago** geram automaticamente uma entrada no caixa (`income`).
-  - Despesas marcadas como **Pago** geram automaticamente uma saída no caixa (`outcome`).
-  - Cancelamento ou exclusão de pedidos devolve os produtos ao estoque e remove a transação vinculada.
-- **Arquivamento seguro (Soft Delete):** produtos utilizados em pedidos não são excluídos fisicamente para preservar a integridade histórica das vendas.
+**Semana 1 (fundação) concluída:**
 
----
+- Cadastro de empresa com usuário proprietário, login e logout com sessão segura.
+- Multiempresa: todo dado pertence a uma empresa e nenhuma consulta cruza empresas.
+- Papéis **Proprietário**, **Vendedor** e **Contador**, com permissões verificadas no servidor.
+- Produtos e serviços (com estoque), clientes, pedidos com vários itens, despesas, contas bancárias e movimentações de caixa.
+- Log de auditoria de toda alteração.
+- Interface responsiva, com o menu e os botões ajustados ao papel do usuário.
+
+**Próximas semanas:** gestão de usuários, fornecedores e orçamentos (semana 2); CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
 
 ## Tecnologias
 
-- **Frontend:** React 18, Vite e `lucide-react`.
-- **Backend:** Node.js, Express e `mysql2` (Driver Promise).
-- **Banco de dados:** MySQL 8.4.
-- **Ambiente:** Docker Compose.
+| Camada | Tecnologia |
+|---|---|
+| Linguagem | TypeScript estrito (Node.js 24 executa `.ts` direto, sem etapa de build no backend) |
+| Backend | Fastify 5, Drizzle ORM, driver `postgres`, Zod, Argon2id |
+| Banco | PostgreSQL 17 (Docker no desenvolvimento; Supabase em produção) |
+| Frontend | React 19, Vite 8, React Router 8, TanStack Query |
+| Compartilhado | `packages/shared`: schemas Zod e matriz de permissões usados no front e no back |
+| Qualidade | Biome (lint e formatação), Vitest, GitHub Actions, Dependabot |
 
----
+## Execução local
+
+Pré-requisitos: **Node.js 24+**, **Docker** e as portas `5432`, `3001` e `5173` livres.
+
+```bash
+npm install
+cp backend/.env.example backend/.env
+npm run db:up        # sobe o PostgreSQL (cria também o banco de testes)
+npm run db:migrate   # aplica as migrações
+npm run db:seed      # dados de demonstração (APAGA o banco de desenvolvimento)
+npm run dev          # API em :3001 e interface em :5173
+```
+
+Abra [http://localhost:5173](http://localhost:5173). Healthcheck da API: [http://localhost:5173/api/health](http://localhost:5173/api/health).
+
+## Usuários de demonstração
+
+O seed cria duas empresas, cada uma com os três papéis. A senha de todos é `senha-demo-123`.
+
+| Empresa | Proprietário | Vendedor | Contador |
+|---|---|---|---|
+| Ateliê Aranduê | `dono@atelie.test` | `vendedor@atelie.test` | `contador@atelie.test` |
+| Doces da Vila | `dono@doces.test` | `vendedor@doces.test` | `contador@doces.test` |
+
+## Scripts
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | API e frontend com recarga automática |
+| `npm test` | Testes do backend (banco `arandue_test`, recriado a cada execução) |
+| `npm run typecheck` | Checagem de tipos dos três pacotes |
+| `npm run lint` / `npm run format` | Verifica / corrige lint e formatação (Biome) |
+| `npm run build` | Build de produção do frontend |
+| `npm run db:generate` | Gera uma nova migração a partir de `backend/src/db/schema.ts` |
+| `npm run db:migrate` / `npm run db:seed` | Aplica migrações / recria os dados de demonstração |
 
 ## Arquitetura
 
 ```text
-Navegador
-   │
-   ├── Frontend React/Vite       http://localhost:5173
-   │       │ (proxy /api)
-   │       └── API REST          http://localhost:3001/api
-   │                              │
-   └── Backend Express ───────────┘
-                                  │
-                              MySQL 8.4
-                         host: localhost:3307
+Navegador ──> React (Vite) ──/api──> Fastify
+                                       │  sessão (cookie) → ctx { userId, companyId, role }
+                                       ▼
+                                 routes/   só HTTP
+                                 services/ regras + permissão + empresa + auditoria
+                                       ▼
+                                 PostgreSQL (company_id em toda tabela de negócio)
 ```
 
-Dentro da rede Docker, o backend acessa o banco usando `DB_HOST=mysql` e `DB_PORT=3306`. Fora do Docker (em desenvolvimento local), o banco é acessado pelo host `127.0.0.1` na porta `3307`.
+Toda função de serviço recebe o contexto de quem está agindo, verifica a permissão (`can()` do pacote compartilhado) e filtra pela empresa. É a mesma camada que o assistente de IA e o bot do Telegram vão usar na semana 4.
 
----
+## Segurança
 
-## Pré-requisitos
-
-- Node.js 18 ou superior.
-- npm.
-- Docker Engine e Docker Compose.
-- Portas livres `3001`, `3307` e `5173`.
-
----
-
-## Execução rápida
-
-No diretório raiz do projeto:
-
-```bash
-npm install
-docker compose up -d --build
-npm run dev --workspace frontend
-```
-
-Depois, abra:
-
-- **Aplicação Web:** [http://localhost:5173](http://localhost:5173)
-- **Healthcheck da API:** [http://localhost:3001/api/health](http://localhost:3001/api/health)
-
-O comando `docker compose up` inicia o MySQL e o backend. O backend só é iniciado após o healthcheck do MySQL estar aprovado.
-
-Para acompanhar os logs dos serviços:
-
-```bash
-docker compose ps
-docker compose logs -f backend
-docker compose logs -f mysql
-```
-
-Para parar os serviços sem apagar os dados persistidos:
-
-```bash
-docker compose down
-```
-
----
-
-## Execução em desenvolvimento
-
-Para executar o backend localmente no terminal (com reload automático via `node --watch`) mantendo apenas o MySQL no Docker:
-
-```bash
-docker compose up -d mysql
-npm run dev --workspace backend
-```
-
-Em outro terminal, inicie o frontend:
-
-```bash
-npm run dev --workspace frontend
-```
-
-Ou execute ambos em paralelo com o script da raiz:
-
-```bash
-npm run dev
-```
-
----
-
-## Configuração
-
-O backend aceita as seguintes variáveis de ambiente:
-
-| Variável | Padrão local | Uso no Docker | Descrição |
-|---|---|---|---|
-| `PORT` | `3001` | `3001` | Porta HTTP da API Express |
-| `DB_HOST` | `127.0.0.1` | `mysql` | Endereço do banco de dados |
-| `DB_PORT` | `3307` | `3306` | Porta de conexão do banco |
-| `DB_NAME` | `arandue` | `arandue` | Nome do banco de dados |
-| `DB_USER` | `arandue` | `arandue` | Usuário do MySQL |
-| `DB_PASSWORD` | `arandue` | `arandue` | Senha do usuário do MySQL |
-
-Para personalizar localmente, copie o arquivo de exemplo:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
----
-
-## Banco de dados
-
-O schema está em [backend/sql/001_schema.sql](backend/sql/001_schema.sql) e os dados iniciais em [backend/sql/002_seed.sql](backend/sql/002_seed.sql). Esses arquivos são executados automaticamente pelo MySQL no primeiro boot do volume.
-
-Tabelas principais:
-
-- `products`: catálogo de produtos e serviços com controle de custo e estoque.
-- `customers`: clientes e histórico de contatos.
-- `bank_accounts`: contas correntes, poupanças e caixas físicos.
-- `orders`: pedidos de venda com cliente, data, desconto, total e status.
-- `order_items`: itens vinculados aos pedidos com quantidade e preço unitário.
-- `expenses`: despesas do negócio categorizadas e vinculadas a contas.
-- `cash_transactions`: livro-caixa de entradas e saídas financeiras.
-
-Para recriar completamente o banco (apagando o volume local):
-
-```bash
-docker compose down -v
-docker compose up -d --build
-```
-
----
+- **Senhas** com Argon2id. O login responde igual para e-mail inexistente e senha errada, com tempo equivalente.
+- **Sessão** em cookie `HttpOnly`, `SameSite=Lax` (e `Secure` + prefixo `__Host-` em produção). O banco guarda só o hash do token, e o logout revoga a sessão de verdade.
+- **CSRF:** a API aceita só JSON e recusa requisições que alteram dados vindas de outras origens.
+- **Isolamento:** IDs vindos do cliente (cliente, produto, conta) são conferidos contra a empresa do usuário.
+- **Cabeçalhos** de segurança (`@fastify/helmet`) e limite de requisições, mais rígido nas rotas de login e cadastro.
+- **Banco** exposto só em `127.0.0.1` no ambiente local.
 
 ## API
 
-### Healthcheck e Dashboard
-
-```http
-GET /api/health
-GET /api/dashboard
-```
-
-### Recursos CRUD Genéricos
-
-Os seguintes recursos suportam todas as operações do padrão REST:
+Todas as rotas ficam sob `/api` e, exceto as de autenticação e o healthcheck, exigem sessão.
 
 ```text
-GET    /api/:resource        (Lista todos os registros)
-GET    /api/:resource/:id    (Consulta um registro específico)
-POST   /api/:resource        (Cria um novo registro)
-PUT    /api/:resource/:id    (Atualiza um registro existente)
-DELETE /api/:resource/:id    (Remove ou inativa o registro)
+GET  /health
+POST /auth/register   POST /auth/login   POST /auth/logout   GET /auth/me
+
+GET|POST        /customers        GET|PUT|DELETE /customers/:id
+GET|POST        /products         GET|PUT|DELETE /products/:id
+GET|POST        /bank-accounts    GET|PUT|DELETE /bank-accounts/:id
+GET             /bank-accounts/options   (lista mínima para quem registra vendas)
+GET|POST        /expenses         GET|PUT|DELETE /expenses/:id
+GET|POST        /transactions     GET|PUT|DELETE /transactions/:id
+GET|POST        /orders           GET|PUT|DELETE /orders/:id
+GET             /dashboard
 ```
 
-Recursos disponíveis:
-- `/api/products`
-- `/api/customers`
-- `/api/bankAccounts`
-- `/api/expenses`
-- `/api/transactions`
+Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retornam `{ "message": "..." }` com o status adequado: 400 (validação), 401, 403, 404 ou 409.
 
-### Vendas e Pedidos
+## Regras de negócio
 
-```text
-GET    /api/orders           (Lista pedidos com cliente e itens)
-GET    /api/orders/:id       (Consulta pedido detalhado)
-POST   /api/orders           (Cria pedido, baixa estoque e gera entrada se pago)
-PUT    /api/orders/:id       (Atualiza status/dados, reconcilia estoque e caixa)
-DELETE /api/orders/:id       (Exclui pedido e estorna estoque/caixa)
-```
+1. **Estoque:** criar um pedido baixa o estoque dos produtos físicos dentro de uma transação, com bloqueio de linha, para que vendas simultâneas não vendam a mesma unidade. Estoque insuficiente retorna 400 e nada é alterado. Cancelar ou excluir o pedido devolve o estoque, e reativar um pedido cancelado valida o saldo de novo.
+2. **Caixa:** pedido **pago** ou **concluído** gera uma única entrada no caixa, e despesa **paga** com conta gera uma única saída. Voltar o status a pendente remove a movimentação. Movimentações geradas automaticamente não podem ser editadas diretamente (409).
+3. **Saldo:** saldo inicial mais movimentações, considerando só contas ativas nos dois termos.
+4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
 
----
-
-## Regras de automação financeira e estoque
-
-1. **Baixa e estorno de estoque:**
-   - Ao criar um pedido com produto físico (`type = 'product'`), o estoque é validado e reduzido automaticamente.
-   - Caso o estoque seja insuficiente, a API retorna erro `400 Bad Request`.
-   - Se o status do pedido for alterado para `cancelled` ou o pedido for deletado, a quantidade é estornada ao estoque.
-2. **Sincronização com o fluxo de caixa:**
-   - Pedidos com status `paid` geram uma transação de entrada (`income`) na conta selecionada.
-   - Despesas com status `paid` geram uma transação de saída (`outcome`) na conta bancária de débito.
-   - Se um pedido ou despesa tiver seu status revertido para `pending`, a movimentação de caixa correspondente é removida, mantendo o saldo fiel à realidade.
-3. **Preservação de histórico:**
-   - Produtos associados a vendas existentes não são deletados fisicamente; recebem `active = FALSE`, preservando relatórios e pedidos anteriores.
-
----
-
-## Testes manuais
-
-### Testar a conexão
+## Testes
 
 ```bash
-curl -i http://localhost:3001/api/health
+npm run db:up && npm test
 ```
 
-Resposta esperada:
-
-```json
-{"status":"ok"}
-```
-
-### Testar ciclo completo de cliente (Inserção, Consulta e Exclusão)
-
-```bash
-# 1. Cria um cliente
-response=$(curl -sS -X POST http://localhost:3001/api/customers \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Cliente de Teste","email":"teste@example.invalid"}')
-
-id=$(printf '%s' "$response" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
-
-# 2. Consulta pelo ID
-curl -i "http://localhost:3001/api/customers/$id"
-
-# 3. Exclui o cliente
-curl -i -X DELETE "http://localhost:3001/api/customers/$id"
-
-# 4. Confirma exclusão (deve retornar 404)
-curl -i "http://localhost:3001/api/customers/$id"
-```
-
----
+Os 20 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 
 ```text
 .
+├── packages/shared/src/
+│   ├── rbac.ts                 # Papéis, módulos e matriz de permissões
+│   └── schemas/index.ts        # Schemas Zod (validação no front e no back)
 ├── backend/
-│   ├── src/
-│   │   ├── db.js                     # Pool de conexões MySQL
-│   │   └── server.js                 # API REST, transações e automações
-│   ├── sql/
-│   │   ├── 001_schema.sql            # Definição das tabelas e índices
-│   │   └── 002_seed.sql              # Dados de demonstração
-│   ├── .env.example                  # Variáveis de ambiente
-│   ├── Dockerfile                    # Container da API
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/               # Componentes modulares de interface
-│   │   │   ├── Dashboard.jsx         # Visão geral de métricas e pedidos
-│   │   │   ├── EmptyState.jsx        # Estado vazio das tabelas
-│   │   │   ├── FormModal.jsx         # Formulários modais com selects dinâmicos
-│   │   │   ├── MetricCard.jsx        # Cards de faturamento e saldo
-│   │   │   ├── Orders.jsx            # Gestão e formulário de pedidos reativos
-│   │   │   ├── ResourcePage.jsx      # Página genérica para recursos CRUD
-│   │   │   ├── Sidebar.jsx           # Menu de navegação lateral
-│   │   │   ├── Toast.jsx             # Notificações de sucesso/erro
-│   │   │   └── Topbar.jsx            # Cabeçalho com data dinâmica
-│   │   ├── config/
-│   │   │   └── resources.js          # Definições de campos e tabelas
-│   │   ├── services/
-│   │   │   └── api.js                # Cliente de requisições HTTP
-│   │   ├── utils/
-│   │   │   └── formatters.js         # Formatadores de moeda, data e status
-│   │   ├── App.jsx                   # Shell principal da aplicação
-│   │   ├── main.jsx                  # Ponto de entrada React
-│   │   └── styles.css                # Folha de estilos e responsividade
-│   ├── index.html
-│   ├── vite.config.js                # Configuração do Vite com proxy /api
-│   └── package.json
-├── compose.yaml                      # Ambiente MySQL e Backend
-├── compose.debug.yaml                # Ambiente de depuração Node Inspector
-├── package.json                      # Workspaces e scripts globais
-├── PLANEJAMENTO_ESCALABILIDADE.md    # Estratégia completa de crescimento e produção
-├── LICENSE                           # Licença MIT
-└── README.md
+│   ├── drizzle/                # Migrações SQL geradas
+│   ├── db-init/                # Script de criação do banco de testes (Docker)
+│   └── src/
+│       ├── app.ts, server.ts   # Montagem do Fastify / inicialização
+│       ├── config.ts           # Variáveis de ambiente validadas
+│       ├── db/                 # Schema Drizzle, conexão, migrate e seed
+│       ├── lib/                # Erros, contexto/autorização, utilitários
+│       ├── plugins/            # Segurança, sessão e tratamento de erros
+│       ├── routes/             # Rotas HTTP (sem regra de negócio)
+│       ├── services/           # Regras de negócio por módulo + auditoria
+│       └── tests/              # Testes de integração (Vitest)
+├── frontend/src/
+│   ├── components/             # Layout, modal, formulário e tabela genéricos
+│   ├── config/                 # Menu e definição dos formulários
+│   ├── lib/                    # Cliente da API, autenticação, formatação
+│   ├── pages/                  # Telas (carregadas sob demanda)
+│   └── styles.css
+├── compose.yaml                # PostgreSQL local
+├── PLANEJAMENTO_V2.md          # Plano da versão 2 (4 semanas)
+└── PLANEJAMENTO_ESCALABILIDADE.md
 ```
-
----
 
 ## Solução de problemas
 
-### Porta já está em uso
+- **`ECONNREFUSED` ao rodar migrações ou testes:** o Postgres não está ativo. Rode `npm run db:up` e confira com `docker compose ps`.
+- **Porta 5432 ocupada:** outro Postgres está rodando na máquina. Pare-o ou mude a porta em `compose.yaml` e em `backend/.env`.
+- **Volume antigo sem o banco de testes:** o banco `arandue_test` só é criado na primeira inicialização do volume. Recrie com `docker compose down -v && npm run db:up` (isso apaga os dados locais).
+- **401 em todas as telas:** a sessão expirou ou o banco foi recriado pelo seed. Faça login de novo.
 
-Verifique processos ou containers ocupando as portas:
+## Planejamento
 
-```bash
-docker compose ps
-ss -ltnp | grep -E '3001|3307|5173'
-```
-
-### API retorna erro de conexão com MySQL
-
-Verifique o status do container do banco:
-
-```bash
-docker compose ps
-docker compose logs mysql
-curl http://localhost:3001/api/health
-```
-
-### Problemas com o Frontend Vite
-
-Confira o terminal onde você executou `npm run dev --workspace frontend`.
-Caso veja erros de carregamento, verifique se a API está respondendo em [http://localhost:3001/api/health](http://localhost:3001/api/health) e recarregue a página no navegador com `Ctrl + Shift + R`.
-
-### Erro `EACCES` no cache do Vite
-
-Se aparecer uma mensagem como:
-
-```text
-EACCES: permission denied, unlink 'frontend/node_modules/.vite/deps/_metadata.json'
-```
-
-o cache foi criado por outro usuário, geralmente ao executar o frontend dentro de um container como `root`. Corrija somente a pasta de cache:
-
-```bash
-docker run --rm \
-  -v "$PWD/frontend/node_modules/.vite:/cache" \
-  alpine:3.20 \
-  chown -R "$(id -u):$(id -g)" /cache
-```
-
-Depois, execute novamente:
-
-```bash
-npm run dev --workspace frontend
-```
-
-Evite usar `sudo npm install` ou iniciar o Vite como `root` no diretório do projeto, pois isso pode recriar arquivos sem permissão para o usuário normal.
-
----
-
-## Plano de escalabilidade
-
-Para ver o plano detalhado de evolução do sistema para um produto SaaS comercial (autenticação multi-tenant, integração com PIX, emissão de NF-e, filas e infraestrutura em nuvem), consulte o documento:
-
-👉 **[PLANEJAMENTO_ESCALABILIDADE.md](PLANEJAMENTO_ESCALABILIDADE.md)**
-
-O planejamento da próxima entrega (versão 2: multiempresa, RBAC, orçamentos, CRM, KPIs e assistente de IA, em 4 semanas) está em:
-
-👉 **[PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md)**
-
----
+- [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md): escopo, stack, cronograma e riscos da versão 2.
+- [PLANEJAMENTO_ESCALABILIDADE.md](PLANEJAMENTO_ESCALABILIDADE.md): evolução de longo prazo para um SaaS comercial.
 
 ## Licença
 
-Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais informações.
+Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE).

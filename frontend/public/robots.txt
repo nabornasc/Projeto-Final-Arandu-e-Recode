@@ -1,0 +1,5 @@
+# Só as páginas públicas podem ser indexadas; o restante exige login.
+User-agent: *
+Allow: /login
+Allow: /cadastro
+Disallow: /

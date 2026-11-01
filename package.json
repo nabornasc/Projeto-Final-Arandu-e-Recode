@@ -1,17 +1,32 @@
 {
   "name": "arandue",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0-dev",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "workspaces": [
+    "packages/shared",
     "backend",
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace backend\" \"npm run dev --workspace frontend\"",
-    "build": "npm run build --workspace frontend",
-    "start": "npm run start --workspace backend"
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w frontend",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:generate": "npm run db:generate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend",
+    "test": "npm test -w backend",
+    "typecheck": "tsc -p packages/shared && tsc -p backend && tsc -p frontend",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@biomejs/biome": "2.6.4",
+    "@types/node": "26.6.6",
+    "concurrently": "^9.1.2",
+    "typescript": "7.0.2"
   }
 }

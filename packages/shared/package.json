@@ -1,0 +1,13 @@
+{
+  "name": "@arandue/shared",
+  "private": true,
+  "version": "2.0.0-dev",
+  "type": "module",
+  "exports": {
+    "./rbac": "./src/rbac.ts",
+    "./schemas": "./src/schemas/index.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

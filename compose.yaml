@@ -1,43 +1,23 @@
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: arandue-mysql
+  postgres:
+    image: postgres:17-alpine
+    container_name: arandue-postgres
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: arandue
-      MYSQL_USER: arandue
-      MYSQL_PASSWORD: arandue
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: arandue
+      POSTGRES_USER: arandue
+      POSTGRES_PASSWORD: arandue
     ports:
-      - "3307:3306"
+      # Só aceita conexões da própria máquina.
+      - "127.0.0.1:5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./backend/sql:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
-      interval: 5s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U arandue -d arandue"]
+      interval: 3s
+      timeout: 3s
       retries: 20
 
-  backend:
-    image: arandue-backend
-    build:
-      context: ./backend
-    container_name: arandue-backend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: arandue
-      DB_USER: arandue
-      DB_PASSWORD: arandue
-    ports:
-      - "3001:3001"
-    depends_on:
-      mysql:
-        condition: service_healthy
-
 volumes:
-  mysql_data:
+  postgres_data:
