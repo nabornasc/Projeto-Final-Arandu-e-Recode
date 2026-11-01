@@ -8,6 +8,10 @@ updates:
       # Atualizações menores juntas, em um único PR por semana.
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # postgres 4.x é recente demais; reavaliar quando amadurecer (fixado em 3.x).
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
