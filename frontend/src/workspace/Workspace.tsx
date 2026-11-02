@@ -140,7 +140,7 @@ export function Workspace({ userId, home }: Props) {
 
   return (
     <div className="workspace">
-      <div className="tabbar" role="tablist" aria-label="Telas abertas">
+      <nav className="tabbar" aria-label="Telas abertas">
         {visibleTabs.map((tab) => {
           const isActive = tab.path === active;
           const isSide = tab.path === sideTab;
@@ -148,9 +148,8 @@ export function Workspace({ userId, home }: Props) {
             <div key={tab.path} className={`tab${isActive ? ' active' : ''}${isSide ? ' side' : ''}`}>
               <button
                 type="button"
-                role="tab"
                 className="tab-title"
-                aria-selected={isActive}
+                aria-current={isActive ? 'page' : undefined}
                 title={tab.title}
                 onClick={() => navigate(tab.path)}
                 onAuxClick={(event) => event.button === 1 && close(tab.path)}
@@ -189,7 +188,7 @@ export function Workspace({ userId, home }: Props) {
             Fechar divisão
           </button>
         )}
-      </div>
+      </nav>
 
       <div className={`panes${sideTab ? ' split' : ''}`}>
         {visibleTabs.map((tab) => {

@@ -2,6 +2,14 @@
 
 Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
+## [Não lançado]
+
+### Corrigido
+
+- Contraste dos selos de status (pago, pendente, cancelado, aprovado, ganho, perdido) acima de 4,5:1.
+- Barra de abas como navegação (`<nav>` + `aria-current`), sem papéis ARIA inválidos; Lighthouse de acessibilidade volta a 100.
+- Título do topo nas telas fora do menu (ex.: cadastro de pessoa) e alinhamento de nomes longos em listas e cartões.
+
 ## [2.1.0] — 2026-11-02
 
 ### Adicionado

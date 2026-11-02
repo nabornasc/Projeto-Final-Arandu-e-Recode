@@ -376,15 +376,15 @@ button {
 }
 .status.paid {
   background: #e5f7ee;
-  color: #29946a;
+  color: #1c6e4c;
 }
 .status.pending {
   background: #fff5df;
-  color: #b6801d;
+  color: #845a0c;
 }
 .status.cancelled {
   background: #ffe8ea;
-  color: #ce5962;
+  color: #a8323c;
 }
 .impact-panel {
   background: linear-gradient(135deg, #f8f5ff, #fff);
@@ -750,11 +750,11 @@ td strong {
 .status.approved,
 .status.active {
   background: #e5f7ee;
-  color: #29946a;
+  color: #1c6e4c;
 }
 .status.rejected {
   background: #ffe8ea;
-  color: #ce5962;
+  color: #a8323c;
 }
 .status.draft,
 .status.inactive {
@@ -1116,6 +1116,7 @@ dialog.modal::backdrop {
 }
 .link-cell {
   padding: 0;
+  text-align: left;
   border: 0;
   background: transparent;
   color: #5b3fc4;
@@ -1194,11 +1195,11 @@ dialog.modal::backdrop {
 }
 .status.stage-won {
   background: #e5f7ee;
-  color: #29946a;
+  color: #1c6e4c;
 }
 .status.stage-lost {
   background: #ffe8ea;
-  color: #ce5962;
+  color: #a8323c;
 }
 .interactions {
   margin-top: 18px;

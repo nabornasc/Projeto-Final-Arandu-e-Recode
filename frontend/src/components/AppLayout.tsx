@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router';
 import { ActionHost } from '../actions/ActionHost.tsx';
 import { navigation, SETTINGS_PATH } from '../config/navigation.ts';
 import { can, ProfileContext, useMe } from '../lib/auth.ts';
+import { resolvePage } from '../workspace/pages.ts';
 import { Workspace } from '../workspace/Workspace.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
@@ -40,7 +41,7 @@ export function AppLayout() {
           <Sidebar profile={me.data} open={menuOpen} onClose={() => setMenuOpen(false)} />
           <main className="main-content">
             <Topbar
-              title={current?.label ?? 'Aranduê'}
+              title={current?.label ?? resolvePage(location.pathname).title}
               profile={me.data}
               onMenu={() => setMenuOpen((open) => !open)}
             />
