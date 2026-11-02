@@ -87,7 +87,7 @@ O que mais pesa no desempenho de um SaaS deste porte não é o *framework*: é a
 | RF01 | Cadastro de empresa + usuário proprietário | Novo |
 | RF02 | Login e logout | Novo |
 | RF03 | Gestão de usuários e papéis | Novo |
-| RF04 | RBAC (proprietário, vendedor, contador) | Novo |
+| RF04 | Controle de acesso: permissões por ação e grupos de acesso por empresa (seção 6) | Novo |
 | RF05 | Clientes | Adaptar |
 | RF06 | Fornecedores | Novo (CRUD simples) |
 | RF07 | Produtos e serviços (com estoque) | Adaptar |
@@ -125,7 +125,7 @@ Telegram ──webhook (secret_token)──> /api/telegram ──┤
                        routes/  (só HTTP: lê req, chama serviço, responde)
                                                      │
                        services/ ← também usados pelo agente de IA
-                         ├─ can(role, module, action)   RBAC central
+                         ├─ can(ctx, permission)        controle de acesso central
                          ├─ regras de negócio + transações
                          └─ audit(ctx, action, entity, id)
                                                      │
@@ -139,7 +139,7 @@ Telegram ──webhook (secret_token)──> /api/telegram ──┤
 ```text
 packages/shared/src/
   schemas/       schemas Zod de cada entidade (usados no front e no back)
-  rbac.ts        matriz de permissões + can()  (o front usa para esconder menus)
+  permissions.ts catálogo de permissões + can()  (o front usa para esconder menus)
 backend/src/
   app.ts, server.ts
   db/            client.ts, schema.ts (Drizzle), migrations/ (drizzle-kit), seed.ts
@@ -206,25 +206,64 @@ erDiagram
 
 ---
 
-## 6. RBAC
+## 6. Controle de acesso (permissões e grupos)
 
-Matriz do guia, implementada num único arquivo compartilhado (`packages/shared/src/rbac.ts`):
+> Revisado em 02/11: a matriz fixa de três papéis da v2 inicial passa a ser **permissões detalhadas por ação**, organizadas em **grupos de acesso** que cada empresa cria e edita.
 
-| Módulo | Proprietário | Vendedor | Contador |
-|---|---|---|---|
-| Clientes | total | criar/editar | ver |
-| Fornecedores | total | ver | ver |
-| Produtos/Serviços | total | ver | ver |
-| Orçamentos/Pedidos | total | criar/editar | ver |
-| CRM (leads, interações) | total | criar/editar | — |
-| Financeiro (despesas, contas, caixa) | total | — | ver |
-| Análise gerencial | sim | — | ver |
-| Usuários | sim | — | — |
-| Assistente de IA | sim | sim (com as permissões de vendedor) | só consultas |
+### 6.1 Decisões
 
-- O **frontend** esconde menus e botões conforme o papel, só por usabilidade.
-- O **backend** decide de verdade: `can()` em toda função de serviço, que devolve 403.
-- Excluir é ação de **proprietário** em todos os módulos.
+| Tema | Decisão |
+|---|---|
+| Atribuição | **Só por grupos.** Cada usuário pertence a exatamente um grupo; acesso diferente = outro grupo. Sem exceções por usuário (auditoria simples). |
+| Escopo de dados | **Próprios ou todos**, definido por grupo, em orçamentos, pedidos e (semana 3) leads. "Próprios" = registros que o usuário criou (`created_by`) ou dos quais é responsável. |
+| Quem administra | **Permissão atribuível** `access.manage`. Quem a tem só concede permissões que ele próprio possui (sem escalada). |
+
+### 6.2 Catálogo de permissões
+
+Lista fixa no código (`packages/shared/src/permissions.ts`), porque cada permissão corresponde a uma checagem no serviço. Formato `area.acao`:
+
+| Área | Ações |
+|---|---|
+| Orçamentos | `quotes.read`, `create`, `update`, `send`, `approve`, `convert`, `delete` + escopo |
+| Pedidos | `orders.read`, `create`, `update`, `cancel`, `delete` + escopo |
+| Contas a receber | `receivables.read`, `receivables.settle` (marcar pago/concluído → entrada no caixa) |
+| Contas a pagar | `payables.read`, `create`, `update`, `pay`, `delete` |
+| Caixa e contas | `cash.read`, `cash.create`, `cash.update`, `cash.delete`, `bank_accounts.read`, `manage` |
+| Cadastros | `customers.*`, `suppliers.*`, `products.*` (read, create, update, delete) |
+| Gestão | `analytics.read`, `users.read`, `users.manage`, `access.manage`, `settings.read`, `settings.update` |
+| CRM / IA (semanas 3 e 4) | `leads.*` + escopo, `assistant.use` |
+
+**Mudança de regra importante:** hoje quem edita pedido também o marca como pago. Passa a ser separado: mudar para `paid`/`completed` exige `receivables.settle`. Isso viabiliza o fluxo "vendedor gera o orçamento, aprova e converte; o financeiro dá baixa".
+
+**Dependências** aplicadas no servidor e na tela: qualquer ação implica `read` da área; `quotes.convert` implica `orders.create`; `receivables.settle` implica `orders.read` e `bank_accounts.read` (opções).
+
+### 6.3 Modelo de dados
+
+- `access_groups (id, company_id, name, description, scope_own_only boolean, is_owner boolean, created_at)`. Único por `(company_id, name)`.
+- `access_group_permissions (group_id, permission)`, PK composta.
+- `users.group_id` (NOT NULL) substitui `users.role`.
+- Migração: cria os três grupos padrão por empresa (**Proprietário**, **Vendedor**, **Contador**) com as permissões equivalentes à matriz anterior e move cada usuário para o grupo do seu papel. Ninguém perde nem ganha acesso na troca.
+
+### 6.4 Regras de segurança
+
+1. Grupo **Proprietário** (`is_owner`) tem todas as permissões, não é editável nem excluível.
+2. Sempre existe ao menos um usuário ativo no grupo Proprietário.
+3. Ninguém remove do próprio grupo `access.manage` nem `users.manage`.
+4. Quem tem `access.manage` só concede o que ele mesmo tem; só um proprietário coloca alguém no grupo Proprietário.
+5. Grupo com usuários não é excluído (mover os usuários antes).
+6. Toda alteração de grupo ou permissão vai para `audit_logs`, com o antes e o depois.
+7. Permissões são lidas do banco a cada requisição (mesma consulta da sessão): mudança vale na hora, sem novo login.
+
+### 6.5 Implementação
+
+| Camada | Mudança |
+|---|---|
+| Shared | `permissions.ts` (catálogo, rótulos, dependências, grupos padrão); `can(perms, 'quotes.approve')` |
+| Backend | `Ctx` passa a ter `permissions: Set` e `scopeOwnOnly`; `authorize(ctx, perm)`; filtro de escopo nas listagens; serviço e rotas de grupos (`/access-groups`) |
+| Frontend | `/auth/me` devolve as permissões; menu e botões usam `can()`; tela **Grupos de acesso** com matriz (linha por área, caixa por ação, marcar a linha inteira) e opção de escopo; seleção de grupo no usuário |
+| Testes | Reescrita do RBAC; escalada de privilégio; escopo "próprios"; travas do Proprietário; fluxo vendedor-aprova + financeiro-baixa |
+
+O frontend continua só escondendo o que não é permitido; quem decide é o backend (403). O assistente de IA e o bot do Telegram (semana 4) usam o mesmo `Ctx`, então herdam as permissões do usuário vinculado.
 
 ---
 
@@ -304,6 +343,19 @@ Cada semana termina com algo demonstrável e com o critério de pronto conferido
 | Testes | Fluxo orçamento → pedido → estoque → caixa |
 
 **Pronto quando:** um vendedor monta um orçamento de 3 itens, o proprietário aprova, o pedido nasce e o estoque baixa.
+
+### Etapa extra (03 a 06/11): Permissões detalhadas e grupos de acesso
+
+Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6.
+
+| Dia | Tarefas |
+|---|---|
+| 1 | Catálogo de permissões, schema e migração dos papéis para grupos; `Ctx` com permissões |
+| 2 | Troca de `authorize` em todos os serviços; `receivables.settle`; escopo "próprios"; testes reescritos |
+| 3 | API de grupos com as travas de segurança; testes de escalada e de bloqueio |
+| 4 | Tela de grupos (matriz), seleção de grupo no usuário, menu e botões por permissão; teste E2E |
+
+**Pronto quando:** um grupo "Vendedor sênior" cria, aprova e converte o próprio orçamento sem ver os dos colegas, e só o grupo "Financeiro" consegue marcar o pedido como pago.
 
 ### Semana 3 (16 a 22/11): CRM e análise gerencial
 
