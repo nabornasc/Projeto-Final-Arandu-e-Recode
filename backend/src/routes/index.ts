@@ -1,11 +1,12 @@
 import { idParamSchema } from '@arandue/shared/schemas';
 import { sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../db/client.ts';
 import { ctxOf, requireAuth } from '../plugins/auth.ts';
 import * as accessGroups from '../services/accessGroups.ts';
 import * as bankAccounts from '../services/bankAccounts.ts';
 import * as company from '../services/company.ts';
+import * as copies from '../services/copies.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
@@ -94,6 +95,30 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
         quotes.transitionQuote(ctxOf(request), idParamSchema.parse(request.params).id, name),
       );
     }
+    // Duplicar e copiar entre orçamento e pedido (menu de ações).
+    const created =
+      (handler: (request: FastifyRequest, id: number) => Promise<unknown>) =>
+      async (request: FastifyRequest, reply: FastifyReply) => {
+        reply.status(201);
+        return handler(request, idParamSchema.parse(request.params).id);
+      };
+    protectedApp.post(
+      '/quotes/:id/duplicate',
+      created((r, id) => copies.duplicateQuote(ctxOf(r), id)),
+    );
+    protectedApp.post(
+      '/quotes/:id/copy-to-order',
+      created((r, id) => copies.copyQuoteToOrder(ctxOf(r), id, r.body as never)),
+    );
+    protectedApp.post(
+      '/orders/:id/duplicate',
+      created((r, id) => copies.duplicateOrder(ctxOf(r), id, r.body as never)),
+    );
+    protectedApp.post(
+      '/orders/:id/copy-to-quote',
+      created((r, id) => copies.copyOrderToQuote(ctxOf(r), id)),
+    );
+
     protectedApp.post('/quotes/:id/convert', async (request, reply) => {
       reply.status(201);
       return quotes.convertQuote(

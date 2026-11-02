@@ -1,0 +1,83 @@
+import { type ComponentType, type LazyExoticComponent, lazy } from 'react';
+import { matchPath } from 'react-router';
+import { navigation } from '../config/navigation.ts';
+
+// Telas que podem ser abertas em abas. Cada uma é carregada só quando aberta pela primeira vez.
+interface PageDefinition {
+  pattern: string;
+  title: string;
+  Component: LazyExoticComponent<ComponentType>;
+}
+
+const resourcePage = (name: keyof typeof import('../pages/ResourcePages.tsx')) =>
+  lazy(async () => ({ default: (await import('../pages/ResourcePages.tsx'))[name] }));
+
+const titleOf = (path: string) => navigation.find((item) => item.path === path)?.label ?? 'Aranduê';
+
+const QuoteDocument = lazy(() => import('../pages/QuoteDocumentPage.tsx'));
+const OrderDocument = lazy(() => import('../pages/OrderDocumentPage.tsx'));
+
+const PAGES: PageDefinition[] = [
+  { pattern: '/', title: titleOf('/'), Component: lazy(() => import('../pages/DashboardPage.tsx')) },
+  {
+    pattern: '/orcamentos',
+    title: titleOf('/orcamentos'),
+    Component: lazy(() => import('../pages/QuotesPage.tsx')),
+  },
+  { pattern: '/orcamentos/novo', title: 'Novo orçamento', Component: QuoteDocument },
+  { pattern: '/orcamentos/:id', title: 'Orçamento', Component: QuoteDocument },
+  {
+    pattern: '/pedidos',
+    title: titleOf('/pedidos'),
+    Component: lazy(() => import('../pages/OrdersPage.tsx')),
+  },
+  { pattern: '/pedidos/novo', title: 'Novo pedido', Component: OrderDocument },
+  { pattern: '/pedidos/:id', title: 'Pedido', Component: OrderDocument },
+  {
+    pattern: '/contas-a-receber',
+    title: titleOf('/contas-a-receber'),
+    Component: lazy(() => import('../pages/ReceivablesPage.tsx')),
+  },
+  { pattern: '/produtos', title: titleOf('/produtos'), Component: resourcePage('ProductsPage') },
+  { pattern: '/clientes', title: titleOf('/clientes'), Component: resourcePage('CustomersPage') },
+  { pattern: '/fornecedores', title: titleOf('/fornecedores'), Component: resourcePage('SuppliersPage') },
+  { pattern: '/despesas', title: titleOf('/despesas'), Component: resourcePage('ExpensesPage') },
+  { pattern: '/contas', title: titleOf('/contas'), Component: resourcePage('AccountsPage') },
+  {
+    pattern: '/movimentacoes',
+    title: titleOf('/movimentacoes'),
+    Component: resourcePage('TransactionsPage'),
+  },
+  {
+    pattern: '/usuarios',
+    title: titleOf('/usuarios'),
+    Component: lazy(() => import('../pages/UsersPage.tsx')),
+  },
+  {
+    pattern: '/grupos',
+    title: titleOf('/grupos'),
+    Component: lazy(() => import('../pages/AccessGroupsPage.tsx')),
+  },
+  {
+    pattern: '/configuracoes',
+    title: titleOf('/configuracoes'),
+    Component: lazy(() => import('../pages/SettingsPage.tsx')),
+  },
+];
+
+const NotFound = lazy(() => import('../pages/NotFoundPage.tsx'));
+
+export interface ResolvedPage {
+  title: string;
+  Component: LazyExoticComponent<ComponentType>;
+  params: Record<string, string | undefined>;
+  found: boolean;
+}
+
+export function resolvePage(path: string): ResolvedPage {
+  for (const page of PAGES) {
+    const match = matchPath({ path: page.pattern, end: true }, path);
+    if (match) return { title: page.title, Component: page.Component, params: match.params, found: true };
+  }
+  return { title: 'Página não encontrada', Component: NotFound, params: {}, found: false };
+}

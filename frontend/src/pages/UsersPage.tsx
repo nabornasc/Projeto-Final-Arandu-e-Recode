@@ -2,13 +2,12 @@ import { userCreateSchema, userUpdateSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { type AccessGroup, useAccessGroups } from '../lib/accessGroups.ts';
 import { api } from '../lib/api.ts';
-import { can, type Profile } from '../lib/auth.ts';
+import { can, useProfile } from '../lib/auth.ts';
 
 interface User {
   id: number;
@@ -21,7 +20,7 @@ interface User {
 
 // Quem vê usuários (users.read) chega aqui; convidar e editar exigem users.manage. O backend confere de novo.
 export default function UsersPage() {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const notify = useToast();
   const client = useQueryClient();
   const [editing, setEditing] = useState<User | null>(null);

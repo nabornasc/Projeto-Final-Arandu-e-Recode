@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { useOutletContext } from 'react-router';
 import { MONEY_COLUMNS, type ResourceConfig } from '../config/resources.ts';
 import { api } from '../lib/api.ts';
-import { can, type Profile } from '../lib/auth.ts';
+import { can, useProfile } from '../lib/auth.ts';
 import { formatDate, formatMoney, label } from '../lib/format.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { FormModal } from './FormModal.tsx';
@@ -20,7 +19,7 @@ function formatCell(key: string, value: unknown): string {
 }
 
 export function ResourcePage({ config }: { config: ResourceConfig }) {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const notify = useToast();
   const client = useQueryClient();
   const [editing, setEditing] = useState<Row | null>(null);

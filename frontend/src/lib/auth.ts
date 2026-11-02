@@ -1,6 +1,7 @@
 import { can as canWith, type Permission } from '@arandue/shared/permissions';
 import type { LoginInput, RegisterInput } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, useContext } from 'react';
 import { ApiError, api } from './api.ts';
 
 export interface Profile {
@@ -16,6 +17,15 @@ export interface Profile {
 
 // Só para esconder menus e botões: quem decide é o backend.
 export const can = (profile: Profile, permission: Permission) => canWith(profile.permissions, permission);
+
+// Perfil de quem está logado, disponível para todas as telas abertas nas abas.
+export const ProfileContext = createContext<Profile | null>(null);
+
+export function useProfile(): Profile {
+  const profile = useContext(ProfileContext);
+  if (!profile) throw new Error('useProfile fora da área logada.');
+  return profile;
+}
 
 const ME_KEY = ['auth', 'me'] as const;
 

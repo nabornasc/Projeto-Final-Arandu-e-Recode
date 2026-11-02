@@ -6,12 +6,11 @@ import {
   CircleDollarSign,
   ClipboardList,
 } from 'lucide-react';
-import { Link, Navigate, useOutletContext } from 'react-router';
+import { Link } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { MetricCard } from '../components/MetricCard.tsx';
-import { navigation } from '../config/navigation.ts';
 import { api } from '../lib/api.ts';
-import { can, type Profile } from '../lib/auth.ts';
+import { can, useProfile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney, label } from '../lib/format.ts';
 
 interface Dashboard {
@@ -32,7 +31,7 @@ interface Dashboard {
 }
 
 export default function DashboardPage() {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const allowed = can(profile, 'analytics.read');
   const query = useQuery({
     queryKey: ['/dashboard'],
@@ -40,11 +39,8 @@ export default function DashboardPage() {
     enabled: allowed,
   });
 
-  // Quem não vê a análise gerencial (vendedor) começa pela primeira tela permitida.
-  if (!allowed) {
-    const first = navigation.find((item) => can(profile, item.permission));
-    return <Navigate to={first?.path ?? '/pedidos'} replace />;
-  }
+  // Aba antiga de quem perdeu o acesso à visão geral (o AppLayout já redireciona a entrada em "/").
+  if (!allowed) return <EmptyState text="Seu grupo de acesso não inclui a visão geral." />;
 
   const data = query.data;
   const result = (data?.revenueMonth ?? 0) - (data?.expensesMonth ?? 0);

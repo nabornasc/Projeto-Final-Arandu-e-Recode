@@ -11,13 +11,12 @@ import { accessGroupSchema } from '@arandue/shared/schemas';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { type AccessGroup, useAccessGroups } from '../lib/accessGroups.ts';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { type Profile, useProfile } from '../lib/auth.ts';
 
 const AREA_KEYS = Object.keys(AREAS) as Area[];
 const permissionOf = (area: Area, action: string) => `${area}.${action}` as Permission;
@@ -36,7 +35,7 @@ function withoutDependents(current: Set<Permission>, removed: Permission): Set<P
 }
 
 export default function AccessGroupsPage() {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const notify = useToast();
   const client = useQueryClient();
   const groups = useAccessGroups();

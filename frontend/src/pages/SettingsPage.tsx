@@ -1,11 +1,10 @@
 import { companySettingsSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
-import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
-import { can, type Profile } from '../lib/auth.ts';
+import { can, useProfile } from '../lib/auth.ts';
 
 interface CompanySettings {
   name: string;
@@ -14,7 +13,7 @@ interface CompanySettings {
 }
 
 export default function SettingsPage() {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const query = useQuery({ queryKey: ['/company'], queryFn: () => api<CompanySettings>('/company') });
 
   return (

@@ -220,4 +220,8 @@ export const quoteConvertSchema = z.object({
 });
 export type QuoteConvertInput = z.input<typeof quoteConvertSchema>;
 
+// Duplicar ou copiar para pedido: o pedido novo precisa da data da venda.
+export const copyToOrderSchema = z.object({ orderDate: isoDate });
+export type CopyToOrderInput = z.input<typeof copyToOrderSchema>;
+
 export const idParamSchema = z.object({ id: z.coerce.number().int().positive() });

@@ -52,6 +52,12 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - **Contas a receber**: o financeiro dá baixa nos pedidos pendentes sem precisar acessar vendas.
 - Administração delegável (`access.manage`) sem escalada: ninguém concede o que não tem.
 
+**Etapa de experiência de uso — parte 1 (abas e ações) concluída:**
+
+- Área de trabalho com **abas fixas**: cada tela ou documento aberto vira uma aba que guarda o estado ao alternar; "abrir ao lado" mostra duas abas em paralelo (telas a partir de 1100 px). As abas são lembradas ao recarregar.
+- Orçamento e pedido têm **tela própria** (em vez de janela), com aviso de alterações não salvas.
+- **Menu de ações ⋯** em listas e documentos, conforme status e permissão: abrir, enviar, aprovar, recusar, converter, dar baixa, concluir, cancelar, reativar, duplicar, copiar para o outro tipo e excluir.
+
 **Próximas semanas:** CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
 
 ## Tecnologias
@@ -141,7 +147,8 @@ GET|POST        /expenses         GET|PUT|DELETE /expenses/:id
 GET|POST        /transactions     GET|PUT|DELETE /transactions/:id
 GET|POST        /orders           GET|PUT|DELETE /orders/:id
 GET|POST        /quotes           GET|PUT|DELETE /quotes/:id   (PUT só em rascunho)
-POST            /quotes/:id/send | /approve | /reject | /convert
+POST            /quotes/:id/send | /approve | /reject | /convert | /duplicate | /copy-to-order
+POST            /orders/:id/duplicate | /copy-to-quote
 GET             /receivables      POST /receivables/:id/settle  (contas a receber)
 GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id
 GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
@@ -169,7 +176,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 40 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 43 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 
@@ -191,6 +198,8 @@ Os 40 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), *
 │       ├── services/           # Regras de negócio por módulo + auditoria
 │       └── tests/              # Testes de integração (Vitest)
 ├── frontend/src/
+│   ├── actions/                # Registro central de ações, menu ⋯ e janelas das ações
+│   ├── workspace/              # Abas, painéis lado a lado e catálogo de telas
 │   ├── components/             # Layout, modal, formulário e tabela genéricos
 │   ├── config/                 # Menu e definição dos formulários
 │   ├── lib/                    # Cliente da API, autenticação, formatação

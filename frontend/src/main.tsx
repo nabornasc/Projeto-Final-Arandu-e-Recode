@@ -10,12 +10,6 @@ import './styles.css';
 
 const Loading = () => <div className="page-loading">Carregando...</div>;
 
-// Cada tela interna é carregada só quando acessada (o JS inicial fica pequeno).
-const resourcePage = (name: keyof typeof import('./pages/ResourcePages.tsx')) => async () => {
-  const module = await import('./pages/ResourcePages.tsx');
-  return { Component: module[name] };
-};
-
 const router = createBrowserRouter([
   {
     path: '/login',
@@ -27,49 +21,8 @@ const router = createBrowserRouter([
     HydrateFallback: Loading,
     lazy: async () => ({ Component: (await import('./pages/AuthPages.tsx')).RegisterPage }),
   },
-  {
-    path: '/',
-    Component: AppLayout,
-    HydrateFallback: Loading,
-    children: [
-      { index: true, lazy: async () => ({ Component: (await import('./pages/DashboardPage.tsx')).default }) },
-      {
-        path: 'orcamentos',
-        lazy: async () => ({ Component: (await import('./pages/QuotesPage.tsx')).default }),
-      },
-      {
-        path: 'pedidos',
-        lazy: async () => ({ Component: (await import('./pages/OrdersPage.tsx')).default }),
-      },
-      { path: 'produtos', lazy: resourcePage('ProductsPage') },
-      { path: 'clientes', lazy: resourcePage('CustomersPage') },
-      { path: 'fornecedores', lazy: resourcePage('SuppliersPage') },
-      { path: 'despesas', lazy: resourcePage('ExpensesPage') },
-      { path: 'contas', lazy: resourcePage('AccountsPage') },
-      { path: 'movimentacoes', lazy: resourcePage('TransactionsPage') },
-      {
-        path: 'contas-a-receber',
-        lazy: async () => ({ Component: (await import('./pages/ReceivablesPage.tsx')).default }),
-      },
-      {
-        path: 'grupos',
-        lazy: async () => ({ Component: (await import('./pages/AccessGroupsPage.tsx')).default }),
-      },
-      {
-        path: 'usuarios',
-        lazy: async () => ({ Component: (await import('./pages/UsersPage.tsx')).default }),
-      },
-      {
-        path: 'configuracoes',
-        lazy: async () => ({ Component: (await import('./pages/SettingsPage.tsx')).default }),
-      },
-    ],
-  },
-  {
-    path: '*',
-    HydrateFallback: Loading,
-    lazy: async () => ({ Component: (await import('./pages/NotFoundPage.tsx')).default }),
-  },
+  // Área logada: as telas abrem em abas dentro do AppLayout (workspace/pages.ts), não como rotas filhas.
+  { path: '/*', Component: AppLayout, HydrateFallback: Loading },
 ]);
 
 const root = document.getElementById('root');

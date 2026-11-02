@@ -367,7 +367,7 @@ Botões **"+ Novo cliente"** e **"+ Novo produto/serviço"** ao lado dos seletor
 
 | Dias | Entrega |
 |---|---|
-| 03–06/11 | Registro de ações; abas e dois painéis; telas de documento de orçamento e pedido; menu ⋯; duplicar e copiar |
+| 03–06/11 | Registro de ações; abas e dois painéis; telas de documento de orçamento e pedido; menu ⋯; duplicar e copiar — **concluído em 02/11** |
 | 07/11 | Cadastro rápido |
 | 08–09/11 | Busca rápida, atalhos e tela de configuração |
 | 10–12/11 | Campos novos; espelhos Resumido, Completo e Romaneio; DOCX |

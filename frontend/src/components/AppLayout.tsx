@@ -1,7 +1,9 @@
-import { Suspense, useState } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router';
+import { useState } from 'react';
+import { Navigate, useLocation } from 'react-router';
+import { ActionHost } from '../actions/ActionHost.tsx';
 import { navigation, SETTINGS_PATH } from '../config/navigation.ts';
-import { can, useMe } from '../lib/auth.ts';
+import { can, ProfileContext, useMe } from '../lib/auth.ts';
+import { Workspace } from '../workspace/Workspace.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
 
@@ -20,31 +22,40 @@ export function AppLayout() {
     return <Navigate to={SETTINGS_PATH} replace />;
   }
 
+  // Quem não vê a visão geral (ex.: vendedor) começa pela primeira tela permitida.
+  const profile = me.data;
+  const home = can(profile, 'analytics.read')
+    ? '/'
+    : (navigation.find((item) => can(profile, item.permission))?.path ?? SETTINGS_PATH);
+  if (location.pathname === '/' && home !== '/') return <Navigate to={home} replace />;
+
   const current = navigation.find((item) =>
     item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path),
   );
 
   return (
-    <div className="app-shell">
-      <Sidebar profile={me.data} open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <main className="main-content">
-        <Topbar
-          title={current?.label ?? 'Aranduê'}
-          profile={me.data}
-          onMenu={() => setMenuOpen((open) => !open)}
-        />
-        <div className="content">
-          {limitMissing && !canConfigure && (
-            <p className="notice" role="status">
-              O limite anual do MEI ainda não foi configurado. Peça ao proprietário para informá-lo em
-              Configurações.
-            </p>
-          )}
-          <Suspense fallback={<div className="loading">Carregando...</div>}>
-            <Outlet context={me.data} />
-          </Suspense>
+    <ProfileContext value={me.data}>
+      <ActionHost>
+        <div className="app-shell">
+          <Sidebar profile={me.data} open={menuOpen} onClose={() => setMenuOpen(false)} />
+          <main className="main-content">
+            <Topbar
+              title={current?.label ?? 'Aranduê'}
+              profile={me.data}
+              onMenu={() => setMenuOpen((open) => !open)}
+            />
+            <div className="content">
+              {limitMissing && !canConfigure && (
+                <p className="notice" role="status">
+                  O limite anual do MEI ainda não foi configurado. Peça ao proprietário para informá-lo em
+                  Configurações.
+                </p>
+              )}
+              <Workspace userId={me.data.id} home={home} />
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
+      </ActionHost>
+    </ProfileContext>
   );
 }

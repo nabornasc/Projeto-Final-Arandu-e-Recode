@@ -1,12 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
-import { useOutletContext } from 'react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { SettleModal } from '../actions/SettleModal.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
-import { useAccountOptions } from '../components/FormModal.tsx';
-import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
-import { can, type Profile } from '../lib/auth.ts';
+import { can, useProfile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney } from '../lib/format.ts';
 
 interface Receivable {
@@ -20,7 +18,7 @@ interface Receivable {
 
 // Pedidos pendentes de toda a empresa. Dar baixa marca como pago e lança a entrada no caixa.
 export default function ReceivablesPage() {
-  const profile = useOutletContext<Profile>();
+  const profile = useProfile();
   const notify = useToast();
   const client = useQueryClient();
   const [settling, setSettling] = useState<Receivable | null>(null);
@@ -98,7 +96,7 @@ export default function ReceivablesPage() {
       </div>
 
       {settling && (
-        <SettleForm
+        <SettleModal
           receivable={settling}
           onClose={() => setSettling(null)}
           onSettled={() => {
@@ -109,74 +107,5 @@ export default function ReceivablesPage() {
         />
       )}
     </section>
-  );
-}
-
-interface SettleFormProps {
-  receivable: Receivable;
-  onClose: () => void;
-  onSettled: () => void;
-}
-
-function SettleForm({ receivable, onClose, onSettled }: SettleFormProps) {
-  const accounts = useAccountOptions();
-  const [bankAccountId, setBankAccountId] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const settle = useMutation({
-    mutationFn: (body: unknown) => api(`/receivables/${receivable.id}/settle`, { method: 'POST', body }),
-    onSuccess: onSettled,
-    onError: (err) => setError(err.message),
-  });
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    settle.mutate({ bankAccountId: bankAccountId ? Number(bankAccountId) : null });
-  }
-
-  return (
-    <Modal
-      eyebrow="FINANCEIRO"
-      title={`Dar baixa no pedido ${formatCode(receivable.number)}`}
-      onClose={onClose}
-    >
-      <form onSubmit={submit} noValidate>
-        <p className="read-only-note">
-          {receivable.customerName ?? 'Cliente não informado'} · {formatMoney(receivable.total)}
-        </p>
-        <div className="form-grid">
-          <label className="full-row">
-            Conta de recebimento
-            <select
-              name="bankAccountId"
-              value={bankAccountId}
-              onChange={(event) => setBankAccountId(event.target.value)}
-            >
-              <option value="">Conta padrão</option>
-              {accounts.data?.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.bankName} — {account.accountName}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button className="button primary" type="submit" disabled={settle.isPending}>
-            {settle.isPending ? 'Registrando...' : 'Confirmar recebimento'}
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }

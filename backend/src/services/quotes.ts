@@ -97,34 +97,42 @@ export async function getQuote(ctx: Ctx, id: number) {
 }
 
 // Orçamento não mexe em estoque nem no caixa: isso só acontece ao converter em pedido.
+type QuoteData = ReturnType<typeof quoteSchema.parse>;
+
+// Cria o rascunho dentro de uma transação já aberta (orçamento novo, duplicado ou copiado de pedido).
+export async function insertQuote(
+  tx: Transaction,
+  ctx: Ctx,
+  data: QuoteData,
+  origin?: Record<string, unknown>,
+) {
+  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+  const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+
+  const [quote] = await tx
+    .insert(quotes)
+    .values({
+      companyId: ctx.companyId,
+      number: await nextNumber(tx, ctx, 'quote'),
+      customerId: data.customerId ?? null,
+      validUntil: data.validUntil ?? null,
+      discount: data.discount,
+      total,
+      notes: data.notes,
+      createdBy: ctx.userId,
+    })
+    .returning({ id: quotes.id });
+  if (!quote) throw new Error('Falha ao criar orçamento.');
+
+  await tx.insert(quoteItems).values(lines.map((line) => ({ ...line, quoteId: quote.id })));
+  await audit(tx, ctx, 'create', 'quote', quote.id, { total, ...origin });
+  return quote.id;
+}
+
 export async function createQuote(ctx: Ctx, input: QuoteInput) {
   authorize(ctx, 'quotes.create');
   const data = parse(quoteSchema, input);
-
-  const id = await db.transaction(async (tx) => {
-    if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
-    const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
-
-    const [quote] = await tx
-      .insert(quotes)
-      .values({
-        companyId: ctx.companyId,
-        number: await nextNumber(tx, ctx, 'quote'),
-        customerId: data.customerId ?? null,
-        validUntil: data.validUntil ?? null,
-        discount: data.discount,
-        total,
-        notes: data.notes,
-        createdBy: ctx.userId,
-      })
-      .returning({ id: quotes.id });
-    if (!quote) throw new Error('Falha ao criar orçamento.');
-
-    await tx.insert(quoteItems).values(lines.map((line) => ({ ...line, quoteId: quote.id })));
-    await audit(tx, ctx, 'create', 'quote', quote.id, { total });
-    return quote.id;
-  });
-
+  const id = await db.transaction((tx) => insertQuote(tx, ctx, data));
   return getQuote(ctx, id);
 }
 
