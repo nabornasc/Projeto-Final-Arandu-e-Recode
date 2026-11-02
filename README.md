@@ -58,7 +58,14 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - Orçamento e pedido têm **tela própria** (em vez de janela), com aviso de alterações não salvas.
 - **Menu de ações ⋯** em listas e documentos, conforme status e permissão: abrir, enviar, aprovar, recusar, converter, dar baixa, concluir, cancelar, reativar, duplicar, copiar para o outro tipo e excluir.
 
-**Próximas semanas:** CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
+**CRM concluído:**
+
+- Funil de vendas em colunas (Novo, Em contato, Orçamento enviado, Negociação, Ganho, Perdido), com responsável, origem e próxima ação (atrasadas em destaque).
+- Histórico de atendimentos por canal (WhatsApp, telefone, presencial...).
+- **Lead ganho vira cliente** sem duplicar (reaproveita cliente com mesmo e-mail ou telefone); perder exige o motivo.
+- Permissões próprias (`leads.*`) com escopo "só os próprios" pelo responsável.
+
+**Próximas etapas:** cadastro rápido, busca rápida e atalhos, espelhos (impressão/PDF/DOCX) e dashboard modular com os KPIs (até 15/11); deploy e entrega (29/11); assistente de IA e bot do Telegram na fase 2.
 
 ## Tecnologias
 
@@ -149,6 +156,8 @@ GET|POST        /orders           GET|PUT|DELETE /orders/:id
 GET|POST        /quotes           GET|PUT|DELETE /quotes/:id   (PUT só em rascunho)
 POST            /quotes/:id/send | /approve | /reject | /convert | /duplicate | /copy-to-order
 POST            /orders/:id/duplicate | /copy-to-quote
+GET|POST        /leads            GET|PUT|DELETE /leads/:id
+POST            /leads/:id/stage | /interactions   GET /leads/owners
 GET             /receivables      POST /receivables/:id/settle  (contas a receber)
 GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id
 GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
@@ -176,7 +185,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 43 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 47 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, CRM (funil, ganho → cliente sem duplicar, escopo pelo responsável) e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 

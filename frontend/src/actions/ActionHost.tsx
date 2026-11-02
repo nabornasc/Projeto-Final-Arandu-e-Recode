@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
 import { useProfile } from '../lib/auth.ts';
-import type { Order, Quote } from '../lib/documents.ts';
+import type { Lead, Order, Quote } from '../lib/documents.ts';
 import { formatCode, todayIso } from '../lib/format.ts';
 import type { ActionKit, GlobalAction, RecordAction } from './registry.ts';
 
@@ -29,6 +29,7 @@ const ActionContext = createContext<Runner | null>(null);
 const ConvertQuoteModal = lazy(async () => ({
   default: (await import('./ConvertQuoteModal.tsx')).ConvertQuoteModal,
 }));
+const LostLeadModal = lazy(async () => ({ default: (await import('./LostLeadModal.tsx')).LostLeadModal }));
 const SettleModal = lazy(async () => ({ default: (await import('./SettleModal.tsx')).SettleModal }));
 
 export function useActions(): Runner {
@@ -45,6 +46,7 @@ export function ActionHost({ children }: { children: ReactNode }) {
   const profile = useProfile();
   const [converting, setConverting] = useState<Quote | null>(null);
   const [settling, setSettling] = useState<Order | null>(null);
+  const [losing, setLosing] = useState<Lead | null>(null);
 
   const done = useCallback(
     (message: string) => {
@@ -61,6 +63,7 @@ export function ActionHost({ children }: { children: ReactNode }) {
       done,
       convert: setConverting,
       settle: setSettling,
+      loseLead: setLosing,
       today: todayIso,
     }),
     [navigate, done],
@@ -104,6 +107,16 @@ export function ActionHost({ children }: { children: ReactNode }) {
             onSettled={() => {
               setSettling(null);
               done(`Baixa do pedido ${formatCode(settling.number)} registrada no caixa.`);
+            }}
+          />
+        )}
+        {losing && (
+          <LostLeadModal
+            lead={losing}
+            onClose={() => setLosing(null)}
+            onLost={() => {
+              setLosing(null);
+              done(`${losing.name} marcado como perdido.`);
             }}
           />
         )}

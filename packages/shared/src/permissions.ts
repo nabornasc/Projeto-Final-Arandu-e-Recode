@@ -32,6 +32,7 @@ export const AREAS = {
     scoped: true,
   },
   orders: { label: 'Pedidos', actions: ['read', 'create', 'update', 'cancel', 'delete'], scoped: true },
+  leads: { label: 'CRM (leads e atendimentos)', actions: CRUD, scoped: true },
   receivables: { label: 'Contas a receber', actions: ['read', 'settle'] },
   payables: { label: 'Contas a pagar (despesas)', actions: ['read', 'create', 'update', 'pay', 'delete'] },
   cash: { label: 'Movimentações de caixa', actions: CRUD },
@@ -114,6 +115,8 @@ export const DEFAULT_GROUPS: { name: string; description: string; permissions: P
       'orders.update',
       'orders.cancel',
       'receivables.settle',
+      'leads.create',
+      'leads.update',
     ]),
   },
   {

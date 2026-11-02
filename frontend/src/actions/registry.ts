@@ -1,5 +1,6 @@
 import { can, type Permission } from '@arandue/shared/permissions';
 import {
+  ArrowRightCircle,
   CheckCircle2,
   ClipboardList,
   Copy,
@@ -13,11 +14,15 @@ import {
   PackageCheck,
   RotateCcw,
   Send,
+  ThumbsDown,
   Trash2,
+  Trophy,
+  Undo2,
+  UserPlus,
   XCircle,
 } from 'lucide-react';
-import type { Order, Quote } from '../lib/documents.ts';
-import { formatCode } from '../lib/format.ts';
+import type { Lead, Order, Quote } from '../lib/documents.ts';
+import { formatCode, label } from '../lib/format.ts';
 
 // Registro central de ações. Cada ação é definida uma vez e aparece onde fizer sentido: menu ⋯ das
 // listas e dos documentos, busca rápida, atalhos e acesso rápido do dashboard. O backend decide de
@@ -29,6 +34,7 @@ export interface ActionKit {
   // Recarrega os dados afetados e mostra a mensagem de sucesso.
   done(message: string): void;
   convert(quote: Quote): void;
+  loseLead(lead: Lead): void;
   settle(order: Order): void;
   today(): string;
 }
@@ -263,9 +269,87 @@ export const orderActions: RecordAction<Order>[] = [
   },
 ];
 
+// ---------- CRM ----------
+
+// Etapas abertas do funil, na ordem; ganho e perdido são decididos por ações próprias.
+export const OPEN_STAGES = ['new', 'contacted', 'quote_sent', 'negotiation'] as const;
+
+const moveLead = (lead: Lead, kit: ActionKit, stage: string, message: string) =>
+  kit.request(`/leads/${lead.id}/stage`, { method: 'POST', body: { stage } }).then(() => kit.done(message));
+
+const nextStage = (lead: Lead) => {
+  const index = OPEN_STAGES.indexOf(lead.stage as (typeof OPEN_STAGES)[number]);
+  return index >= 0 && index < OPEN_STAGES.length - 1 ? OPEN_STAGES[index + 1] : null;
+};
+
+export const leadActions: RecordAction<Lead>[] = [
+  {
+    id: 'lead.open',
+    label: 'Abrir',
+    icon: FileText,
+    permissions: ['leads.read'],
+    run: (lead, kit) => kit.open(`/crm/${lead.id}`),
+  },
+  {
+    id: 'lead.advance',
+    label: (lead) => `Avançar para "${label(nextStage(lead))}"`,
+    icon: ArrowRightCircle,
+    permissions: ['leads.update'],
+    when: (lead) => nextStage(lead) !== null,
+    run: (lead, kit) => {
+      const stage = nextStage(lead);
+      if (stage) return moveLead(lead, kit, stage, `${lead.name}: ${label(stage)}.`);
+    },
+  },
+  {
+    id: 'lead.won',
+    label: 'Marcar como ganho (vira cliente)',
+    icon: Trophy,
+    permissions: ['leads.update'],
+    when: (lead) => lead.stage !== 'won',
+    run: (lead, kit) => moveLead(lead, kit, 'won', `${lead.name} ganho e vinculado como cliente.`),
+  },
+  {
+    id: 'lead.lost',
+    label: 'Marcar como perdido',
+    icon: ThumbsDown,
+    danger: true,
+    permissions: ['leads.update'],
+    when: (lead) => lead.stage !== 'lost',
+    run: (lead, kit) => kit.loseLead(lead),
+  },
+  {
+    id: 'lead.reopen',
+    label: 'Reabrir negociação',
+    icon: Undo2,
+    permissions: ['leads.update'],
+    when: (lead) => lead.stage === 'won' || lead.stage === 'lost',
+    run: (lead, kit) => moveLead(lead, kit, 'negotiation', `${lead.name} voltou para negociação.`),
+  },
+  {
+    id: 'lead.delete',
+    label: 'Excluir',
+    icon: Trash2,
+    danger: true,
+    permissions: ['leads.delete'],
+    confirm: (lead) => `Excluir o lead ${lead.name} e o histórico de atendimentos?`,
+    run: (lead, kit) =>
+      kit
+        .request(`/leads/${lead.id}`, { method: 'DELETE' })
+        .then(() => kit.done(`Lead ${lead.name} excluído.`)),
+  },
+];
+
 // ---------- Ações gerais (busca rápida, atalhos e acesso rápido) ----------
 
 export const globalActions: GlobalAction[] = [
+  {
+    id: 'lead.new',
+    label: 'Novo lead',
+    icon: UserPlus,
+    permissions: ['leads.create'],
+    run: (kit) => kit.open('/crm/novo'),
+  },
   {
     id: 'quote.new',
     label: 'Novo orçamento',

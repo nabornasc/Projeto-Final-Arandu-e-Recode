@@ -224,4 +224,36 @@ export type QuoteConvertInput = z.input<typeof quoteConvertSchema>;
 export const copyToOrderSchema = z.object({ orderDate: isoDate });
 export type CopyToOrderInput = z.input<typeof copyToOrderSchema>;
 
+// ---------- CRM ----------
+
+export const LEAD_STAGES = ['new', 'contacted', 'quote_sent', 'negotiation', 'won', 'lost'] as const;
+export type LeadStage = (typeof LEAD_STAGES)[number];
+export const CHANNELS = ['web', 'telegram', 'whatsapp', 'phone', 'in_person'] as const;
+
+export const leadSchema = z.object({
+  name: requiredText(160, 'Informe o nome do lead'),
+  phone: optionalText(30),
+  email: optionalEmail,
+  source: requiredText(60, 'Informe a origem (ex.: Indicação, Instagram)'),
+  // Responsável; vazio = quem cadastrou.
+  ownerId: id.nullish(),
+  nextAction: optionalText(255),
+  nextActionAt: isoDate.nullish(),
+});
+export type LeadInput = z.input<typeof leadSchema>;
+
+export const leadStageSchema = z
+  .object({ stage: z.enum(LEAD_STAGES), lostReason: optionalText(255) })
+  .refine((data) => data.stage !== 'lost' || data.lostReason, {
+    message: 'Informe o motivo da perda',
+    path: ['lostReason'],
+  });
+export type LeadStageInput = z.input<typeof leadStageSchema>;
+
+export const interactionSchema = z.object({
+  channel: z.enum(CHANNELS),
+  description: requiredText(2000, 'Descreva o atendimento'),
+});
+export type InteractionInput = z.input<typeof interactionSchema>;
+
 export const idParamSchema = z.object({ id: z.coerce.number().int().positive() });

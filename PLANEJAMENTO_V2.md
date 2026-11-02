@@ -472,7 +472,7 @@ Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6
 
 Detalhes e divisão por dia na seção 7.10.
 
-### Semana 3 (16 a 22/11): CRM e análise gerencial
+### Semana 3 (16 a 22/11): CRM e análise gerencial — CRM concluído em 02/11 (KPIs vão para o dashboard modular, seção 7.8)
 
 | Trilha | Tarefas |
 |---|---|

@@ -10,6 +10,7 @@ import * as copies from '../services/copies.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
+import * as leads from '../services/leads.ts';
 import * as orders from '../services/orders.ts';
 import * as products from '../services/products.ts';
 import * as quotes from '../services/quotes.ts';
@@ -140,6 +141,23 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       update: accessGroups.updateAccessGroup,
       remove: accessGroups.deleteAccessGroup,
     });
+
+    // CRM: leads (funil) e atendimentos.
+    protectedApp.get('/leads/owners', (request) => leads.listOwnerOptions(ctxOf(request)));
+    crudRoutes(protectedApp, '/leads', {
+      list: leads.listLeads,
+      get: leads.getLead,
+      create: leads.createLead,
+      update: leads.updateLead,
+      remove: leads.deleteLead,
+    });
+    protectedApp.post('/leads/:id/stage', (request) =>
+      leads.moveLead(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    );
+    protectedApp.post(
+      '/leads/:id/interactions',
+      created((r, id) => leads.addInteraction(ctxOf(r), id, r.body as never)),
+    );
 
     // Usuários não têm DELETE: são desativados (preserva a auditoria).
     protectedApp.get('/users', (request) => users.listUsers(ctxOf(request)));

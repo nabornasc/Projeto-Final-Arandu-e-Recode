@@ -11,6 +11,7 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  SquareKanban,
   Truck,
   UserCog,
   Users,
@@ -28,6 +29,7 @@ export interface NavItem {
 // O menu mostra só os itens que o grupo do usuário pode ver (o backend é quem garante).
 export const navigation: NavItem[] = [
   { path: '/', label: 'Visão geral', icon: LayoutDashboard, permission: 'analytics.read' },
+  { path: '/crm', label: 'CRM', icon: SquareKanban, permission: 'leads.read' },
   { path: '/orcamentos', label: 'Orçamentos', icon: FileText, permission: 'quotes.read' },
   { path: '/pedidos', label: 'Vendas e pedidos', icon: ClipboardList, permission: 'orders.read' },
   { path: '/contas-a-receber', label: 'Contas a receber', icon: HandCoins, permission: 'receivables.read' },

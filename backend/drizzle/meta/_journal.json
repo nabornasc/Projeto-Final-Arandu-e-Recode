@@ -29,6 +29,13 @@
       "when": 1793645425047,
       "tag": "0003_remove_papel_fixo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793649764947,
+      "tag": "0004_crm",
+      "breakpoints": true
     }
   ]
 }

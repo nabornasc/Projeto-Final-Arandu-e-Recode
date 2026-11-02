@@ -9,6 +9,7 @@ import { createBankAccount } from '../services/bankAccounts.ts';
 import { updateCompanySettings } from '../services/company.ts';
 import { createCustomer } from '../services/customers.ts';
 import { createExpense } from '../services/expenses.ts';
+import { addInteraction, createLead, moveLead } from '../services/leads.ts';
 import { createOrder } from '../services/orders.ts';
 import { createProduct } from '../services/products.ts';
 import { createUser } from '../services/users.ts';
@@ -110,6 +111,28 @@ async function seedCompany(companyName: string, prefix: string) {
     status: 'paid',
     bankAccountId: main.id,
   });
+  // Funil de vendas com leads em etapas diferentes.
+  const padaria = await createLead(owner, {
+    name: 'Padaria Pão Quente',
+    source: 'Indicação',
+    phone: '(11) 97777-3333',
+    nextAction: 'Enviar catálogo de kits para eventos',
+    nextActionAt: daysAgo(-2),
+  });
+  await addInteraction(owner, padaria.id, {
+    channel: 'whatsapp',
+    description: 'Pediu catálogo para eventos.',
+  });
+  await moveLead(owner, padaria.id, { stage: 'negotiation' });
+  await createLead(owner, {
+    name: 'Escola Aprender',
+    source: 'Instagram',
+    nextAction: 'Ligar para entender a demanda',
+    nextActionAt: daysAgo(1),
+  });
+  const feira = await createLead(owner, { name: 'Loja da Feira', source: 'Feira' });
+  await moveLead(owner, feira.id, { stage: 'lost', lostReason: 'Preço' });
+
   await createExpense(owner, {
     description: 'Internet do negócio',
     category: 'Operacional',

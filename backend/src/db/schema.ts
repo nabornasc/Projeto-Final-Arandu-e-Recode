@@ -195,7 +195,11 @@ export const leads = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index().on(t.companyId, t.stage), index().on(t.companyId, t.source)],
+  (t) => [
+    index().on(t.companyId, t.stage),
+    index().on(t.companyId, t.source),
+    index().on(t.companyId, t.ownerId),
+  ],
 );
 
 export const interactions = pgTable(
