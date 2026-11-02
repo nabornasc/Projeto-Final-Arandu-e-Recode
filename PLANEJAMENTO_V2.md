@@ -99,13 +99,19 @@ O que mais pesa no desempenho de um SaaS deste porte não é o *framework*: é a
 | RF13 | Lead ganho vira cliente | Novo |
 | RF14 | Dashboard com KPIs e gráficos | Refazer |
 | RF15 | Log de auditoria | Novo |
-| RF17 | Chat de ajuda guiada (RAG da documentação) | Novo (IA) |
-| RF19 | Bot do Telegram com inserção de dados e confirmação | Novo (IA) |
+| RF16 | Espelhos de orçamento e pedido (resumido, completo, romaneio): impressão, PDF e DOCX | Novo (seção 7) |
+| RF24 | Área de trabalho com abas fixas e dois painéis lado a lado | Novo (seção 7) |
+| RF25 | Menu de ações por registro (abrir, editar, duplicar, copiar, aprovar...) | Novo (seção 7) |
+| RF26 | Busca rápida e atalhos de teclado configuráveis | Novo (seção 7) |
+| RF27 | Dashboard modular e personalizável | Novo (seção 7) |
+| RF28 | Cadastro de cliente e produto a partir do orçamento e do pedido | Novo (seção 7) |
+| RF17 | Chat de ajuda guiada (RAG da documentação) | **Fase 2** (após 29/11) |
+| RF19 | Bot do Telegram com inserção de dados e confirmação | **Fase 2** (após 29/11) |
 | — | Despesas, contas bancárias, caixa, estoque | Mantido e corrigido |
 
 ### Fora desta entrega (documentados como evolução)
 
-- RF16: PDF de orçamento, planos e cobrança. A cobrança aparece só como tela simulada, se sobrar tempo.
+- Planos e cobrança. A cobrança aparece só como tela simulada, se sobrar tempo.
 - RF18, RF20 a RF23: consultas livres em linguagem natural, RAG por empresa, notificações proativas, WhatsApp, servidor MCP/CLI.
 - Recuperação de senha por e-mail, verificação de e-mail, usuário em várias empresas.
 - Arrastar e soltar no Kanban (os leads mudam de coluna por botão ou menu).
@@ -267,9 +273,114 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 
 ---
 
-## 7. Assistente de IA
+## 7. Experiência de uso: abas, ações, atalhos, espelhos e dashboard
 
-### 7.1 Escolhas técnicas
+> Planejado em 02/11 para a etapa de 03 a 15/11. As seis frentes compartilham um **registro central de ações**, então o que for criado no futuro (CRM, agenda) aparece automaticamente no menu de ações, na busca, nos atalhos e no acesso rápido do dashboard.
+
+### 7.1 Decisões
+
+| Tema | Decisão |
+|---|---|
+| PDF | Um modelo HTML por espelho; **"Imprimir / Salvar como PDF"** pelo diálogo do navegador. DOCX gerado no navegador com a biblioteca `docx`, carregada só ao exportar. Sem servidor de PDF. |
+| Dashboard | Layout **por usuário + padrão da empresa** (definido por quem tem `settings.update`), com "voltar ao padrão". |
+| Duplicar e copiar | **Duplicar**: novo rascunho do mesmo tipo. **Copiar**: para o outro tipo (orçamento → pedido direto, sem aprovação, exige `orders.create`; pedido → orçamento exige `quotes.create`). |
+| Abas | Até **2 painéis** lado a lado no desktop (≥ 1100 px); no celular, faixa de abas rolável e um painel. Abas abertas lembradas no navegador por usuário. |
+| Atalhos | Busca rápida em **F2** e **Ctrl+K**. Nunca usar F5, F11, F12, Ctrl+W/T/N/Tab (reservadas pelo navegador ou sistema). Ajustáveis por usuário, com aviso de conflito. |
+| Prazo | Estendido: o deploy continua em 29/11 e a **IA vai para a Fase 2** (seção 9). |
+
+### 7.2 Registro central de ações
+
+Em `frontend/src/actions/`: cada ação declara `id`, rótulo, ícone, permissão, atalho padrão, a que tipo de registro se aplica e quando está disponível (status). Quem consome:
+
+- menu ⋯ de cada linha e da tela do documento;
+- busca rápida;
+- atalhos de teclado;
+- blocos de acesso rápido do dashboard.
+
+O backend continua decidindo (403); o registro só esconde o que não se aplica.
+
+### 7.3 Abas e área de trabalho
+
+- Barra de abas no topo. Abrir um item (lista, menu, busca ou atalho) **abre ou foca** a aba, sem duplicar o mesmo registro.
+- Tipos de aba: telas de lista (Orçamentos, Pedidos...) e documentos (Orçamento #012, Pedido #005, novo rascunho).
+- Trocar de aba **preserva o estado** (formulário pela metade, rolagem), usando o `<Activity mode="hidden">` do React 19.2. Limite de 10 abas.
+- Aba com alteração não salva mostra um marcador e pede confirmação ao fechar.
+- "Abrir ao lado" divide a área em dois painéis (ex.: orçamento à esquerda, pedido ou cadastro de produto à direita).
+- A URL reflete a aba ativa (voltar do navegador e link direto continuam funcionando).
+- **Orçamento e pedido viram telas de documento** (cabeçalho, itens, totais, ações), em vez de janelas sobrepostas.
+
+### 7.4 Menu de ações ⋯
+
+| Registro | Ações (conforme status e permissão) |
+|---|---|
+| Orçamento | Abrir, Editar (rascunho), Duplicar, Copiar para pedido, Enviar, Aprovar, Recusar, Converter em pedido, Espelhos ▸, Excluir |
+| Pedido | Abrir, Editar, Duplicar, Copiar para orçamento, Dar baixa, Cancelar/Reativar, Espelhos ▸ (Resumido, Completo, Romaneio), Excluir |
+
+Backend: `POST /quotes/:id/duplicate`, `/quotes/:id/copy-to-order`, `/orders/:id/duplicate`, `/orders/:id/copy-to-quote`. A cópia usa os preços do documento de origem; pedido gerado por cópia baixa o estoque como qualquer pedido.
+
+### 7.5 Cadastro rápido
+
+Botões **"+ Novo cliente"** e **"+ Novo produto/serviço"** ao lado dos seletores no orçamento e no pedido. Reaproveitam os formulários de cadastro existentes e, ao salvar, o item já fica selecionado. Aparecem só para quem tem `customers.create` ou `products.create`.
+
+### 7.6 Busca rápida e atalhos
+
+- **Busca (F2 / Ctrl+K):** encontra ações e registros (clientes, produtos, orçamentos e pedidos por número ou cliente) via `GET /search?q=`, respeitando permissões e o escopo "só os próprios".
+- **Atalhos padrão:** F2 busca; F4 novo orçamento; F6 novo pedido; F7 novo cliente; F8 novo produto; F9 ou Ctrl+Enter salvar documento; Alt+N novo item; Alt+→/← trocar de aba; Alt+X fechar aba; Esc fecha diálogos.
+- Dentro de campos de texto só valem os atalhos de salvar, navegar entre abas e a busca.
+- **Configurações → Atalhos:** lista de ações com captura da tecla, aviso de conflito e "restaurar padrões". Salvo por usuário no servidor.
+
+### 7.7 Espelhos (documentos para imprimir, PDF e DOCX)
+
+| Modelo | Conteúdo |
+|---|---|
+| Resumido | Cabeçalho da empresa, número, data, cliente, itens (qtd., descrição, total) e total geral |
+| Completo | Tudo do resumido + código, descrição detalhada, unidade, peso, preço unitário, descontos, observações, validade e condições |
+| Romaneio / entrega | Endereço de entrega, transportadora, volumes, peso total, itens com caixa de conferência e espaço para assinatura do recebedor; **sem preços** |
+
+- Rota `/espelho/:tipo/:id?modelo=` com CSS de impressão A4; botões "Imprimir / Salvar PDF" e "Baixar DOCX".
+- Acesso: quem pode ver o documento (`quotes.read` / `orders.read`, com o escopo do grupo).
+- Dados novos, todos opcionais:
+  - **Produto:** código/SKU, unidade, descrição, peso.
+  - **Pedido:** endereço de entrega, transportadora, frete, volumes.
+  - **Empresa:** endereço, telefone, e-mail e logo. A logo é uma imagem pequena (até 200 KB) guardada no banco, para não depender de armazenamento de arquivos antes do deploy.
+
+### 7.8 Dashboard modular
+
+- Catálogo de blocos no código: indicador, gráfico ou acesso rápido; cada um com permissão, tamanhos permitidos e componente carregado sob demanda.
+- Blocos iniciais:
+  - **Indicadores:** faturamento do mês, despesas pagas, saldo, pedidos pendentes, total a receber, orçamentos aguardando aprovação e limite do MEI.
+  - **Gráficos:** faturamento dos últimos 12 meses e 5 produtos mais vendidos.
+  - **Acesso rápido:** qualquer ação do registro (7.2).
+
+  A Semana 3 acrescenta os indicadores do CRM.
+- "Personalizar": adicionar, remover, reordenar (arrastar ou setas, acessível pelo teclado) e mudar o tamanho (P, M, G) em grade responsiva.
+- Blocos sem permissão não aparecem. Gráficos com Recharts, carregado só no dashboard.
+
+### 7.9 Modelo de dados
+
+- `user_preferences (user_id PK, shortcuts jsonb, dashboard jsonb, updated_at)`.
+- `companies`: `dashboard_default jsonb`, `address`, `phone`, `email`, `logo` (bytea, até 200 KB).
+- `products`: `sku`, `unit`, `description`, `weight_kg`.
+- `orders`: `delivery_address`, `carrier`, `freight`, `volumes`.
+
+### 7.10 Ordem e entregas
+
+| Dias | Entrega |
+|---|---|
+| 03–06/11 | Registro de ações; abas e dois painéis; telas de documento de orçamento e pedido; menu ⋯; duplicar e copiar |
+| 07/11 | Cadastro rápido |
+| 08–09/11 | Busca rápida, atalhos e tela de configuração |
+| 10–12/11 | Campos novos; espelhos Resumido, Completo e Romaneio; DOCX |
+| 13–14/11 | Dashboard modular, gráficos e padrão da empresa |
+| 15/11 | Testes ponta a ponta (Playwright) e ajustes |
+
+**Pronto quando:** com F2 o usuário abre o orçamento #012 numa aba e o pedido #005 ao lado; pelo menu ⋯ duplica o orçamento, cadastra um produto novo sem sair da tela, gera o romaneio do pedido em PDF; e o dashboard mostra os blocos que ele escolheu.
+
+---
+
+## 8. Assistente de IA (Fase 2, após 29/11)
+
+### 8.1 Escolhas técnicas
 
 | Item | Escolha |
 |---|---|
@@ -279,14 +390,14 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 | Ferramentas | `strict: true` com `additionalProperties: false`; `tool_choice: auto` (o modelo atual não aceita escolha forçada de ferramenta) |
 | Recusas | Verificar `stop_reason` (`refusal`, `max_tokens`) antes de usar a resposta |
 
-### 7.2 Chat de ajuda guiada (RF17, HU-IA01)
+### 8.2 Chat de ajuda guiada (RF17, HU-IA01)
 
 1. A documentação de uso fica em `docs/ajuda/*.md` e é dividida em seções na tabela `help_sections`.
 2. Para cada pergunta, a busca textual do Postgres (`to_tsvector('portuguese', ...)`) devolve as 3 seções mais relevantes. É um **RAG sem banco vetorial**: suficiente para documentação pequena, e o uso de `pgvector` fica como evolução para o RAG por empresa (3.4).
 3. Prompt: instruções fixas no `system` (com *prompt caching*) e, na mensagem, as seções encontradas e a pergunta. O assistente responde só com base nos trechos e diz quando não sabe.
 4. Interface: painel lateral de chat no React.
 
-### 7.3 Bot do Telegram (RF19, HU-IA03)
+### 8.3 Bot do Telegram (RF19, HU-IA03)
 
 **Vincular a conta:** o usuário gera um código na tela "Meu perfil" e envia `/vincular 123456` ao bot. Isso grava `users.telegram_chat_id`. Mensagens de chats não vinculados recebem só a instrução de vínculo.
 
@@ -302,7 +413,7 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 
 **Ambiente:** bot com **grammY**. Em desenvolvimento, *long polling*; em produção, webhook HTTPS na Vercel, aceitando só requisições com o cabeçalho `X-Telegram-Bot-Api-Secret-Token` correto.
 
-### 7.4 Segurança (seção 11.6 do guia)
+### 8.4 Segurança (seção 11.6 do guia)
 
 - O `ctx` do agente é o do usuário vinculado: o vendedor no Telegram tem permissões de vendedor, e o `can()` vale igual.
 - O agente não recebe SQL, IDs de empresa nem ferramentas genéricas. `company_id` vem sempre do `ctx`, nunca do modelo.
@@ -310,7 +421,7 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 - Auditoria de toda ação do assistente.
 - LGPD: aviso na tela e no `/start` do bot de que há IA processando mensagens; enviar ao modelo só os campos necessários.
 
-### 7.5 Custos e cota por empresa
+### 8.5 Custos e cota por empresa
 
 - Cada resposta grava `usage.input_tokens` e `usage.output_tokens` em `ai_usage`.
 - Antes de chamar o modelo, verificar a soma do mês da empresa contra uma cota (`AI_MONTHLY_TOKEN_LIMIT` no `.env`). Ao ultrapassar, responder "limite do plano atingido". Isso também serve de argumento para os planos pagos.
@@ -318,7 +429,7 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 
 ---
 
-## 8. Cronograma
+## 9. Cronograma
 
 Cada semana termina com algo demonstrável e com o critério de pronto conferido.
 
@@ -357,6 +468,10 @@ Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6
 
 **Pronto quando:** um grupo "Vendedor sênior" cria, aprova e converte o próprio orçamento sem ver os dos colegas, e só o grupo "Financeiro" consegue marcar o pedido como pago.
 
+### Etapa UX (03 a 15/11): abas, ações, atalhos, espelhos e dashboard
+
+Detalhes e divisão por dia na seção 7.10.
+
 ### Semana 3 (16 a 22/11): CRM e análise gerencial
 
 | Trilha | Tarefas |
@@ -369,32 +484,48 @@ Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6
 
 *Semana com feriado (20/11): se atrasar, o KPI de clientes novos e os eventos passam para a semana 4.*
 
-### Semana 4 (23 a 29/11): IA, deploy e entrega
+### Semana 3: ajuste
+
+Os KPIs da semana 3 entram como **blocos do dashboard modular** (seção 7.8), não como uma tela fixa.
+
+### Semana 4 (23 a 29/11): deploy e entrega
 
 | Dia | Tarefas |
 |---|---|
-| 23-24 | `ai/`: cliente do SDK, laço de ferramentas, `ai_usage` e cota; documentação de ajuda + `help_sections`; painel de chat |
-| 25-26 | Bot do Telegram: vínculo, 3 ferramentas, ações pendentes com botões, auditoria |
-| 27 | Deploy: Supabase `sa-east-1` (migrações, usuário de banco com privilégio mínimo, `pg_cron`), Vercel `gru1` (frontend + API + webhook do Telegram); variáveis de ambiente; Sentry; Lighthouse e testes Playwright em produção |
+| 23-24 | Folga para atrasos das etapas anteriores; testes Playwright dos fluxos principais |
+| 25 | Deploy: Supabase `sa-east-1` (migrações, usuário de banco com privilégio mínimo), Vercel `gru1` (frontend + API); variáveis de ambiente; Sentry; Lighthouse em produção |
+| 26-27 | Correções vistas em produção; dados de demonstração; demo ao vivo no portfólio |
 | 28-29 | README v2, DER e casos de uso exportados, roteiro da apresentação, vídeo curto de backup da demonstração |
+
+**Pronto quando:** a demo está no ar, com os fluxos de orçamento → pedido → espelho → baixa funcionando em produção.
+
+### Fase 2 (30/11 a 13/12): assistente de IA
+
+| Dias | Tarefas |
+|---|---|
+| 1-2 | `ai/`: cliente do SDK, laço de ferramentas, `ai_usage` e cota; documentação de ajuda + `help_sections`; painel de chat (abre como aba e pela busca rápida) |
+| 3-4 | Bot do Telegram: vínculo, 3 ferramentas, ações pendentes com botões, auditoria; webhook no deploy |
+| 5 | Testes e publicação |
 
 **Pronto quando:** pelo Telegram, "cadastra a Maria Souza, tel 66 99999-0000" gera o pedido de confirmação, e o clique cria o cliente com registro na auditoria.
 
 ---
 
-## 9. Riscos e plano de corte
+## 10. Riscos e plano de corte
 
 | Risco | Sinal | O que cortar primeiro |
 |---|---|---|
 | Fundação atrasa | Testes de isolamento falhando no fim da semana 1 | Nunca cortar isolamento nem RBAC. Adiar fornecedores e gestão de usuários (o seed cria os 3 papéis) |
 | CRM grande demais | Kanban incompleto em 19/11 | Motivo da perda e próxima ação viram texto livre; eventos ficam fora |
-| IA atrasa | Bot sem confirmação em 26/11 | Entregar só o chat de ajuda e mostrar o bot com 1 ferramenta de **leitura** |
+| Etapa UX grande demais | Abas sem divisão em 08/11 | Cortar nesta ordem: dois painéis lado a lado, DOCX, tela de ajuste de atalhos (ficam os padrões), padrão do dashboard por empresa |
+| Teclas F capturadas | Atalho não chega à página em algum navegador ou notebook | Ctrl+K e Alt+… como alternativa sempre disponível; ajuste em Configurações |
+| IA atrasa (Fase 2) | Bot sem confirmação no 4º dia | Entregar só o chat de ajuda e mostrar o bot com 1 ferramenta de **leitura** |
 | Deploy falha | Erro de webhook ou cookie em 27/11 | Demonstrar localmente com *long polling*; o vídeo de backup cobre a apresentação |
 | Custo de IA | Cota estourando nos testes | Reduzir o histórico enviado ou trocar para `claude-haiku-5-5` |
 
 ---
 
-## 10. Checklist "Preparando o MVP para a IA" (seção 12 do guia)
+## 11. Checklist "Preparando o MVP para a IA" (seção 12 do guia)
 
 - [x] Camada de serviços separada das rotas
 - [x] RBAC centralizado em `can()`
@@ -406,7 +537,7 @@ Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6
 
 ---
 
-## 11. Próximos passos imediatos
+## 12. Próximos passos imediatos
 
 1. Revisar e ajustar este documento (principalmente a seção 3).
 2. ~~Confirmar o valor vigente do limite anual do MEI~~ Decidido: cada empresa informa o limite em Configurações (campo obrigatório); o sistema usa esse valor como referência.
