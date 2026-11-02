@@ -363,18 +363,38 @@ Botões **"+ Novo cliente"** e **"+ Novo produto/serviço"** ao lado dos seletor
 - `products`: `sku`, `unit`, `description`, `weight_kg`.
 - `orders`: `delivery_address`, `carrier`, `freight`, `volumes`.
 
-### 7.10 Ordem e entregas
+### 7.10 Referência de mercado (decidido em 02/11)
+
+Comparação com um ERP de mercado (telas de agenda, módulo de vendas, lista e formulário de orçamento). Entram até a entrega:
+
+| # | Recurso | Como fica no Aranduê |
+|---|---|---|
+| A | Menu por módulos + página do módulo | Menu lateral agrupado (Início, Agenda, CRM, Vendas, Financeiro, Cadastros, Administração); cada módulo com página de entrada em blocos montada a partir do registro de ações, com setas do fluxo (Lead → Orçamento → Pedido → Recebimento) |
+| B | Filtros avançados e paginação | Filtros no servidor (período, cliente, vendedor/responsável, status múltiplo, número, texto), paginação, filtros lembrados por usuário, escolha de colunas e impressão da lista |
+| C | Orçamento em seções | Dados (cliente, contato, vendedor, origem, validade em dias, nº de cotação do cliente), Itens, Condições de pagamento, Entrega/transporte, Resumo. Reaproveita os campos novos dos espelhos (7.7) |
+| D | Agenda | Semana e mês, mini calendário; mostra próximas ações dos leads, validade de orçamentos, entregas de pedidos e eventos manuais; agenda própria e da equipe conforme permissão (`agenda.*`) |
+| E | Assistente de precificação | Preço sugerido a partir do custo, despesas fixas do mês e margem desejada; mostra margem e ponto de equilíbrio |
+| F | Parcelas no contas a receber | Condições de pagamento do pedido geram parcelas com vencimento; a baixa passa a ser por parcela |
+| G | Metas de venda | Meta mensal da empresa e por vendedor, acompanhada como bloco do dashboard |
+
+Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, indicações, nota fiscal (NF-e/NFS-e por serviço externo) e várias empresas por usuário.
+
+### 7.11 Ordem e entregas
 
 | Dias | Entrega |
 |---|---|
 | 03–06/11 | Registro de ações; abas e dois painéis; telas de documento de orçamento e pedido; menu ⋯; duplicar e copiar — **concluído em 02/11** |
-| 07/11 | Cadastro rápido |
-| 08–09/11 | Busca rápida, atalhos e tela de configuração |
-| 10–12/11 | Campos novos; espelhos Resumido, Completo e Romaneio; DOCX |
-| 13–14/11 | Dashboard modular, gráficos e padrão da empresa |
-| 15/11 | Testes ponta a ponta (Playwright) e ajustes |
+| — | CRM (semana 3) — **concluído em 02/11** |
+| 07/11 | Menu por módulos e páginas de módulo (A); cadastro rápido |
+| 08–09/11 | Filtros avançados e paginação (B) |
+| 10–11/11 | Busca rápida, atalhos e tela de configuração |
+| 12–14/11 | Orçamento em seções (C); campos novos; espelhos Resumido, Completo e Romaneio; DOCX |
+| 15/11 | Assistente de precificação (E) |
+| 16–17/11 | Dashboard modular com KPIs (incluindo os do CRM) e metas de venda (G) |
+| 18–20/11 | Agenda (D) |
+| 21–22/11 | Parcelas no contas a receber (F); testes ponta a ponta (Playwright) |
 
-**Pronto quando:** com F2 o usuário abre o orçamento #012 numa aba e o pedido #005 ao lado; pelo menu ⋯ duplica o orçamento, cadastra um produto novo sem sair da tela, gera o romaneio do pedido em PDF; e o dashboard mostra os blocos que ele escolheu.
+**Pronto quando (etapa até 15/11):** com F2 o usuário abre o orçamento #012 numa aba e o pedido #005 ao lado; pelo menu ⋯ duplica o orçamento, cadastra um produto novo sem sair da tela, gera o romaneio do pedido em PDF; e o dashboard mostra os blocos que ele escolheu.
 
 ---
 
@@ -470,7 +490,7 @@ Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6
 
 ### Etapa UX (03 a 15/11): abas, ações, atalhos, espelhos e dashboard
 
-Detalhes e divisão por dia na seção 7.10.
+Detalhes e divisão por dia na seção 7.11.
 
 ### Semana 3 (16 a 22/11): CRM e análise gerencial — CRM concluído em 02/11 (KPIs vão para o dashboard modular, seção 7.8)
 
@@ -486,7 +506,7 @@ Detalhes e divisão por dia na seção 7.10.
 
 ### Semana 3: ajuste
 
-Os KPIs da semana 3 entram como **blocos do dashboard modular** (seção 7.8), não como uma tela fixa.
+O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e metas, agenda e parcelas no contas a receber (seção 7.11).
 
 ### Semana 4 (23 a 29/11): deploy e entrega
 
