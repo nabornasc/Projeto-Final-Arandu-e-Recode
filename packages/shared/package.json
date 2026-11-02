@@ -1,7 +1,7 @@
 {
   "name": "@arandue/shared",
   "private": true,
-  "version": "2.0.0-dev",
+  "version": "2.0.0",
   "type": "module",
   "exports": {
     "./permissions": "./src/permissions.ts",

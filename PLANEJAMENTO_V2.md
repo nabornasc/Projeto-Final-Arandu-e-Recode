@@ -1,7 +1,7 @@
 # Planejamento da Versão 2 — Aranduê SaaS
 
 > **Escopo:** evolução do protótipo Aranduê (monousuário) para um SaaS multiempresa com ERP, CRM, análise gerencial e assistente de IA.
-> **Ritmo:** desenvolvimento **contínuo por versões** desde 02/11/2026, sem data de término: cada versão é um ciclo de planejar, implementar, testar e publicar (roadmap na seção 10). O cronograma original de 4 semanas fica como histórico.
+> **Ritmo:** desenvolvimento **contínuo por versões** desde 02/11/2026, sem data de término: cada versão é um ciclo de planejar, implementar, testar e publicar (roadmap na seção 11). O cronograma original de 4 semanas fica como histórico.
 > **Base:** *Guia SaaS de Gestão para MEI* (requisitos RF/RNF e histórias HU) + avaliação técnica da versão 1.
 
 ---
@@ -286,7 +286,7 @@ O frontend continua só escondendo o que não é permitido; quem decide é o bac
 | Duplicar e copiar | **Duplicar**: novo rascunho do mesmo tipo. **Copiar**: para o outro tipo (orçamento → pedido direto, sem aprovação, exige `orders.create`; pedido → orçamento exige `quotes.create`). |
 | Abas | Até **2 painéis** lado a lado no desktop (≥ 1100 px); no celular, faixa de abas rolável e um painel. Abas abertas lembradas no navegador por usuário. |
 | Atalhos | Busca rápida em **F2** e **Ctrl+K**. Nunca usar F5, F11, F12, Ctrl+W/T/N/Tab (reservadas pelo navegador ou sistema). Ajustáveis por usuário, com aviso de conflito. |
-| Prazo | Estendido: o deploy continua em 29/11 e a **IA vai para a Fase 2** (seção 10). |
+| Prazo | Estendido: o deploy continua em 29/11 e a **IA vai para a Fase 2** (seção 11). |
 
 ### 7.2 Registro central de ações
 
@@ -381,7 +381,7 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 
 ### 7.11 Ordem e entregas
 
-> Substituída pelo roadmap por versões (seção 10) em 02/11. A tabela abaixo fica como registro da ordem planejada antes.
+> Substituída pelo roadmap por versões (seção 11) em 02/11. A tabela abaixo fica como registro da ordem planejada antes.
 
 | Dias | Entrega |
 |---|---|
@@ -400,11 +400,39 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 
 ---
 
-## 8. Oportunidades e rastreio comercial
+## 8. Cadastro único de pessoas
+
+> Decidido em 02/11, inspirado em cadastros de clientes e fornecedores de ERPs de mercado. Base para oportunidades (seção 9), romaneio (7.7), filtros por cidade e, no futuro, nota fiscal.
+
+### 8.1 Decisões
+
+| Tema | Decisão |
+|---|---|
+| Modelo | **Uma tabela `people` com papéis**: cliente, fornecedor, transportador, vendedor/representante. Quem tem dois papéis é cadastrado uma vez. As telas Clientes e Fornecedores continuam no menu como listas filtradas por papel; Transportadoras entram como terceira lista. |
+| Documento | Pessoa física (CPF) ou jurídica (CNPJ), validados pelos dígitos verificadores; único por empresa. |
+| Busca externa | CNPJ pela **BrasilAPI** e CEP pelo **ViaCEP**/BrasilAPI, chamados **pelo servidor**, sem chave. Só o número sai do sistema. Falha ou demora (limite de 5 s) não bloqueia: o preenchimento continua manual, com aviso. |
+| Usuários | "Empregado" não vira papel: quem usa o sistema é usuário. "Vendedor/representante" é para representantes externos (comissão no futuro). |
+
+### 8.2 Modelo de dados
+
+- `people`: `company_id`, `kind` (PF/PJ), `document` (só dígitos), `name` (nome fantasia ou nome), `legal_name` (razão social), `is_customer`, `is_supplier`, `is_carrier`, `is_sales_rep`, `email`, `phone`, `mobile`, `state_registration` + `taxpayer` (contribuinte, isento, não contribuinte), `final_consumer`, `tax_regime`, endereço (`zip`, `street`, `number`, `complement`, `district`, `city`, `state`, `country`), aba Comercial (`default_payment_terms`, `sales_rep_id`, `credit_limit`, `notes`), `active`.
+- Índices: único `(company_id, document)` quando houver documento; `(company_id, name)`; `(company_id, city)`.
+- Migração: clientes e fornecedores atuais viram pessoas (endereço antigo vai para o complemento, documento só com dígitos); `customer_id` de orçamentos, pedidos e leads passa a apontar para `people`; as tabelas antigas são removidas no fim da migração, depois de conferida a contagem.
+- Permissões: `customers.*` e `suppliers.*` continuam valendo para os respectivos papéis; transportadoras e representantes usam as de fornecedores até ganharem permissões próprias.
+
+### 8.3 Telas e API
+
+- Formulário em abas **Identificação** (tipo, documento com botão de busca, nomes, inscrição estadual, contatos, papéis, endereço com busca de CEP) e **Comercial**.
+- Seletor de cliente no orçamento e no pedido busca por nome, documento e telefone; o pedido ganha o seletor de **transportadora**.
+- `GET /people?role=customer|supplier|carrier|sales_rep&q=`, CRUD em `/people/:id`; `GET /lookup/cnpj/:cnpj` e `GET /lookup/cep/:cep` (com limite de requisições por usuário).
+
+---
+
+## 9. Oportunidades e rastreio comercial
 
 > Decidido em 02/11, inspirado em CRMs de mercado e no que falta neles: o rastreio se perde quando um orçamento é duplicado, copiado ou criado fora do CRM. Aqui o vínculo acompanha o documento em todas essas situações.
 
-### 8.1 Decisões
+### 9.1 Decisões
 
 | Tema | Decisão |
 |---|---|
@@ -412,13 +440,13 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 | Etapas | **Andam sozinhas, só para frente**, conforme os documentos; mudar à mão continua valendo; tudo vai para o histórico. |
 | Duplicar | Pergunta, com **"manter na mesma oportunidade" já marcado** (nova versão ou alternativa). Desmarcado, a cópia fica avulsa, mas continua registrado de qual documento veio. |
 
-### 8.2 Modelo de dados
+### 9.2 Modelo de dados
 
 - `leads` passa a se chamar `opportunities`: ganha `title`, `estimated_value` e `expected_close_date`; `name`, `phone` e `email` viram os dados de contato. Permissões `leads.*` passam a `opportunities.*` (migração atualiza os grupos).
 - `quotes` e `orders` ganham `opportunity_id` e a **origem**: `origin_type` (orçamento ou pedido), `origin_id` e `origin_kind` (convertido, duplicado, copiado). Cada documento tem um único pai, então o rastreio é uma árvore.
 - `interactions` ganha o **tipo** da atividade (comentário, ligação, visita, reunião, proposta, e-mail), além do canal, e o tipo `evento` para registros automáticos.
 
-### 8.3 Regras do rastreio
+### 9.3 Regras do rastreio
 
 1. **Converter ou copiar orçamento → pedido:** o pedido herda a oportunidade e guarda a origem.
 2. **Duplicar** (orçamento ou pedido): guarda a origem e mantém a oportunidade se a opção ficar marcada.
@@ -428,7 +456,7 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 6. **Desvincular:** permitido, registrado na auditoria e no histórico.
 7. **Novo orçamento a partir da oportunidade:** vem com cliente e vínculo. Se o contato ainda não for cliente, é cadastrado como no "ganho", sem duplicar.
 
-### 8.4 Automação de etapas (só avança)
+### 9.4 Automação de etapas (só avança)
 
 | Evento no documento | Etapa mínima da oportunidade |
 |---|---|
@@ -438,22 +466,22 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 
 Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Perder a oportunidade continua sendo manual, com motivo.
 
-### 8.5 Telas
+### 9.5 Telas
 
 - **Oportunidade:** barra de etapas no topo; painel de resumo (status, atrasada desde, cliente/contato, responsável, origem, **valor estimado × em orçamentos × em pedidos × recebido**); abas **Histórico** (atividades + eventos automáticos), **Orçamentos** e **Pedidos**; ações "Novo orçamento" e "Registrar atividade".
 - **Lista de oportunidades** (além do kanban): filtros por etapa, status, origem, responsável, motivo da perda e previsão; **totais no rodapé** (perdidas, em andamento, ganhas e total, em valor e quantidade).
 - **Rastreio** em cada orçamento e pedido: seção com a cadeia completa e links (Oportunidade → Orçamento #010 → duplicado em #012 → Pedido #008 → recebido em 05/11).
 - **Menu ⋯ em grupos**, como em ERPs de mercado: Abrir, Ações, Rastrear (oportunidade, origem, documentos gerados), Vincular/Desvincular e Excluir.
 
-### 8.6 API
+### 9.6 API
 
 `GET /trace/:tipo/:id` (cadeia completa); `POST /quotes/:id/link` e `/orders/:id/link` (`{ opportunityId }` ou `null`); `POST /quotes/:id/opportunity` e `/orders/:id/opportunity` (cria a partir do documento); `duplicate` aceita `{ keepOpportunity }`; `GET /opportunities/:id` inclui documentos e valores.
 
 ---
 
-## 9. Assistente de IA (v3.0)
+## 10. Assistente de IA (v3.0)
 
-### 9.1 Escolhas técnicas
+### 10.1 Escolhas técnicas
 
 | Item | Escolha |
 |---|---|
@@ -463,14 +491,14 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 | Ferramentas | `strict: true` com `additionalProperties: false`; `tool_choice: auto` (o modelo atual não aceita escolha forçada de ferramenta) |
 | Recusas | Verificar `stop_reason` (`refusal`, `max_tokens`) antes de usar a resposta |
 
-### 9.2 Chat de ajuda guiada (RF17, HU-IA01)
+### 10.2 Chat de ajuda guiada (RF17, HU-IA01)
 
 1. A documentação de uso fica em `docs/ajuda/*.md` e é dividida em seções na tabela `help_sections`.
 2. Para cada pergunta, a busca textual do Postgres (`to_tsvector('portuguese', ...)`) devolve as 3 seções mais relevantes. É um **RAG sem banco vetorial**: suficiente para documentação pequena, e o uso de `pgvector` fica como evolução para o RAG por empresa (3.4).
 3. Prompt: instruções fixas no `system` (com *prompt caching*) e, na mensagem, as seções encontradas e a pergunta. O assistente responde só com base nos trechos e diz quando não sabe.
 4. Interface: painel lateral de chat no React.
 
-### 9.3 Bot do Telegram (RF19, HU-IA03)
+### 10.3 Bot do Telegram (RF19, HU-IA03)
 
 **Vincular a conta:** o usuário gera um código na tela "Meu perfil" e envia `/vincular 123456` ao bot. Isso grava `users.telegram_chat_id`. Mensagens de chats não vinculados recebem só a instrução de vínculo.
 
@@ -486,7 +514,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 
 **Ambiente:** bot com **grammY**. Em desenvolvimento, *long polling*; em produção, webhook HTTPS na Vercel, aceitando só requisições com o cabeçalho `X-Telegram-Bot-Api-Secret-Token` correto.
 
-### 9.4 Segurança (seção 11.6 do guia)
+### 10.4 Segurança (seção 11.6 do guia)
 
 - O `ctx` do agente é o do usuário vinculado: o vendedor no Telegram tem permissões de vendedor, e o `can()` vale igual.
 - O agente não recebe SQL, IDs de empresa nem ferramentas genéricas. `company_id` vem sempre do `ctx`, nunca do modelo.
@@ -494,7 +522,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 - Auditoria de toda ação do assistente.
 - LGPD: aviso na tela e no `/start` do bot de que há IA processando mensagens; enviar ao modelo só os campos necessários.
 
-### 9.5 Custos e cota por empresa
+### 10.5 Custos e cota por empresa
 
 - Cada resposta grava `usage.input_tokens` e `usage.output_tokens` em `ai_usage`.
 - Antes de chamar o modelo, verificar a soma do mês da empresa contra uma cota (`AI_MONTHLY_TOKEN_LIMIT` no `.env`). Ao ultrapassar, responder "limite do plano atingido". Isso também serve de argumento para os planos pagos.
@@ -502,20 +530,21 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 
 ---
 
-## 10. Roadmap contínuo (versões)
+## 11. Roadmap contínuo (versões)
 
 > A partir de 02/11 o projeto não tem data de término. Cada versão é um ciclo: plano curto (nesta seção), implementação, testes (unitários, integração e ponta a ponta), notas da versão (`CHANGELOG.md`), tag `vX.Y.0`, push e, depois do primeiro deploy, publicação. As versões seguem a ordem abaixo, mas podem ser reordenadas a cada ciclo.
 
 | Versão | Conteúdo | Situação |
 |---|---|---|
 | **v2.0** | Fundação multiempresa, ERP (orçamentos, pedidos, financeiro), permissões e grupos de acesso, abas e menu de ações, CRM com funil | **Concluída em 02/11** |
-| **v2.1** | Oportunidades e rastreio comercial (seção 8); menu ⋯ em grupos | Próxima |
-| **v2.2** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | Planejada |
-| **v2.3** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
-| **v2.4** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, campos de entrega, espelhos (impressão, PDF, DOCX) | Planejada |
-| **v2.5** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
-| **v2.6** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
-| **v3.0** | Assistente de IA: chat de ajuda e bot do Telegram (seção 9) | Planejada |
+| **v2.1** | Cadastro único de pessoas com papéis, CPF/CNPJ validados, endereço estruturado e busca de CNPJ/CEP (seção 8) | Próxima |
+| **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | Planejada |
+| **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | Planejada |
+| **v2.4** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
+| **v2.5** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, campos de entrega, espelhos (impressão, PDF, DOCX) | Planejada |
+| **v2.6** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
+| **v2.7** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
+| **v3.0** | Assistente de IA: chat de ajuda e bot do Telegram (seção 10) | Planejada |
 
 **Backlog** (sem versão definida): compras e entrada de estoque, tabelas de preço, indicações, anexos e anotações nas oportunidades, nota fiscal (NF-e/NFS-e por serviço externo), várias empresas por usuário, recuperação de senha por e-mail, RLS no Postgres.
 
@@ -601,7 +630,7 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ---
 
-## 11. Riscos e plano de corte
+## 12. Riscos e plano de corte
 
 | Risco | Sinal | O que cortar primeiro |
 |---|---|---|
@@ -615,7 +644,7 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ---
 
-## 12. Checklist "Preparando o MVP para a IA" (seção 12 do guia)
+## 13. Checklist "Preparando o MVP para a IA" (seção 12 do guia)
 
 - [x] Camada de serviços separada das rotas
 - [x] RBAC centralizado em `can()`
@@ -627,8 +656,8 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ---
 
-## 13. Próximos passos imediatos
+## 14. Próximos passos imediatos
 
 1. Publicar a v2.0: `CHANGELOG.md`, tag `v2.0.0` e push.
-2. Começar a v2.1 pela migração de `leads` para `opportunities` e pelos campos de vínculo e origem em orçamentos e pedidos (seção 8.2), com os testes de rastreio antes das telas.
-3. Ao fim da v2.1, planejar a v2.2 (publicação) com as contas do Supabase e da Vercel já autenticadas no ambiente.
+2. Começar a v2.1 pela tabela `people` e pela migração de clientes e fornecedores (seção 8.2), com os testes de validação de CPF/CNPJ e de migração antes das telas.
+3. Em seguida, a v2.2 (oportunidades e rastreio, seção 9) e a v2.3 (publicação), com as contas do Supabase e da Vercel já autenticadas no ambiente.

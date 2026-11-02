@@ -1,6 +1,6 @@
 # Changelog
 
-Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 10).
+Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
 ## [2.0.0] — 2026-11-02
 
