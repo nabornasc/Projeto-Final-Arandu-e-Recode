@@ -13,6 +13,7 @@ import { badRequest, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
+import { nextNumber } from './numbering.ts';
 import { assertActiveAccount, assertCustomer } from './ownership.ts';
 
 type Order = typeof orders.$inferSelect;
@@ -89,7 +90,7 @@ async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccoun
     bankAccountId: accountId,
     amount: order.total,
     transactionDate: order.orderDate,
-    description: `Recebimento do pedido #${order.id}`,
+    description: `Recebimento do pedido #${String(order.number).padStart(3, '0')}`,
   };
   await tx
     .insert(cashTransactions)
@@ -101,6 +102,7 @@ async function loadOrders(ctx: Ctx, where = eq(orders.companyId, ctx.companyId))
   const rows = await db
     .select({
       id: orders.id,
+      number: orders.number,
       customerId: orders.customerId,
       customerName: customers.name,
       quoteId: orders.quoteId,
@@ -155,58 +157,60 @@ export async function getOrder(ctx: Ctx, id: number) {
   return row;
 }
 
+type OrderData = ReturnType<typeof orderCreateSchema.parse>;
+
+// Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
+export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, quoteId: number | null = null) {
+  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+
+  const productIds = [...new Set(data.items.map((item) => item.productId))];
+  const catalog = await tx
+    .select({ id: products.id, price: products.price })
+    .from(products)
+    .where(
+      and(inArray(products.id, productIds), eq(products.companyId, ctx.companyId), eq(products.active, true)),
+    );
+  if (catalog.length !== productIds.length) throw badRequest('Produto do pedido não encontrado.');
+  const priceOf = new Map(catalog.map((product) => [product.id, product.price]));
+
+  // Estoque antes da numeração: a ordem dos bloqueios (produtos, depois empresa) é sempre a mesma.
+  await moveStock(tx, ctx, data.items, 1);
+
+  const lines = data.items.map((item) => {
+    const unitPrice = item.unitPrice ?? priceOf.get(item.productId) ?? 0;
+    return { ...item, unitPrice, subtotal: round2(item.quantity * unitPrice) };
+  });
+  const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
+  const total = Math.max(0, round2(subtotal - data.discount));
+
+  const [order] = await tx
+    .insert(orders)
+    .values({
+      companyId: ctx.companyId,
+      number: await nextNumber(tx, ctx, 'order'),
+      customerId: data.customerId ?? null,
+      quoteId,
+      orderDate: data.orderDate,
+      status: data.status,
+      discount: data.discount,
+      total,
+      notes: data.notes,
+      createdBy: ctx.userId,
+    })
+    .returning();
+  if (!order) throw new Error('Falha ao criar pedido.');
+
+  await tx.insert(orderItems).values(lines.map((line) => ({ ...line, orderId: order.id })));
+  await syncCash(tx, ctx, order, data.bankAccountId);
+  await audit(tx, ctx, 'create', 'order', order.id, { status: order.status, total, quoteId });
+  return order;
+}
+
 export async function createOrder(ctx: Ctx, input: OrderCreateInput) {
   authorize(ctx, 'sales', 'create');
   const data = parse(orderCreateSchema, input);
-
-  const id = await db.transaction(async (tx) => {
-    if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
-
-    const productIds = [...new Set(data.items.map((item) => item.productId))];
-    const catalog = await tx
-      .select({ id: products.id, price: products.price })
-      .from(products)
-      .where(
-        and(
-          inArray(products.id, productIds),
-          eq(products.companyId, ctx.companyId),
-          eq(products.active, true),
-        ),
-      );
-    if (catalog.length !== productIds.length) throw badRequest('Produto do pedido não encontrado.');
-    const priceOf = new Map(catalog.map((product) => [product.id, product.price]));
-
-    await moveStock(tx, ctx, data.items, 1);
-
-    const lines = data.items.map((item) => {
-      const unitPrice = item.unitPrice ?? priceOf.get(item.productId) ?? 0;
-      return { ...item, unitPrice, subtotal: round2(item.quantity * unitPrice) };
-    });
-    const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
-    const total = Math.max(0, round2(subtotal - data.discount));
-
-    const [order] = await tx
-      .insert(orders)
-      .values({
-        companyId: ctx.companyId,
-        customerId: data.customerId ?? null,
-        orderDate: data.orderDate,
-        status: data.status,
-        discount: data.discount,
-        total,
-        notes: data.notes,
-        createdBy: ctx.userId,
-      })
-      .returning();
-    if (!order) throw new Error('Falha ao criar pedido.');
-
-    await tx.insert(orderItems).values(lines.map((line) => ({ ...line, orderId: order.id })));
-    await syncCash(tx, ctx, order, data.bankAccountId);
-    await audit(tx, ctx, 'create', 'order', order.id, { status: order.status, total });
-    return order.id;
-  });
-
-  return getOrder(ctx, id);
+  const order = await db.transaction((tx) => insertOrder(tx, ctx, data));
+  return getOrder(ctx, order.id);
 }
 
 export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput) {

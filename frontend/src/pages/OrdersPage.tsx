@@ -10,10 +10,11 @@ import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
 import type { Profile } from '../lib/auth.ts';
-import { formatDate, formatMoney, label, todayIso } from '../lib/format.ts';
+import { formatCode, formatDate, formatMoney, label, todayIso } from '../lib/format.ts';
 
 interface Order {
   id: number;
+  number: number;
   customerName: string | null;
   orderDate: string;
   status: OrderStatus;
@@ -115,7 +116,7 @@ export default function OrdersPage() {
                   return (
                     <tr key={order.id}>
                       <td>
-                        <strong>#{String(order.id).padStart(3, '0')}</strong>
+                        <strong>{formatCode(order.number)}</strong>
                       </td>
                       <td>{order.customerName ?? 'Cliente não informado'}</td>
                       <td>{formatDate(order.orderDate)}</td>
@@ -127,7 +128,7 @@ export default function OrdersPage() {
                           <select
                             className="status-select"
                             name={`status-${order.id}`}
-                            aria-label={`Status do pedido ${order.id}`}
+                            aria-label={`Status do pedido ${formatCode(order.number)}`}
                             value={order.status}
                             disabled={updateStatus.isPending}
                             onChange={(event) =>
@@ -152,7 +153,7 @@ export default function OrdersPage() {
                           <button
                             type="button"
                             className="delete"
-                            aria-label={`Excluir pedido ${order.id}`}
+                            aria-label={`Excluir pedido ${formatCode(order.number)}`}
                             disabled={remove.isPending}
                             onClick={() =>
                               window.confirm('Excluir este pedido? O estoque será devolvido.') &&

@@ -13,15 +13,18 @@ import { MetricCard } from '../components/MetricCard.tsx';
 import { navigation } from '../config/navigation.ts';
 import { api } from '../lib/api.ts';
 import type { Profile } from '../lib/auth.ts';
-import { formatDate, formatMoney, label } from '../lib/format.ts';
+import { formatCode, formatDate, formatMoney, label } from '../lib/format.ts';
 
 interface Dashboard {
   revenueMonth: number;
   expensesMonth: number;
   balance: number;
   pendingOrders: number;
+  revenueYear: number;
+  meiAnnualLimit: number | null;
   recentOrders: {
     id: number;
+    number: number;
     orderDate: string;
     total: number;
     status: string;
@@ -46,6 +49,7 @@ export default function DashboardPage() {
 
   const data = query.data;
   const result = (data?.revenueMonth ?? 0) - (data?.expensesMonth ?? 0);
+  const limitUsed = data?.meiAnnualLimit ? data.revenueYear / data.meiAnnualLimit : null;
 
   return (
     <div className="dashboard">
@@ -119,7 +123,7 @@ export default function DashboardPage() {
             <div className="order-list">
               {data.recentOrders.map((order) => (
                 <div className="order-row" key={order.id}>
-                  <div className="order-symbol">#{String(order.id).padStart(3, '0')}</div>
+                  <div className="order-symbol">{formatCode(order.number)}</div>
                   <div className="order-info">
                     <strong>{order.customerName ?? 'Cliente não informado'}</strong>
                     <small>{formatDate(order.orderDate)}</small>
@@ -148,6 +152,24 @@ export default function DashboardPage() {
             <span>Resultado do mês (faturamento − despesas)</span>
             <strong className={result >= 0 ? 'positive' : 'negative'}>{formatMoney(result)}</strong>
           </div>
+          {data && (
+            <div className="result-line mei-limit">
+              <span>Faturamento do ano em relação ao limite do MEI</span>
+              {limitUsed === null ? (
+                <strong>Limite não configurado</strong>
+              ) : (
+                <>
+                  <strong className={limitUsed >= 1 ? 'negative' : undefined}>
+                    {Math.round(limitUsed * 100)}% · {formatMoney(data.revenueYear)} de{' '}
+                    {formatMoney(data.meiAnnualLimit)}
+                  </strong>
+                  <meter min={0} max={1} low={0.6} high={0.8} optimum={0} value={Math.min(limitUsed, 1)}>
+                    {Math.round(limitUsed * 100)}%
+                  </meter>
+                </>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </div>

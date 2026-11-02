@@ -124,6 +124,7 @@ GET|POST        /expenses         GET|PUT|DELETE /expenses/:id
 GET|POST        /transactions     GET|PUT|DELETE /transactions/:id
 GET|POST        /orders           GET|PUT|DELETE /orders/:id
 GET             /dashboard
+GET|PUT         /company          (configurações da empresa, incluindo o limite anual do MEI)
 ```
 
 Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retornam `{ "message": "..." }` com o status adequado: 400 (validação), 401, 403, 404 ou 409.
@@ -134,6 +135,8 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 2. **Caixa:** pedido **pago** ou **concluído** gera uma única entrada no caixa, e despesa **paga** com conta gera uma única saída. Voltar o status a pendente remove a movimentação. Movimentações geradas automaticamente não podem ser editadas diretamente (409).
 3. **Saldo:** saldo inicial mais movimentações, considerando só contas ativas nos dois termos.
 4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
+5. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
+6. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
 
 ## Testes
 
@@ -141,7 +144,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 20 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 24 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 

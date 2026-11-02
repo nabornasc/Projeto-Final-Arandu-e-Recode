@@ -1,5 +1,6 @@
 import { can } from '@arandue/shared/rbac';
 import { ChevronRight } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import { NavLink } from 'react-router';
 import { navigation } from '../config/navigation.ts';
 import type { Profile } from '../lib/auth.ts';
@@ -10,12 +11,21 @@ interface Props {
   onClose: () => void;
 }
 
+// Mesmo ponto de quebra do CSS em que o menu vira gaveta.
+const mobile = window.matchMedia('(max-width: 650px)');
+const subscribe = (onChange: () => void) => {
+  mobile.addEventListener('change', onChange);
+  return () => mobile.removeEventListener('change', onChange);
+};
+
 export function Sidebar({ profile, open, onClose }: Props) {
   const items = navigation.filter((item) => can(profile.role, item.module, 'read'));
+  const isMobile = useSyncExternalStore(subscribe, () => mobile.matches);
   return (
     <>
       {open && <div className="mobile-backdrop" onClick={onClose} aria-hidden="true" />}
-      <aside className={`sidebar ${open ? 'open' : ''}`}>
+      {/* Gaveta fechada fica fora da tela: inert tira os links do Tab e dos leitores de tela. */}
+      <aside className={`sidebar ${open ? 'open' : ''}`} inert={isMobile && !open}>
         <div className="brand">
           <span className="brand-mark">A</span>
           <div>

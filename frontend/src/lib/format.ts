@@ -10,6 +10,9 @@ export function formatDate(value: string | null | undefined): string {
   return Number.isNaN(parsed.getTime()) ? '—' : date.format(parsed);
 }
 
+// Número sequencial da empresa exibido como #001.
+export const formatCode = (value: number) => `#${String(value).padStart(3, '0')}`;
+
 export const todayIso = () => {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);

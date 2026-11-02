@@ -8,6 +8,8 @@ interface Summary extends Record<string, unknown> {
   expenses_month: string;
   balance: string;
   pending_orders: number;
+  revenue_year: string;
+  mei_annual_limit: string | null;
 }
 
 // Resumo do mês corrente. Os KPIs completos (ticket médio, conversão, funil) chegam na semana 3.
@@ -29,12 +31,17 @@ export async function getDashboard(ctx: Ctx) {
       + COALESCE((SELECT SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END)
                   FROM cash_transactions t JOIN bank_accounts a ON a.id = t.bank_account_id
                   WHERE t.company_id = ${companyId} AND a.active), 0) AS balance,
-      (SELECT COUNT(*)::int FROM orders WHERE company_id = ${companyId} AND status = 'pending') AS pending_orders
+      (SELECT COUNT(*)::int FROM orders WHERE company_id = ${companyId} AND status = 'pending') AS pending_orders,
+      COALESCE((SELECT SUM(total) FROM orders
+                WHERE company_id = ${companyId} AND status IN ('paid', 'completed')
+                  AND order_date >= date_trunc('year', CURRENT_DATE)), 0) AS revenue_year,
+      (SELECT mei_annual_limit FROM companies WHERE id = ${companyId}) AS mei_annual_limit
   `);
 
   const recentOrders = await db
     .select({
       id: orders.id,
+      number: orders.number,
       orderDate: orders.orderDate,
       total: orders.total,
       status: orders.status,
@@ -51,6 +58,9 @@ export async function getDashboard(ctx: Ctx) {
     expensesMonth: Number(summary?.expenses_month ?? 0),
     balance: Number(summary?.balance ?? 0),
     pendingOrders: summary?.pending_orders ?? 0,
+    // Faturamento do ano comparado ao limite informado pela empresa (null enquanto não configurado).
+    revenueYear: Number(summary?.revenue_year ?? 0),
+    meiAnnualLimit: summary?.mei_annual_limit == null ? null : Number(summary.mei_annual_limit),
     recentOrders,
   };
 }

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { db } from '../db/client.ts';
 import { ctxOf, requireAuth } from '../plugins/auth.ts';
 import * as bankAccounts from '../services/bankAccounts.ts';
+import * as company from '../services/company.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
@@ -70,5 +71,9 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       remove: orders.deleteOrder,
     });
     protectedApp.get('/dashboard', (request) => getDashboard(ctxOf(request)));
+    protectedApp.get('/company', (request) => company.getCompanySettings(ctxOf(request)));
+    protectedApp.put('/company', (request) =>
+      company.updateCompanySettings(ctxOf(request), request.body as never),
+    );
   });
 }

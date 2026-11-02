@@ -8,7 +8,7 @@ export interface Profile {
   name: string;
   email: string;
   role: Role;
-  company: { id: number; name: string; cnpj: string | null };
+  company: { id: number; name: string; cnpj: string | null; meiAnnualLimit: number | null };
 }
 
 const ME_KEY = ['auth', 'me'] as const;

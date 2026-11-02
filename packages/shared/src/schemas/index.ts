@@ -55,6 +55,19 @@ export const userCreateSchema = z.object({
   password: passwordSchema,
 });
 
+// ---------- Empresa ----------
+
+export const companySettingsSchema = z.object({
+  name: requiredText(160, 'Informe o nome da empresa'),
+  cnpj: optionalText(18),
+  // Obrigatório: é a referência do sistema para o acompanhamento do faturamento anual.
+  meiAnnualLimit: z
+    .number({ error: 'Informe o limite anual do MEI' })
+    .positive('O limite anual do MEI deve ser maior que zero')
+    .max(1e10),
+});
+export type CompanySettingsInput = z.input<typeof companySettingsSchema>;
+
 // ---------- Cadastros ----------
 
 export const customerSchema = z.object({

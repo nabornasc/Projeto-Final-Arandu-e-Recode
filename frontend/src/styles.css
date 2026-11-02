@@ -427,6 +427,28 @@ button {
   font-size: 11px;
   color: #665d7a;
 }
+.mei-limit {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mei-limit meter {
+  width: 100%;
+  height: 10px;
+}
+.notice {
+  background: #fff7e0;
+  color: #6b5200;
+  border-radius: 7px;
+  padding: 10px 12px;
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+fieldset.form-grid {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
 .positive {
   color: #2e9b6f;
 }

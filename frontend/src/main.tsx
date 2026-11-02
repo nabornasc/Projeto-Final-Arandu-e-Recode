@@ -42,6 +42,10 @@ const router = createBrowserRouter([
       { path: 'despesas', lazy: resourcePage('ExpensesPage') },
       { path: 'contas', lazy: resourcePage('AccountsPage') },
       { path: 'movimentacoes', lazy: resourcePage('TransactionsPage') },
+      {
+        path: 'configuracoes',
+        lazy: async () => ({ Component: (await import('./pages/SettingsPage.tsx')).default }),
+      },
     ],
   },
   {

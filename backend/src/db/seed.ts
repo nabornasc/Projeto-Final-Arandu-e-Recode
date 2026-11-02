@@ -6,6 +6,7 @@ import { config } from '../config.ts';
 import type { Ctx } from '../lib/context.ts';
 import { register } from '../services/auth.ts';
 import { createBankAccount } from '../services/bankAccounts.ts';
+import { updateCompanySettings } from '../services/company.ts';
 import { createCustomer } from '../services/customers.ts';
 import { createExpense } from '../services/expenses.ts';
 import { createOrder } from '../services/orders.ts';
@@ -43,6 +44,8 @@ async function seedCompany(companyName: string, prefix: string) {
     email: `dono@${prefix}.test`,
     password: DEMO_PASSWORD,
   });
+  // Valor só de demonstração: cada empresa informa o limite vigente em Configurações.
+  await updateCompanySettings(owner, { name: companyName, meiAnnualLimit: 81000 });
   await addUser(owner, `Vendedor ${companyName}`, `vendedor@${prefix}.test`, 'seller');
   await addUser(owner, `Contador ${companyName}`, `contador@${prefix}.test`, 'accountant');
 

@@ -49,8 +49,11 @@ export const companies = pgTable('companies', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 160 }).notNull(),
   cnpj: varchar({ length: 18 }),
-  // Limite anual do MEI: configurável porque muda por lei.
-  meiAnnualLimit: money().notNull().default(81000),
+  // Limite anual do MEI: cada empresa informa o valor vigente nas configurações (muda por lei).
+  meiAnnualLimit: money(),
+  // Contadores da numeração por empresa (#001, #002...), para o número não revelar o volume de outras.
+  orderSeq: integer().notNull().default(0),
+  quoteSeq: integer().notNull().default(0),
   createdAt: createdAt(),
 });
 
@@ -184,6 +187,7 @@ export const quotes = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
+    number: integer().notNull(),
     customerId: integer().references(() => customers.id, { onDelete: 'set null' }),
     leadId: integer().references(() => leads.id, { onDelete: 'set null' }),
     status: quoteStatusEnum().notNull().default('draft'),
@@ -196,7 +200,11 @@ export const quotes = pgTable(
     decidedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.companyId, t.status), index().on(t.companyId, t.createdAt)],
+  (t) => [
+    index().on(t.companyId, t.status),
+    index().on(t.companyId, t.createdAt),
+    uniqueIndex().on(t.companyId, t.number),
+  ],
 );
 
 export const quoteItems = pgTable(
@@ -221,6 +229,7 @@ export const orders = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
+    number: integer().notNull(),
     customerId: integer().references(() => customers.id, { onDelete: 'set null' }),
     quoteId: integer().references(() => quotes.id, { onDelete: 'set null' }),
     orderDate: date({ mode: 'string' }).notNull(),
@@ -235,6 +244,7 @@ export const orders = pgTable(
     index().on(t.companyId, t.orderDate),
     index().on(t.companyId, t.status),
     uniqueIndex().on(t.quoteId),
+    uniqueIndex().on(t.companyId, t.number),
   ],
 );
 

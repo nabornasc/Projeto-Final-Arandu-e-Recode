@@ -13,6 +13,7 @@ export const MODULES = [
   'finance',
   'analytics',
   'users',
+  'settings',
   'assistant',
 ] as const;
 export type Module = (typeof MODULES)[number];
@@ -35,6 +36,7 @@ const MATRIX: Record<Role, Record<Module, readonly Action[]>> = {
     finance: ALL,
     analytics: ALL,
     users: ALL,
+    settings: ALL,
     assistant: ALL,
   },
   seller: {
@@ -46,6 +48,7 @@ const MATRIX: Record<Role, Record<Module, readonly Action[]>> = {
     finance: NONE,
     analytics: NONE,
     users: NONE,
+    settings: NONE,
     assistant: EDIT,
   },
   accountant: {
@@ -57,6 +60,7 @@ const MATRIX: Record<Role, Record<Module, readonly Action[]>> = {
     finance: READ,
     analytics: READ,
     users: NONE,
+    settings: READ,
     assistant: READ,
   },
 };

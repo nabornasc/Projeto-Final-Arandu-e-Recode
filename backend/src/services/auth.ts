@@ -137,7 +137,12 @@ export async function getProfile(ctx: Ctx) {
       name: users.name,
       email: users.email,
       role: users.role,
-      company: { id: companies.id, name: companies.name, cnpj: companies.cnpj },
+      company: {
+        id: companies.id,
+        name: companies.name,
+        cnpj: companies.cnpj,
+        meiAnnualLimit: companies.meiAnnualLimit,
+      },
     })
     .from(users)
     .innerJoin(companies, eq(companies.id, users.companyId))

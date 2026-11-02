@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   type LucideIcon,
   Receipt,
+  Settings,
   Users,
 } from 'lucide-react';
 
@@ -27,4 +28,7 @@ export const navigation: NavItem[] = [
   { path: '/despesas', label: 'Despesas', icon: Receipt, module: 'finance' },
   { path: '/contas', label: 'Contas bancárias', icon: Banknote, module: 'finance' },
   { path: '/movimentacoes', label: 'Movimentações', icon: CircleDollarSign, module: 'finance' },
+  { path: '/configuracoes', label: 'Configurações', icon: Settings, module: 'settings' },
 ];
+
+export const SETTINGS_PATH = '/configuracoes';
