@@ -1,4 +1,3 @@
-import { can } from '@arandue/shared/rbac';
 import { companySettingsSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
@@ -6,7 +5,7 @@ import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 
 interface CompanySettings {
   name: string;
@@ -26,7 +25,7 @@ export default function SettingsPage() {
           <h2>Configurações da empresa</h2>
           <p>Dados do negócio usados como referência em todo o sistema.</p>
         </div>
-        {!can(profile.role, 'settings', 'update') && <span className="read-only-note">Somente leitura</span>}
+        {!can(profile, 'settings.update') && <span className="read-only-note">Somente leitura</span>}
       </div>
 
       <div className="panel">
@@ -35,7 +34,7 @@ export default function SettingsPage() {
         ) : query.isError ? (
           <EmptyState text={query.error.message} />
         ) : (
-          <SettingsForm initial={query.data} readOnly={!can(profile.role, 'settings', 'update')} />
+          <SettingsForm initial={query.data} readOnly={!can(profile, 'settings.update')} />
         )}
       </div>
     </section>

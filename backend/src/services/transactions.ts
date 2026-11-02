@@ -22,7 +22,7 @@ async function getManual(tx: Transaction, ctx: Ctx, id: number) {
 }
 
 export async function listTransactions(ctx: Ctx) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'cash.read');
   return db
     .select()
     .from(cashTransactions)
@@ -32,14 +32,14 @@ export async function listTransactions(ctx: Ctx) {
 }
 
 export async function getTransaction(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'cash.read');
   const [row] = await db.select().from(cashTransactions).where(scoped(ctx, id));
   if (!row) throw notFound();
   return row;
 }
 
 export async function createTransaction(ctx: Ctx, input: TransactionInput) {
-  authorize(ctx, 'finance', 'create');
+  authorize(ctx, 'cash.create');
   const data = parse(transactionSchema, input);
   return db.transaction(async (tx) => {
     if (data.bankAccountId) await assertActiveAccount(tx, ctx, data.bankAccountId);
@@ -54,7 +54,7 @@ export async function createTransaction(ctx: Ctx, input: TransactionInput) {
 }
 
 export async function updateTransaction(ctx: Ctx, id: number, input: TransactionInput) {
-  authorize(ctx, 'finance', 'update');
+  authorize(ctx, 'cash.update');
   const data = parse(transactionSchema, input);
   return db.transaction(async (tx) => {
     await getManual(tx, ctx, id);
@@ -66,7 +66,7 @@ export async function updateTransaction(ctx: Ctx, id: number, input: Transaction
 }
 
 export async function deleteTransaction(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'delete');
+  authorize(ctx, 'cash.delete');
   await db.transaction(async (tx) => {
     await getManual(tx, ctx, id);
     await tx.delete(cashTransactions).where(scoped(ctx, id));

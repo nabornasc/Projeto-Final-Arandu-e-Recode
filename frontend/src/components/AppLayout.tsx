@@ -1,8 +1,7 @@
-import { can } from '@arandue/shared/rbac';
 import { Suspense, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { navigation, SETTINGS_PATH } from '../config/navigation.ts';
-import { useMe } from '../lib/auth.ts';
+import { can, useMe } from '../lib/auth.ts';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
 
@@ -16,7 +15,7 @@ export function AppLayout() {
 
   // O limite anual do MEI é obrigatório: o proprietário configura antes de usar o sistema.
   const limitMissing = me.data.company.meiAnnualLimit === null;
-  const canConfigure = can(me.data.role, 'settings', 'update');
+  const canConfigure = can(me.data, 'settings.update');
   if (limitMissing && canConfigure && location.pathname !== SETTINGS_PATH) {
     return <Navigate to={SETTINGS_PATH} replace />;
   }

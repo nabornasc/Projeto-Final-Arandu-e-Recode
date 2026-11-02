@@ -11,6 +11,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -25,7 +26,6 @@ const companyId = () =>
     .notNull()
     .references(() => companies.id, { onDelete: 'cascade' });
 
-export const roleEnum = pgEnum('user_role', ['owner', 'seller', 'accountant']);
 export const productTypeEnum = pgEnum('product_type', ['product', 'service']);
 export const accountTypeEnum = pgEnum('account_type', ['checking', 'savings', 'cash']);
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'paid', 'completed', 'cancelled']);
@@ -57,6 +57,34 @@ export const companies = pgTable('companies', {
   createdAt: createdAt(),
 });
 
+// Grupos de acesso da empresa. As permissões do grupo Proprietário (isOwner) não ficam na tabela:
+// ele tem sempre todas, inclusive as que forem criadas no futuro.
+export const accessGroups = pgTable(
+  'access_groups',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    companyId: companyId(),
+    name: varchar({ length: 80 }).notNull(),
+    description: varchar({ length: 255 }),
+    // true = em orçamentos e pedidos, o grupo só vê os registros que o próprio usuário criou.
+    ownOnly: boolean().notNull().default(false),
+    isOwner: boolean().notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex().on(t.companyId, t.name)],
+);
+
+export const accessGroupPermissions = pgTable(
+  'access_group_permissions',
+  {
+    groupId: integer()
+      .notNull()
+      .references(() => accessGroups.id, { onDelete: 'cascade' }),
+    permission: varchar({ length: 60 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.permission] })],
+);
+
 export const users = pgTable(
   'users',
   {
@@ -65,11 +93,17 @@ export const users = pgTable(
     name: varchar({ length: 160 }).notNull(),
     email: varchar({ length: 160 }).notNull(),
     passwordHash: text().notNull(),
-    role: roleEnum().notNull(),
+    groupId: integer()
+      .notNull()
+      .references(() => accessGroups.id, { onDelete: 'restrict' }),
     active: boolean().notNull().default(true),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('users_email_unique').on(sql`lower(${t.email})`), index().on(t.companyId)],
+  (t) => [
+    uniqueIndex('users_email_unique').on(sql`lower(${t.email})`),
+    index().on(t.companyId),
+    index().on(t.groupId),
+  ],
 );
 
 export const sessions = pgTable(

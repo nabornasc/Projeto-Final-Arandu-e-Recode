@@ -1,4 +1,3 @@
-import { ROLE_LABELS } from '@arandue/shared/rbac';
 import { LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { type Profile, useLogout } from '../lib/auth.ts';
@@ -34,7 +33,7 @@ export function Topbar({ title, profile, onMenu }: { title: string; profile: Pro
           <div>
             <strong>{profile.name}</strong>
             <small>
-              {ROLE_LABELS[profile.role]} · {profile.company.name}
+              {profile.group.name} · {profile.company.name}
             </small>
           </div>
         </div>

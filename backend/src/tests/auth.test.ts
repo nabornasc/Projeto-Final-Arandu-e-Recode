@@ -19,7 +19,10 @@ describe('autenticação', () => {
   it('cadastra empresa, cria sessão com cookie seguro e encerra no logout', async () => {
     const created = await register('maria@auth.test');
     expect(created.statusCode).toBe(201);
-    expect(created.json()).toMatchObject({ email: 'maria@auth.test', role: 'owner' });
+    expect(created.json()).toMatchObject({
+      email: 'maria@auth.test',
+      group: { name: 'Proprietário', isOwner: true },
+    });
 
     const setCookie = String(created.headers['set-cookie']);
     expect(setCookie).toMatch(/HttpOnly/i);

@@ -1,11 +1,10 @@
-import { can } from '@arandue/shared/rbac';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { MONEY_COLUMNS, type ResourceConfig } from '../config/resources.ts';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 import { formatDate, formatMoney, label } from '../lib/format.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { FormModal } from './FormModal.tsx';
@@ -28,9 +27,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const allowed = {
-    create: can(profile.role, config.module, 'create'),
-    update: can(profile.role, config.module, 'update'),
-    delete: can(profile.role, config.module, 'delete'),
+    create: can(profile, `${config.area}.create`),
+    update: can(profile, `${config.area}.update`),
+    delete: can(profile, `${config.area}.delete`),
   };
 
   const list = useQuery({ queryKey: [config.endpoint], queryFn: () => api<Row[]>(config.endpoint) });

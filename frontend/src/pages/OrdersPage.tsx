@@ -1,4 +1,3 @@
-import { can } from '@arandue/shared/rbac';
 import { type OrderStatus, orderCreateSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
@@ -17,7 +16,7 @@ import {
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney, label, todayIso } from '../lib/format.ts';
 
 interface Order {
@@ -41,14 +40,25 @@ const STATUS_OPTIONS: [OrderStatus, string][] = [
   ['cancelled', 'Cancelado'],
 ];
 
+const RECEIVED: OrderStatus[] = ['paid', 'completed'];
+
+// Mesma regra do backend: cancelar/reativar e mexer no recebimento têm permissões próprias.
+function statusAllowed(from: OrderStatus, to: OrderStatus, canCancel: boolean, canSettle: boolean) {
+  if (from === to) return true;
+  const needsCancel = from === 'cancelled' || to === 'cancelled';
+  const needsSettle = RECEIVED.includes(from) || RECEIVED.includes(to);
+  return (!needsCancel || canCancel) && (!needsSettle || canSettle);
+}
+
 export default function OrdersPage() {
   const profile = useOutletContext<Profile>();
   const notify = useToast();
   const client = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
-  const canCreate = can(profile.role, 'sales', 'create');
-  const canUpdate = can(profile.role, 'sales', 'update');
-  const canDelete = can(profile.role, 'sales', 'delete');
+  const canCreate = can(profile, 'orders.create');
+  const canCancel = can(profile, 'orders.cancel');
+  const canSettle = can(profile, 'receivables.settle');
+  const canDelete = can(profile, 'orders.delete');
 
   const orders = useQuery({ queryKey: ['/orders'], queryFn: () => api<Order[]>('/orders') });
 
@@ -109,6 +119,9 @@ export default function OrdersPage() {
                   const summary = order.items
                     .map((item) => `${item.quantity}x ${item.productName}`)
                     .join(', ');
+                  const options = STATUS_OPTIONS.filter(([value]) =>
+                    statusAllowed(order.status, value, canCancel, canSettle),
+                  );
                   return (
                     <tr key={order.id}>
                       <td>
@@ -120,7 +133,7 @@ export default function OrdersPage() {
                         {summary || 'Sem itens'}
                       </td>
                       <td>
-                        {canUpdate ? (
+                        {options.length > 1 ? (
                           <select
                             className="status-select"
                             name={`status-${order.id}`}
@@ -131,7 +144,7 @@ export default function OrdersPage() {
                               updateStatus.mutate({ id: order.id, status: event.target.value as OrderStatus })
                             }
                           >
-                            {STATUS_OPTIONS.map(([value, text]) => (
+                            {options.map(([value, text]) => (
                               <option key={value} value={value}>
                                 {text}
                               </option>
@@ -177,6 +190,7 @@ export default function OrdersPage() {
 
       {modalOpen && (
         <OrderForm
+          canSettle={canSettle}
           onClose={() => setModalOpen(false)}
           onCreated={() => {
             setModalOpen(false);
@@ -188,7 +202,13 @@ export default function OrdersPage() {
   );
 }
 
-function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+interface OrderFormProps {
+  canSettle: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function OrderForm({ canSettle, onClose, onCreated }: OrderFormProps) {
   const products = useQuery({ queryKey: ['/products'], queryFn: () => api<Product[]>('/products') });
   const customers = useQuery({ queryKey: ['/customers'], queryFn: () => api<Customer[]>('/customers') });
   const accounts = useAccountOptions();
@@ -280,7 +300,7 @@ function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
               onChange={(event) => setStatus(event.target.value as 'pending' | 'paid')}
             >
               <option value="pending">Pendente (a receber)</option>
-              <option value="paid">Pago (entra no caixa)</option>
+              {canSettle && <option value="paid">Pago (entra no caixa)</option>}
             </select>
           </label>
           {status === 'paid' && (

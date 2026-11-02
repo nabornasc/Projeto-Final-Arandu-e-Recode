@@ -1,6 +1,6 @@
 // Schemas de validação compartilhados entre frontend (formulários) e backend (API).
 import { z } from 'zod';
-import { ROLES } from '../rbac.ts';
+import { isPermission, type Permission } from '../permissions.ts';
 
 // Campo de texto opcional: string vazia vira null (o banco guarda NULL, não '').
 const optionalText = (max: number) =>
@@ -51,7 +51,7 @@ export type LoginInput = z.input<typeof loginSchema>;
 export const userCreateSchema = z.object({
   name: requiredText(160, 'Informe o nome'),
   email: z.email('E-mail inválido').trim().toLowerCase().max(160),
-  role: z.enum(ROLES),
+  groupId: id,
   password: passwordSchema,
 });
 export type UserCreateInput = z.input<typeof userCreateSchema>;
@@ -59,7 +59,7 @@ export type UserCreateInput = z.input<typeof userCreateSchema>;
 // E-mail não muda (é o login). Senha vazia mantém a atual.
 export const userUpdateSchema = z.object({
   name: requiredText(160, 'Informe o nome'),
-  role: z.enum(ROLES),
+  groupId: id,
   active: z.boolean(),
   password: z
     .union([z.literal(''), passwordSchema])
@@ -67,6 +67,23 @@ export const userUpdateSchema = z.object({
     .transform((value) => value || null),
 });
 export type UserUpdateInput = z.input<typeof userUpdateSchema>;
+
+// ---------- Grupos de acesso ----------
+
+export const accessGroupSchema = z.object({
+  name: requiredText(80, 'Informe o nome do grupo'),
+  description: optionalText(255),
+  ownOnly: z.boolean().default(false),
+  permissions: z
+    .array(
+      z.custom<Permission>(
+        (value) => typeof value === 'string' && isPermission(value),
+        'Permissão desconhecida',
+      ),
+    )
+    .max(200),
+});
+export type AccessGroupInput = z.input<typeof accessGroupSchema>;
 
 // ---------- Empresa ----------
 
@@ -178,6 +195,10 @@ export const orderUpdateSchema = z.object({
   bankAccountId: id.nullish(),
 });
 export type OrderUpdateInput = z.input<typeof orderUpdateSchema>;
+
+// Baixa de um pedido pendente pelo contas a receber (vira "pago" e entra no caixa).
+export const receivableSettleSchema = z.object({ bankAccountId: id.nullish() });
+export type ReceivableSettleInput = z.input<typeof receivableSettleSchema>;
 
 export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];

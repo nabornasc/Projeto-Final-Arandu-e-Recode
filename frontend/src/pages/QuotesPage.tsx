@@ -1,4 +1,3 @@
-import { can } from '@arandue/shared/rbac';
 import { type QuoteStatus, quoteConvertSchema, quoteSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
@@ -17,7 +16,7 @@ import {
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney, label, todayIso } from '../lib/format.ts';
 
 interface Quote {
@@ -52,10 +51,13 @@ export default function QuotesPage() {
   const [form, setForm] = useState<{ quote: Quote | null } | null>(null);
   const [converting, setConverting] = useState<Quote | null>(null);
   const allowed = {
-    create: can(profile.role, 'sales', 'create'),
-    update: can(profile.role, 'sales', 'update'),
-    delete: can(profile.role, 'sales', 'delete'),
-    approve: can(profile.role, 'sales', 'approve'),
+    create: can(profile, 'quotes.create'),
+    update: can(profile, 'quotes.update'),
+    send: can(profile, 'quotes.send'),
+    approve: can(profile, 'quotes.approve'),
+    convert: can(profile, 'quotes.convert'),
+    settle: can(profile, 'receivables.settle'),
+    delete: can(profile, 'quotes.delete'),
   };
 
   const quotes = useQuery({ queryKey: ['/quotes'], queryFn: () => api<Quote[]>('/quotes') });
@@ -137,18 +139,22 @@ export default function QuotesPage() {
                         <strong>{formatMoney(quote.total)}</strong>
                       </td>
                       <td className="actions">
-                        {quote.status === 'draft' && allowed.update && (
+                        {quote.status === 'draft' && (
                           <>
-                            <button type="button" disabled={busy} onClick={() => setForm({ quote })}>
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() => transition.mutate({ id: quote.id, name: 'send' })}
-                            >
-                              Enviar
-                            </button>
+                            {allowed.update && (
+                              <button type="button" disabled={busy} onClick={() => setForm({ quote })}>
+                                Editar
+                              </button>
+                            )}
+                            {allowed.send && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => transition.mutate({ id: quote.id, name: 'send' })}
+                              >
+                                Enviar
+                              </button>
+                            )}
                           </>
                         )}
                         {quote.status === 'sent' && allowed.approve && (
@@ -181,7 +187,7 @@ export default function QuotesPage() {
                           </Link>
                         ) : (
                           <>
-                            {quote.status === 'approved' && allowed.create && (
+                            {quote.status === 'approved' && allowed.convert && (
                               <button type="button" disabled={busy} onClick={() => setConverting(quote)}>
                                 Converter em pedido
                               </button>
@@ -230,6 +236,7 @@ export default function QuotesPage() {
       {converting && (
         <ConvertForm
           quote={converting}
+          canSettle={allowed.settle}
           onClose={() => setConverting(null)}
           onConverted={(orderNumber) => {
             setConverting(null);
@@ -380,12 +387,14 @@ function QuoteForm({ quote, onClose, onSaved }: QuoteFormProps) {
 
 interface ConvertFormProps {
   quote: Quote;
+  // Sem permissão de baixa, o pedido nasce pendente e o financeiro recebe depois.
+  canSettle: boolean;
   onClose: () => void;
   onConverted: (orderNumber: number) => void;
 }
 
 // A conversão baixa o estoque; se o pedido já nasce pago, também lança a entrada no caixa.
-function ConvertForm({ quote, onClose, onConverted }: ConvertFormProps) {
+function ConvertForm({ quote, canSettle, onClose, onConverted }: ConvertFormProps) {
   const accounts = useAccountOptions();
   const [orderDate, setOrderDate] = useState(todayIso);
   const [status, setStatus] = useState<'pending' | 'paid'>('pending');
@@ -438,7 +447,7 @@ function ConvertForm({ quote, onClose, onConverted }: ConvertFormProps) {
               onChange={(event) => setStatus(event.target.value as 'pending' | 'paid')}
             >
               <option value="pending">Pendente (a receber)</option>
-              <option value="paid">Pago (entra no caixa)</option>
+              {canSettle && <option value="paid">Pago (entra no caixa)</option>}
             </select>
           </label>
           {status === 'paid' && (

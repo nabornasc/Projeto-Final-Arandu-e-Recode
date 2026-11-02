@@ -10,7 +10,7 @@ import { audit } from './audit.ts';
 const scoped = (ctx: Ctx, id: number) => and(eq(customers.id, id), eq(customers.companyId, ctx.companyId));
 
 export async function listCustomers(ctx: Ctx) {
-  authorize(ctx, 'customers', 'read');
+  authorize(ctx, 'customers.read');
   return db
     .select()
     .from(customers)
@@ -19,14 +19,14 @@ export async function listCustomers(ctx: Ctx) {
 }
 
 export async function getCustomer(ctx: Ctx, id: number) {
-  authorize(ctx, 'customers', 'read');
+  authorize(ctx, 'customers.read');
   const [row] = await db.select().from(customers).where(scoped(ctx, id));
   if (!row) throw notFound();
   return row;
 }
 
 export async function createCustomer(ctx: Ctx, input: CustomerInput) {
-  authorize(ctx, 'customers', 'create');
+  authorize(ctx, 'customers.create');
   const data = parse(customerSchema, input);
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -40,7 +40,7 @@ export async function createCustomer(ctx: Ctx, input: CustomerInput) {
 }
 
 export async function updateCustomer(ctx: Ctx, id: number, input: CustomerInput) {
-  authorize(ctx, 'customers', 'update');
+  authorize(ctx, 'customers.update');
   const data = parse(customerSchema, input);
   return db.transaction(async (tx) => {
     const [row] = await tx.update(customers).set(data).where(scoped(ctx, id)).returning();
@@ -51,7 +51,7 @@ export async function updateCustomer(ctx: Ctx, id: number, input: CustomerInput)
 }
 
 export async function deleteCustomer(ctx: Ctx, id: number) {
-  authorize(ctx, 'customers', 'delete');
+  authorize(ctx, 'customers.delete');
   await db.transaction(async (tx) => {
     const [row] = await tx.delete(customers).where(scoped(ctx, id)).returning({ id: customers.id });
     if (!row) throw notFound();

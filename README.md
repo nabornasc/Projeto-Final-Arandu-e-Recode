@@ -31,7 +31,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 
 - Cadastro de empresa com usuário proprietário, login e logout com sessão segura.
 - Multiempresa: todo dado pertence a uma empresa e nenhuma consulta cruza empresas.
-- Papéis **Proprietário**, **Vendedor** e **Contador**, com permissões verificadas no servidor.
+- Controle de acesso verificado no servidor (detalhado na etapa de permissões abaixo).
 - Produtos e serviços (com estoque), clientes, pedidos com vários itens, despesas, contas bancárias e movimentações de caixa.
 - Log de auditoria de toda alteração.
 - Interface responsiva, com o menu e os botões ajustados ao papel do usuário.
@@ -43,6 +43,14 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - Orçamentos com vários itens: rascunho → enviado → aprovado ou recusado (só o proprietário decide) e **conversão em pedido** numa transação, com baixa de estoque e entrada no caixa se pago.
 - Numeração de pedidos e orçamentos por empresa (#001, #002...).
 - Configurações da empresa com o **limite anual do MEI** obrigatório, usado como referência no dashboard.
+
+**Etapa extra (permissões e grupos de acesso) concluída:**
+
+- 45 permissões por ação (ex.: aprovar orçamento, dar baixa no recebimento, pagar despesa), combinadas em **grupos de acesso** que cada empresa cria e edita numa matriz.
+- Grupos padrão **Proprietário** (acesso total, fixo), **Vendedor** e **Contador**.
+- Escopo por grupo: ver todos os orçamentos e pedidos da empresa ou **só os próprios**.
+- **Contas a receber**: o financeiro dá baixa nos pedidos pendentes sem precisar acessar vendas.
+- Administração delegável (`access.manage`) sem escalada: ninguém concede o que não tem.
 
 **Próximas semanas:** CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
 
@@ -105,7 +113,7 @@ Navegador ──> React (Vite) ──/api──> Fastify
                                  PostgreSQL (company_id em toda tabela de negócio)
 ```
 
-Toda função de serviço recebe o contexto de quem está agindo, verifica a permissão (`can()` do pacote compartilhado) e filtra pela empresa. É a mesma camada que o assistente de IA e o bot do Telegram vão usar na semana 4.
+Toda função de serviço recebe o contexto de quem está agindo, verifica a permissão do grupo de acesso (`authorize(ctx, 'quotes.approve')`, catálogo em `packages/shared/src/permissions.ts`) e filtra pela empresa (e pelo criador, em grupos restritos aos próprios registros). É a mesma camada que o assistente de IA e o bot do Telegram vão usar na semana 4.
 
 ## Segurança
 
@@ -134,6 +142,8 @@ GET|POST        /transactions     GET|PUT|DELETE /transactions/:id
 GET|POST        /orders           GET|PUT|DELETE /orders/:id
 GET|POST        /quotes           GET|PUT|DELETE /quotes/:id   (PUT só em rascunho)
 POST            /quotes/:id/send | /approve | /reject | /convert
+GET             /receivables      POST /receivables/:id/settle  (contas a receber)
+GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id
 GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
 GET             /dashboard
 GET|PUT         /company          (configurações da empresa, incluindo o limite anual do MEI)
@@ -147,10 +157,11 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 2. **Caixa:** pedido **pago** ou **concluído** gera uma única entrada no caixa, e despesa **paga** com conta gera uma única saída. Voltar o status a pendente remove a movimentação. Movimentações geradas automaticamente não podem ser editadas diretamente (409).
 3. **Saldo:** saldo inicial mais movimentações, considerando só contas ativas nos dois termos.
 4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
-5. **Orçamentos:** não mexem em estoque nem caixa. Só rascunho é editável; aprovar e recusar exigem a permissão `approve` (proprietário). Converter cria o pedido com os itens e preços do orçamento, uma única vez (409 na segunda tentativa); orçamento convertido não pode ser excluído.
-6. **Usuários:** não são excluídos (preserva a auditoria). Desativar ou trocar a senha de outra pessoa encerra as sessões dela. Ninguém remove o próprio acesso, e a empresa mantém ao menos um proprietário ativo.
-7. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
-8. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
+5. **Orçamentos:** não mexem em estoque nem caixa. Só rascunho é editável; enviar, aprovar/recusar e converter têm permissões próprias (`quotes.send`, `quotes.approve`, `quotes.convert`). Converter cria o pedido com os itens e preços do orçamento, uma única vez (409 na segunda tentativa); orçamento convertido não pode ser excluído.
+6. **Usuários:** não são excluídos (preserva a auditoria). Desativar ou trocar a senha de outra pessoa encerra as sessões dela. Ninguém muda o próprio grupo nem se desativa, e a empresa mantém ao menos um proprietário ativo.
+7. **Permissões:** cada usuário pertence a um grupo de acesso; as permissões são lidas a cada requisição (mudança vale na hora). Marcar pedido como pago/concluído exige `receivables.settle`; pagar despesa exige `payables.pay`. Pré-requisitos são completados automaticamente (qualquer ação implica "ver"; montar orçamento ou pedido implica ver produtos e clientes). O grupo Proprietário é fixo; quem gerencia grupos só concede o que tem e não tira de si a gestão; grupo com usuários não é excluído.
+8. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
+9. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
 
 ## Testes
 
@@ -158,14 +169,14 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 32 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 40 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 
 ```text
 .
 ├── packages/shared/src/
-│   ├── rbac.ts                 # Papéis, módulos e matriz de permissões
+│   ├── permissions.ts          # Catálogo de permissões, pré-requisitos e grupos padrão
 │   └── schemas/index.ts        # Schemas Zod (validação no front e no back)
 ├── backend/
 │   ├── drizzle/                # Migrações SQL geradas

@@ -1,13 +1,15 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { isPermission, PERMISSIONS, withRequirements } from '@arandue/shared/permissions';
 import type { LoginInput, RegisterInput } from '@arandue/shared/schemas';
 import { loginSchema, registerSchema } from '@arandue/shared/schemas';
 import { hash, verify } from '@node-rs/argon2';
 import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { companies, sessions, users } from '../db/schema.ts';
+import { accessGroupPermissions, accessGroups, companies, sessions, users } from '../db/schema.ts';
 import type { Ctx } from '../lib/context.ts';
 import { conflict, unauthorized } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
+import { createDefaultGroups } from './accessGroups.ts';
 import { audit } from './audit.ts';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -30,6 +32,40 @@ export interface SessionResult {
 export interface AuthResult {
   session: SessionResult;
   ctx: Ctx;
+}
+
+// Colunas que montam o contexto de quem age: usuário, grupo e as permissões do grupo.
+const ctxColumns = {
+  userId: users.id,
+  companyId: users.companyId,
+  groupId: accessGroups.id,
+  isOwner: accessGroups.isOwner,
+  ownOnly: accessGroups.ownOnly,
+  permissions: sql<string[]>`coalesce((
+    SELECT array_agg(${accessGroupPermissions.permission}) FROM ${accessGroupPermissions}
+    WHERE ${accessGroupPermissions.groupId} = ${accessGroups.id}), '{}')`,
+};
+
+type CtxRow = {
+  userId: number;
+  companyId: number;
+  groupId: number;
+  isOwner: boolean;
+  ownOnly: boolean;
+  permissions: string[];
+};
+
+function toCtx(row: CtxRow): Ctx {
+  return {
+    userId: row.userId,
+    companyId: row.companyId,
+    groupId: row.groupId,
+    isOwner: row.isOwner,
+    // O Proprietário tem todas as permissões e nunca fica restrito aos próprios registros.
+    ownOnly: !row.isOwner && row.ownOnly,
+    permissions: new Set(row.isOwner ? PERMISSIONS : withRequirements(row.permissions.filter(isPermission))),
+    actor: 'web',
+  };
 }
 
 async function createSession(userId: number): Promise<SessionResult> {
@@ -56,13 +92,27 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
       .returning({ id: companies.id });
     if (!company) throw new Error('Falha ao criar empresa.');
 
+    const ownerGroupId = await createDefaultGroups(tx, company.id);
     const [user] = await tx
       .insert(users)
-      .values({ companyId: company.id, name: data.name, email: data.email, passwordHash, role: 'owner' })
+      .values({
+        companyId: company.id,
+        name: data.name,
+        email: data.email,
+        passwordHash,
+        groupId: ownerGroupId,
+      })
       .returning({ id: users.id });
     if (!user) throw new Error('Falha ao criar usuário.');
 
-    const ctx: Ctx = { userId: user.id, companyId: company.id, role: 'owner', actor: 'web' };
+    const ctx = toCtx({
+      userId: user.id,
+      companyId: company.id,
+      groupId: ownerGroupId,
+      isOwner: true,
+      ownOnly: false,
+      permissions: [],
+    });
     await audit(tx, ctx, 'create', 'company', company.id);
     return ctx;
   });
@@ -73,24 +123,19 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 export async function login(input: LoginInput): Promise<AuthResult> {
   const data = parse(loginSchema, input);
   const [user] = await db
-    .select({
-      id: users.id,
-      companyId: users.companyId,
-      role: users.role,
-      passwordHash: users.passwordHash,
-      active: users.active,
-    })
+    .select({ ...ctxColumns, passwordHash: users.passwordHash, active: users.active })
     .from(users)
+    .innerJoin(accessGroups, eq(accessGroups.id, users.groupId))
     .where(eq(sql`lower(${users.email})`, data.email));
 
   const valid = await verify(user?.passwordHash ?? (await getDummyHash()), data.password);
   if (!user || !valid || !user.active) throw unauthorized('E-mail ou senha incorretos.');
 
   // Limpeza oportunista das sessões vencidas deste usuário.
-  await db.delete(sessions).where(and(eq(sessions.userId, user.id), lt(sessions.expiresAt, new Date())));
-  const ctx: Ctx = { userId: user.id, companyId: user.companyId, role: user.role, actor: 'web' };
-  await audit(db, ctx, 'login', 'user', user.id);
-  return { session: await createSession(user.id), ctx };
+  await db.delete(sessions).where(and(eq(sessions.userId, user.userId), lt(sessions.expiresAt, new Date())));
+  const ctx = toCtx(user);
+  await audit(db, ctx, 'login', 'user', user.userId);
+  return { session: await createSession(user.userId), ctx };
 }
 
 export async function logout(token: string): Promise<void> {
@@ -106,14 +151,10 @@ export interface SessionInfo {
 export async function resolveSession(token: string): Promise<SessionInfo | null> {
   const id = hashToken(token);
   const [row] = await db
-    .select({
-      userId: users.id,
-      companyId: users.companyId,
-      role: users.role,
-      expiresAt: sessions.expiresAt,
-    })
+    .select({ ...ctxColumns, expiresAt: sessions.expiresAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .innerJoin(accessGroups, eq(accessGroups.id, users.groupId))
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, new Date()), eq(users.active, true)));
   if (!row) return null;
 
@@ -124,10 +165,7 @@ export async function resolveSession(token: string): Promise<SessionInfo | null>
     renewed = { token, expiresAt };
   }
 
-  return {
-    ctx: { userId: row.userId, companyId: row.companyId, role: row.role, actor: 'web' },
-    renewed,
-  };
+  return { ctx: toCtx(row), renewed };
 }
 
 export async function getProfile(ctx: Ctx) {
@@ -136,7 +174,7 @@ export async function getProfile(ctx: Ctx) {
       id: users.id,
       name: users.name,
       email: users.email,
-      role: users.role,
+      group: { id: accessGroups.id, name: accessGroups.name, isOwner: accessGroups.isOwner },
       company: {
         id: companies.id,
         name: companies.name,
@@ -146,7 +184,9 @@ export async function getProfile(ctx: Ctx) {
     })
     .from(users)
     .innerJoin(companies, eq(companies.id, users.companyId))
+    .innerJoin(accessGroups, eq(accessGroups.id, users.groupId))
     .where(eq(users.id, ctx.userId));
   if (!row) throw unauthorized();
-  return row;
+  // O frontend usa a lista só para esconder menus e botões; o backend confere de novo.
+  return { ...row, ownOnly: ctx.ownOnly, permissions: [...ctx.permissions] };
 }

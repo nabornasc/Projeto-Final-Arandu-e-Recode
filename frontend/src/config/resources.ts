@@ -1,4 +1,4 @@
-import type { Module } from '@arandue/shared/rbac';
+import type { Area } from '@arandue/shared/permissions';
 import {
   bankAccountSchema,
   customerSchema,
@@ -22,7 +22,8 @@ export interface Field {
 export interface ResourceConfig {
   title: string;
   endpoint: string;
-  module: Module;
+  // Área de permissões com ver, criar, editar e excluir.
+  area: Extract<Area, 'products' | 'customers' | 'suppliers' | 'payables' | 'bank_accounts' | 'cash'>;
   schema: z.ZodType;
   fields: Field[];
   columns: [string, string][];
@@ -34,7 +35,7 @@ export const resources = {
   products: {
     title: 'Produtos e serviços',
     endpoint: '/products',
-    module: 'products',
+    area: 'products',
     schema: productSchema,
     fields: [
       { key: 'name', label: 'Nome', type: 'text', required: true },
@@ -62,7 +63,7 @@ export const resources = {
   customers: {
     title: 'Clientes',
     endpoint: '/customers',
-    module: 'customers',
+    area: 'customers',
     schema: customerSchema,
     fields: [
       { key: 'name', label: 'Nome completo / Razão social', type: 'text', required: true },
@@ -81,7 +82,7 @@ export const resources = {
   suppliers: {
     title: 'Fornecedores',
     endpoint: '/suppliers',
-    module: 'suppliers',
+    area: 'suppliers',
     schema: supplierSchema,
     fields: [
       { key: 'name', label: 'Nome / Razão social', type: 'text', required: true },
@@ -97,9 +98,9 @@ export const resources = {
     ],
   },
   expenses: {
-    title: 'Despesas',
+    title: 'Contas a pagar (despesas)',
     endpoint: '/expenses',
-    module: 'finance',
+    area: 'payables',
     schema: expenseSchema,
     fields: [
       { key: 'description', label: 'Descrição', type: 'text', required: true },
@@ -129,7 +130,7 @@ export const resources = {
   accounts: {
     title: 'Contas bancárias',
     endpoint: '/bank-accounts',
-    module: 'finance',
+    area: 'bank_accounts',
     schema: bankAccountSchema,
     fields: [
       { key: 'bankName', label: 'Instituição / carteira', type: 'text', required: true },
@@ -157,7 +158,7 @@ export const resources = {
   transactions: {
     title: 'Movimentações de caixa',
     endpoint: '/transactions',
-    module: 'finance',
+    area: 'cash',
     schema: transactionSchema,
     fields: [
       {

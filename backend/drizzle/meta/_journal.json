@@ -15,6 +15,20 @@
       "when": 1793642258425,
       "tag": "0001_numeracao_e_limite_mei",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793645423938,
+      "tag": "0002_grupos_de_acesso",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793645425047,
+      "tag": "0003_remove_papel_fixo",
+      "breakpoints": true
     }
   ]
 }

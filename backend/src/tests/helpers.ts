@@ -66,14 +66,29 @@ export async function signupCompany(app: FastifyInstance): Promise<Client> {
   return client(app, cookieFrom(response.headers['set-cookie']), response.json().company.id);
 }
 
-// Convida um membro pela gestão de usuários do proprietário e devolve o cliente HTTP já logado.
-export async function addMember(
-  app: FastifyInstance,
-  owner: Client,
-  role: 'owner' | 'seller' | 'accountant',
-) {
-  const email = `${role}-${randomUUID()}@teste.test`;
-  const created = await owner.post('/users', { name: role, email, role, password: PASSWORD });
+// Grupos padrão de toda empresa nova, pelo papel que representavam antes dos grupos de acesso.
+export type DefaultRole = 'owner' | 'seller' | 'accountant';
+const DEFAULT_GROUP_NAMES: Record<DefaultRole, string> = {
+  owner: 'Proprietário',
+  seller: 'Vendedor',
+  accountant: 'Contador',
+};
+
+export async function groupIds(owner: Client): Promise<Record<DefaultRole, number>> {
+  const groups: { id: number; name: string }[] = (await owner.get('/access-groups')).body;
+  const idOf = (role: DefaultRole) => {
+    const group = groups.find((item) => item.name === DEFAULT_GROUP_NAMES[role]);
+    if (!group) throw new Error(`Grupo padrão ${DEFAULT_GROUP_NAMES[role]} não encontrado.`);
+    return group.id;
+  };
+  return { owner: idOf('owner'), seller: idOf('seller'), accountant: idOf('accountant') };
+}
+
+// Convida um membro (grupo padrão ou id de grupo) e devolve o cliente HTTP já logado.
+export async function addMember(app: FastifyInstance, owner: Client, group: DefaultRole | number) {
+  const email = `membro-${randomUUID()}@teste.test`;
+  const groupId = typeof group === 'number' ? group : (await groupIds(owner))[group];
+  const created = await owner.post('/users', { name: 'Membro', email, groupId, password: PASSWORD });
   if (created.status !== 201) throw new Error(`Convite falhou: ${JSON.stringify(created.body)}`);
   const response = await login(app, email);
   return Object.assign(client(app, cookieFrom(response.headers['set-cookie']), owner.companyId), {

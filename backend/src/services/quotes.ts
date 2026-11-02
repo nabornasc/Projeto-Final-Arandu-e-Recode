@@ -1,4 +1,4 @@
-import type { Action } from '@arandue/shared/rbac';
+import type { Permission } from '@arandue/shared/permissions';
 import {
   type QuoteConvertInput,
   type QuoteInput,
@@ -6,10 +6,10 @@ import {
   quoteConvertSchema,
   quoteSchema,
 } from '@arandue/shared/schemas';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
 import { customers, orders, products, quoteItems, quotes } from '../db/schema.ts';
-import { authorize, type Ctx } from '../lib/context.ts';
+import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
@@ -17,7 +17,8 @@ import { nextNumber } from './numbering.ts';
 import { buildLines, getOrder, insertOrder } from './orders.ts';
 import { assertCustomer } from './ownership.ts';
 
-const scoped = (ctx: Ctx, id: number) => and(eq(quotes.id, id), eq(quotes.companyId, ctx.companyId));
+const scoped = (ctx: Ctx, id: number) =>
+  and(eq(quotes.id, id), eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy));
 
 const STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: 'em rascunho',
@@ -26,7 +27,7 @@ const STATUS_LABEL: Record<QuoteStatus, string> = {
   rejected: 'recusado',
 };
 
-async function loadQuotes(ctx: Ctx, where = eq(quotes.companyId, ctx.companyId)) {
+async function loadQuotes(where: SQL | undefined) {
   const rows = await db
     .select({
       id: quotes.id,
@@ -84,20 +85,20 @@ async function lockQuote(tx: Transaction, ctx: Ctx, id: number) {
 }
 
 export async function listQuotes(ctx: Ctx) {
-  authorize(ctx, 'sales', 'read');
-  return loadQuotes(ctx);
+  authorize(ctx, 'quotes.read');
+  return loadQuotes(and(eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy)));
 }
 
 export async function getQuote(ctx: Ctx, id: number) {
-  authorize(ctx, 'sales', 'read');
-  const [row] = await loadQuotes(ctx, scoped(ctx, id));
+  authorize(ctx, 'quotes.read');
+  const [row] = await loadQuotes(scoped(ctx, id));
   if (!row) throw notFound('Orçamento não encontrado.');
   return row;
 }
 
 // Orçamento não mexe em estoque nem no caixa: isso só acontece ao converter em pedido.
 export async function createQuote(ctx: Ctx, input: QuoteInput) {
-  authorize(ctx, 'sales', 'create');
+  authorize(ctx, 'quotes.create');
   const data = parse(quoteSchema, input);
 
   const id = await db.transaction(async (tx) => {
@@ -128,7 +129,7 @@ export async function createQuote(ctx: Ctx, input: QuoteInput) {
 }
 
 export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
-  authorize(ctx, 'sales', 'update');
+  authorize(ctx, 'quotes.update');
   const data = parse(quoteSchema, input);
 
   await db.transaction(async (tx) => {
@@ -155,18 +156,21 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
   return getQuote(ctx, id);
 }
 
-// Fluxo: rascunho → enviado → aprovado ou recusado. Decidir exige a permissão "approve" (proprietário).
+// Fluxo: rascunho → enviado → aprovado ou recusado. Cada passo tem a sua permissão.
 const TRANSITIONS = {
-  send: { from: 'draft', to: 'sent', action: 'update', verb: 'enviar' },
-  approve: { from: 'sent', to: 'approved', action: 'approve', verb: 'aprovar' },
-  reject: { from: 'sent', to: 'rejected', action: 'approve', verb: 'recusar' },
-} as const satisfies Record<string, { from: QuoteStatus; to: QuoteStatus; action: Action; verb: string }>;
+  send: { from: 'draft', to: 'sent', permission: 'quotes.send', verb: 'enviar' },
+  approve: { from: 'sent', to: 'approved', permission: 'quotes.approve', verb: 'aprovar' },
+  reject: { from: 'sent', to: 'rejected', permission: 'quotes.approve', verb: 'recusar' },
+} as const satisfies Record<
+  string,
+  { from: QuoteStatus; to: QuoteStatus; permission: Permission; verb: string }
+>;
 
 export type QuoteTransition = keyof typeof TRANSITIONS;
 
 export async function transitionQuote(ctx: Ctx, id: number, name: QuoteTransition) {
   const step = TRANSITIONS[name];
-  authorize(ctx, 'sales', step.action);
+  authorize(ctx, step.permission);
 
   await db.transaction(async (tx) => {
     const quote = await lockQuote(tx, ctx, id);
@@ -186,8 +190,10 @@ export async function transitionQuote(ctx: Ctx, id: number, name: QuoteTransitio
 
 // Orçamento aprovado vira pedido numa única transação: itens, baixa de estoque e caixa (se pago).
 export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInput) {
-  authorize(ctx, 'sales', 'create');
+  authorize(ctx, 'quotes.convert');
   const data = parse(quoteConvertSchema, input);
+  // Converter já como pago é também uma baixa no contas a receber.
+  if (data.status === 'paid') authorize(ctx, 'receivables.settle');
 
   const orderId = await db.transaction(async (tx) => {
     const quote = await lockQuote(tx, ctx, id);
@@ -232,7 +238,7 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
 }
 
 export async function deleteQuote(ctx: Ctx, id: number) {
-  authorize(ctx, 'sales', 'delete');
+  authorize(ctx, 'quotes.delete');
   await db.transaction(async (tx) => {
     const quote = await lockQuote(tx, ctx, id);
     const [order] = await tx.select({ id: orders.id }).from(orders).where(eq(orders.quoteId, id));

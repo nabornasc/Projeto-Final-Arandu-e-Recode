@@ -1,9 +1,9 @@
 // Dados de demonstração. APAGA o banco de desenvolvimento antes de inserir.
 // Usa os próprios serviços, então os dados respeitam as mesmas regras da aplicação.
-import { hash } from '@node-rs/argon2';
 import { sql as rawSql } from 'drizzle-orm';
 import { config } from '../config.ts';
 import type { Ctx } from '../lib/context.ts';
+import { listAccessGroups } from '../services/accessGroups.ts';
 import { register } from '../services/auth.ts';
 import { createBankAccount } from '../services/bankAccounts.ts';
 import { updateCompanySettings } from '../services/company.ts';
@@ -11,8 +11,8 @@ import { createCustomer } from '../services/customers.ts';
 import { createExpense } from '../services/expenses.ts';
 import { createOrder } from '../services/orders.ts';
 import { createProduct } from '../services/products.ts';
+import { createUser } from '../services/users.ts';
 import { db, sql } from './client.ts';
-import { users } from './schema.ts';
 
 if (config.NODE_ENV === 'production') throw new Error('Seed não pode rodar em produção.');
 
@@ -24,17 +24,14 @@ async function truncateAll() {
   await db.execute(rawSql`
     TRUNCATE companies, users, sessions, customers, suppliers, products, leads, interactions,
              quotes, quote_items, orders, order_items, bank_accounts, expenses, cash_transactions,
-             audit_logs, events RESTART IDENTITY CASCADE`);
+             audit_logs, events, access_groups, access_group_permissions RESTART IDENTITY CASCADE`);
 }
 
-async function addUser(owner: Ctx, name: string, email: string, role: 'seller' | 'accountant') {
-  await db.insert(users).values({
-    companyId: owner.companyId,
-    name,
-    email,
-    role,
-    passwordHash: await hash(DEMO_PASSWORD),
-  });
+// Convida pelo mesmo serviço da tela de usuários, usando um dos grupos padrão da empresa.
+async function addUser(owner: Ctx, name: string, email: string, groupName: 'Vendedor' | 'Contador') {
+  const group = (await listAccessGroups(owner)).find((item) => item.name === groupName);
+  if (!group) throw new Error(`Grupo padrão "${groupName}" não encontrado.`);
+  await createUser(owner, { name, email, groupId: group.id, password: DEMO_PASSWORD });
 }
 
 async function seedCompany(companyName: string, prefix: string) {
@@ -46,8 +43,8 @@ async function seedCompany(companyName: string, prefix: string) {
   });
   // Valor só de demonstração: cada empresa informa o limite vigente em Configurações.
   await updateCompanySettings(owner, { name: companyName, meiAnnualLimit: 81000 });
-  await addUser(owner, `Vendedor ${companyName}`, `vendedor@${prefix}.test`, 'seller');
-  await addUser(owner, `Contador ${companyName}`, `contador@${prefix}.test`, 'accountant');
+  await addUser(owner, `Vendedor ${companyName}`, `vendedor@${prefix}.test`, 'Vendedor');
+  await addUser(owner, `Contador ${companyName}`, `contador@${prefix}.test`, 'Contador');
 
   const service = await createProduct(owner, {
     name: 'Identidade visual',

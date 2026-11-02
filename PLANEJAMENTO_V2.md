@@ -235,7 +235,7 @@ Lista fixa no código (`packages/shared/src/permissions.ts`), porque cada permis
 
 **Mudança de regra importante:** hoje quem edita pedido também o marca como pago. Passa a ser separado: mudar para `paid`/`completed` exige `receivables.settle`. Isso viabiliza o fluxo "vendedor gera o orçamento, aprova e converte; o financeiro dá baixa".
 
-**Dependências** aplicadas no servidor e na tela: qualquer ação implica `read` da área; `quotes.convert` implica `orders.create`; `receivables.settle` implica `orders.read` e `bank_accounts.read` (opções).
+**Dependências** aplicadas no servidor e na tela: qualquer ação implica `read` da área; `quotes.convert` implica `orders.create`; criar/editar orçamento e criar pedido implicam `products.read` e `customers.read` (escolher itens e cliente). O contas a receber tem rota própria (`/receivables`), então o financeiro dá baixa sem ver pedidos nem orçamentos; a lista de contas para escolher é liberada a quem recebe, paga ou lança no caixa.
 
 ### 6.3 Modelo de dados
 
@@ -344,7 +344,7 @@ Cada semana termina com algo demonstrável e com o critério de pronto conferido
 
 **Pronto quando:** um vendedor monta um orçamento de 3 itens, o proprietário aprova, o pedido nasce e o estoque baixa.
 
-### Etapa extra (03 a 06/11): Permissões detalhadas e grupos de acesso
+### Etapa extra (03 a 06/11): Permissões detalhadas e grupos de acesso — concluída em 02/11
 
 Entra na folga aberta pela semana 2 (concluída em 02/11). Detalhes na seção 6.
 

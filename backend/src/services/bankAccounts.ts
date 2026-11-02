@@ -1,11 +1,9 @@
-import { can } from '@arandue/shared/rbac';
 import { type BankAccountInput, bankAccountSchema } from '@arandue/shared/schemas';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { bankAccounts, cashTransactions, expenses } from '../db/schema.ts';
-import type { Ctx } from '../lib/context.ts';
-import { authorize } from '../lib/context.ts';
-import { forbidden, notFound } from '../lib/errors.ts';
+import { authorize, authorizeAny, type Ctx } from '../lib/context.ts';
+import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
 
@@ -13,7 +11,7 @@ const scoped = (ctx: Ctx, id: number) =>
   and(eq(bankAccounts.id, id), eq(bankAccounts.companyId, ctx.companyId), eq(bankAccounts.active, true));
 
 export async function listBankAccounts(ctx: Ctx) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'bank_accounts.read');
   return db
     .select()
     .from(bankAccounts)
@@ -21,9 +19,18 @@ export async function listBankAccounts(ctx: Ctx) {
     .orderBy(asc(bankAccounts.accountName));
 }
 
-// Lista mínima (sem saldos) para quem registra vendas escolher a conta de recebimento.
+// Lista mínima (sem saldos) para quem precisa escolher uma conta: receber, pagar ou lançar no caixa.
 export async function listBankAccountOptions(ctx: Ctx) {
-  if (!can(ctx.role, 'finance', 'read') && !can(ctx.role, 'sales', 'create')) throw forbidden();
+  authorizeAny(ctx, [
+    'bank_accounts.read',
+    'orders.create',
+    'quotes.convert',
+    'receivables.settle',
+    'payables.create',
+    'payables.update',
+    'cash.create',
+    'cash.update',
+  ]);
   return db
     .select({ id: bankAccounts.id, bankName: bankAccounts.bankName, accountName: bankAccounts.accountName })
     .from(bankAccounts)
@@ -32,14 +39,14 @@ export async function listBankAccountOptions(ctx: Ctx) {
 }
 
 export async function getBankAccount(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'bank_accounts.read');
   const [row] = await db.select().from(bankAccounts).where(scoped(ctx, id));
   if (!row) throw notFound();
   return row;
 }
 
 export async function createBankAccount(ctx: Ctx, input: BankAccountInput) {
-  authorize(ctx, 'finance', 'create');
+  authorize(ctx, 'bank_accounts.create');
   const data = parse(bankAccountSchema, input);
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -53,7 +60,7 @@ export async function createBankAccount(ctx: Ctx, input: BankAccountInput) {
 }
 
 export async function updateBankAccount(ctx: Ctx, id: number, input: BankAccountInput) {
-  authorize(ctx, 'finance', 'update');
+  authorize(ctx, 'bank_accounts.update');
   const data = parse(bankAccountSchema, input);
   return db.transaction(async (tx) => {
     const [row] = await tx.update(bankAccounts).set(data).where(scoped(ctx, id)).returning();
@@ -65,7 +72,7 @@ export async function updateBankAccount(ctx: Ctx, id: number, input: BankAccount
 
 // Conta com movimentações ou despesas é desativada (preserva o histórico); senão, é excluída.
 export async function deleteBankAccount(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'delete');
+  authorize(ctx, 'bank_accounts.delete');
   await db.transaction(async (tx) => {
     const [account] = await tx.select({ id: bankAccounts.id }).from(bankAccounts).where(scoped(ctx, id));
     if (!account) throw notFound();

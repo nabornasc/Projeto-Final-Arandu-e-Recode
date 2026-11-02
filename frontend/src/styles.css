@@ -916,3 +916,48 @@ dialog.modal::backdrop {
 .modal-body {
   padding: 25px;
 }
+.permission-matrix {
+  border: 1px solid #e9e4f2;
+  border-radius: 10px;
+  margin: 18px 0 0;
+  padding: 6px 14px 10px;
+}
+.permission-matrix legend {
+  padding: 0 6px;
+  color: #665d72;
+  font-size: 11px;
+  font-weight: 700;
+}
+.permission-row {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid #f1edf6;
+  font-size: 11px;
+  color: #4b4260;
+}
+.permission-row:first-of-type {
+  border-top: 0;
+}
+.permission-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 700;
+}
+.permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.permission-actions .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+@media (max-width: 650px) {
+  .permission-row {
+    grid-template-columns: 1fr;
+  }
+}

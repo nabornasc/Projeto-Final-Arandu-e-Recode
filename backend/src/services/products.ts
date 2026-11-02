@@ -16,7 +16,7 @@ const normalize = (data: ReturnType<typeof productSchema.parse>) => ({
 });
 
 export async function listProducts(ctx: Ctx) {
-  authorize(ctx, 'products', 'read');
+  authorize(ctx, 'products.read');
   return db
     .select()
     .from(products)
@@ -25,7 +25,7 @@ export async function listProducts(ctx: Ctx) {
 }
 
 export async function getProduct(ctx: Ctx, id: number) {
-  authorize(ctx, 'products', 'read');
+  authorize(ctx, 'products.read');
   const [row] = await db
     .select()
     .from(products)
@@ -35,7 +35,7 @@ export async function getProduct(ctx: Ctx, id: number) {
 }
 
 export async function createProduct(ctx: Ctx, input: ProductInput) {
-  authorize(ctx, 'products', 'create');
+  authorize(ctx, 'products.create');
   const data = normalize(parse(productSchema, input));
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -49,7 +49,7 @@ export async function createProduct(ctx: Ctx, input: ProductInput) {
 }
 
 export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
-  authorize(ctx, 'products', 'update');
+  authorize(ctx, 'products.update');
   const data = normalize(parse(productSchema, input));
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -65,7 +65,7 @@ export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
 
 // Produto já usado em pedido ou orçamento é arquivado (preserva o histórico); senão, é excluído.
 export async function deleteProduct(ctx: Ctx, id: number) {
-  authorize(ctx, 'products', 'delete');
+  authorize(ctx, 'products.delete');
   await db.transaction(async (tx) => {
     const [product] = await tx.select({ id: products.id }).from(products).where(scoped(ctx, id));
     if (!product) throw notFound();

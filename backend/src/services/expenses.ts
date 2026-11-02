@@ -32,7 +32,7 @@ async function syncCash(tx: Transaction, ctx: Ctx, expense: Expense): Promise<vo
 }
 
 export async function listExpenses(ctx: Ctx) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'payables.read');
   return db
     .select()
     .from(expenses)
@@ -42,15 +42,16 @@ export async function listExpenses(ctx: Ctx) {
 }
 
 export async function getExpense(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'read');
+  authorize(ctx, 'payables.read');
   const [row] = await db.select().from(expenses).where(scoped(ctx, id));
   if (!row) throw notFound();
   return row;
 }
 
 export async function createExpense(ctx: Ctx, input: ExpenseInput) {
-  authorize(ctx, 'finance', 'create');
+  authorize(ctx, 'payables.create');
   const data = parse(expenseSchema, input);
+  if (data.status === 'paid') authorize(ctx, 'payables.pay');
   return db.transaction(async (tx) => {
     if (data.bankAccountId) await assertActiveAccount(tx, ctx, data.bankAccountId);
     const [row] = await tx
@@ -65,9 +66,17 @@ export async function createExpense(ctx: Ctx, input: ExpenseInput) {
 }
 
 export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
-  authorize(ctx, 'finance', 'update');
+  authorize(ctx, 'payables.update');
   const data = parse(expenseSchema, input);
   return db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select({ status: expenses.status })
+      .from(expenses)
+      .where(scoped(ctx, id))
+      .for('update');
+    if (!previous) throw notFound();
+    // Pagar (ou desfazer o pagamento) mexe no caixa e tem permissão própria.
+    if (previous.status !== data.status) authorize(ctx, 'payables.pay');
     if (data.bankAccountId) await assertActiveAccount(tx, ctx, data.bankAccountId);
     const [row] = await tx.update(expenses).set(data).where(scoped(ctx, id)).returning();
     if (!row) throw notFound();
@@ -79,7 +88,7 @@ export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
 
 // A saída de caixa vinculada é removida em cascata (FK expense_id).
 export async function deleteExpense(ctx: Ctx, id: number) {
-  authorize(ctx, 'finance', 'delete');
+  authorize(ctx, 'payables.delete');
   await db.transaction(async (tx) => {
     const [row] = await tx.delete(expenses).where(scoped(ctx, id)).returning({ id: expenses.id });
     if (!row) throw notFound();

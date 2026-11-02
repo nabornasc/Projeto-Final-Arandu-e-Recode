@@ -48,6 +48,14 @@ const router = createBrowserRouter([
       { path: 'contas', lazy: resourcePage('AccountsPage') },
       { path: 'movimentacoes', lazy: resourcePage('TransactionsPage') },
       {
+        path: 'contas-a-receber',
+        lazy: async () => ({ Component: (await import('./pages/ReceivablesPage.tsx')).default }),
+      },
+      {
+        path: 'grupos',
+        lazy: async () => ({ Component: (await import('./pages/AccessGroupsPage.tsx')).default }),
+      },
+      {
         path: 'usuarios',
         lazy: async () => ({ Component: (await import('./pages/UsersPage.tsx')).default }),
       },

@@ -1,4 +1,3 @@
-import { ROLE_LABELS, ROLES, type Role } from '@arandue/shared/rbac';
 import { userCreateSchema, userUpdateSchema } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -7,18 +6,20 @@ import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
+import { type AccessGroup, useAccessGroups } from '../lib/accessGroups.ts';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 
 interface User {
   id: number;
   name: string;
   email: string;
-  role: Role;
+  groupId: number;
+  groupName: string;
   active: boolean;
 }
 
-// Só o proprietário chega aqui (módulo "users"); o backend confere de novo.
+// Quem vê usuários (users.read) chega aqui; convidar e editar exigem users.manage. O backend confere de novo.
 export default function UsersPage() {
   const profile = useOutletContext<Profile>();
   const notify = useToast();
@@ -26,6 +27,16 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<User | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const users = useQuery({ queryKey: ['/users'], queryFn: () => api<User[]>('/users') });
+  const groups = useAccessGroups();
+  const canManage = can(profile, 'users.manage');
+  // Sem escalada: só aparecem os grupos que o administrador pode atribuir (o servidor recusa os demais).
+  const grantable = (groups.data ?? []).filter(
+    (group) =>
+      profile.group.isOwner ||
+      (!group.isOwner && group.permissions.every((permission) => profile.permissions.includes(permission))),
+  );
+  const canEdit = (user: User) =>
+    canManage && (profile.group.isOwner || grantable.some((group) => group.id === user.groupId));
 
   const open = (user: User | null) => {
     setEditing(user);
@@ -40,9 +51,13 @@ export default function UsersPage() {
           <h2>Usuários</h2>
           <p>Convide a equipe e defina o que cada pessoa pode fazer.</p>
         </div>
-        <button type="button" className="button primary" onClick={() => open(null)}>
-          <Plus size={17} /> Convidar usuário
-        </button>
+        {canManage ? (
+          <button type="button" className="button primary" onClick={() => open(null)}>
+            <Plus size={17} /> Convidar usuário
+          </button>
+        ) : (
+          <span className="read-only-note">Somente leitura</span>
+        )}
       </div>
 
       <div className="panel table-panel">
@@ -57,7 +72,7 @@ export default function UsersPage() {
                 <tr>
                   <th>Nome</th>
                   <th>E-mail</th>
-                  <th>Papel</th>
+                  <th>Grupo de acesso</th>
                   <th>Situação</th>
                   <th aria-label="Ações" />
                 </tr>
@@ -70,16 +85,18 @@ export default function UsersPage() {
                       {user.id === profile.id && ' (você)'}
                     </td>
                     <td>{user.email}</td>
-                    <td>{ROLE_LABELS[user.role]}</td>
+                    <td>{user.groupName}</td>
                     <td>
                       <span className={`status ${user.active ? 'active' : 'inactive'}`}>
                         {user.active ? 'Ativo' : 'Desativado'}
                       </span>
                     </td>
                     <td className="actions">
-                      <button type="button" onClick={() => open(user)}>
-                        Editar
-                      </button>
+                      {canEdit(user) && (
+                        <button type="button" onClick={() => open(user)}>
+                          Editar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -93,6 +110,7 @@ export default function UsersPage() {
         <UserForm
           user={editing}
           isSelf={editing?.id === profile.id}
+          groups={grantable}
           onClose={() => setModalOpen(false)}
           onSaved={(message) => {
             setModalOpen(false);
@@ -108,14 +126,15 @@ export default function UsersPage() {
 interface FormProps {
   user: User | null;
   isSelf: boolean;
+  groups: AccessGroup[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }
 
-function UserForm({ user, isSelf, onClose, onSaved }: FormProps) {
+function UserForm({ user, isSelf, groups, onClose, onSaved }: FormProps) {
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
-  const [role, setRole] = useState<Role>(user?.role ?? 'seller');
+  const [groupId, setGroupId] = useState(user ? String(user.groupId) : '');
   const [active, setActive] = useState(user?.active ?? true);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +148,10 @@ function UserForm({ user, isSelf, onClose, onSaved }: FormProps) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const payload = user ? { name, role, active, password } : { name, email, role, password };
+    const group = Number(groupId) || undefined;
+    const payload = user
+      ? { name, groupId: group, active, password }
+      : { name, email, groupId: group, password };
     const parsed = (user ? userUpdateSchema : userCreateSchema).safeParse(payload);
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? 'Verifique os campos.');
     setError(null);
@@ -156,16 +178,17 @@ function UserForm({ user, isSelf, onClose, onSaved }: FormProps) {
             />
           </label>
           <label>
-            Papel
+            Grupo de acesso
             <select
-              name="role"
-              value={role}
+              name="groupId"
+              value={groupId}
               disabled={isSelf}
-              onChange={(event) => setRole(event.target.value as Role)}
+              onChange={(event) => setGroupId(event.target.value)}
             >
-              {ROLES.map((value) => (
-                <option key={value} value={value}>
-                  {ROLE_LABELS[value]}
+              <option value="">Selecione</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
                 </option>
               ))}
             </select>
@@ -195,7 +218,7 @@ function UserForm({ user, isSelf, onClose, onSaved }: FormProps) {
           )}
         </div>
         {isSelf && (
-          <p className="read-only-note">Você não pode alterar o seu próprio papel nem se desativar.</p>
+          <p className="read-only-note">Você não pode mudar o seu próprio grupo nem se desativar.</p>
         )}
 
         {error && (

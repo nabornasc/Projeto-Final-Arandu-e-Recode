@@ -1,4 +1,3 @@
-import { can } from '@arandue/shared/rbac';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownCircle,
@@ -12,7 +11,7 @@ import { EmptyState } from '../components/EmptyState.tsx';
 import { MetricCard } from '../components/MetricCard.tsx';
 import { navigation } from '../config/navigation.ts';
 import { api } from '../lib/api.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney, label } from '../lib/format.ts';
 
 interface Dashboard {
@@ -34,7 +33,7 @@ interface Dashboard {
 
 export default function DashboardPage() {
   const profile = useOutletContext<Profile>();
-  const allowed = can(profile.role, 'analytics', 'read');
+  const allowed = can(profile, 'analytics.read');
   const query = useQuery({
     queryKey: ['/dashboard'],
     queryFn: () => api<Dashboard>('/dashboard'),
@@ -43,7 +42,7 @@ export default function DashboardPage() {
 
   // Quem não vê a análise gerencial (vendedor) começa pela primeira tela permitida.
   if (!allowed) {
-    const first = navigation.find((item) => can(profile.role, item.module, 'read'));
+    const first = navigation.find((item) => can(profile, item.permission));
     return <Navigate to={first?.path ?? '/pedidos'} replace />;
   }
 

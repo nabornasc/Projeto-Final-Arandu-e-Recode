@@ -7,10 +7,11 @@ import {
 import { hash } from '@node-rs/argon2';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { sessions, users } from '../db/schema.ts';
+import { accessGroups, sessions, users } from '../db/schema.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
+import { assertCanGrant, loadGroup } from './accessGroups.ts';
 import { audit } from './audit.ts';
 
 // Nunca devolve o hash da senha.
@@ -18,31 +19,36 @@ const columns = {
   id: users.id,
   name: users.name,
   email: users.email,
-  role: users.role,
+  groupId: users.groupId,
+  groupName: accessGroups.name,
   active: users.active,
   createdAt: users.createdAt,
 };
 
 const scoped = (ctx: Ctx, id: number) => and(eq(users.id, id), eq(users.companyId, ctx.companyId));
 
+const selectUsers = () =>
+  db.select(columns).from(users).innerJoin(accessGroups, eq(accessGroups.id, users.groupId));
+
 export async function listUsers(ctx: Ctx) {
-  authorize(ctx, 'users', 'read');
-  return db.select(columns).from(users).where(eq(users.companyId, ctx.companyId)).orderBy(asc(users.name));
+  authorize(ctx, 'users.read');
+  return selectUsers().where(eq(users.companyId, ctx.companyId)).orderBy(asc(users.name));
 }
 
 export async function getUser(ctx: Ctx, id: number) {
-  authorize(ctx, 'users', 'read');
-  const [row] = await db.select(columns).from(users).where(scoped(ctx, id));
+  authorize(ctx, 'users.read');
+  const [row] = await selectUsers().where(scoped(ctx, id));
   if (!row) throw notFound('Usuário não encontrado.');
   return row;
 }
 
-// Convite com senha inicial: o proprietário repassa a senha e a pessoa entra com o próprio e-mail.
+// Convite com senha inicial: o administrador repassa a senha e a pessoa entra com o próprio e-mail.
 export async function createUser(ctx: Ctx, input: UserCreateInput) {
-  authorize(ctx, 'users', 'create');
+  authorize(ctx, 'users.manage');
   const data = parse(userCreateSchema, input);
   const passwordHash = await hash(data.password);
-  return db.transaction(async (tx) => {
+  const id = await db.transaction(async (tx) => {
+    assertCanGrant(ctx, await loadGroup(tx, ctx, data.groupId));
     const [existing] = await tx
       .select({ id: users.id })
       .from(users)
@@ -51,36 +57,52 @@ export async function createUser(ctx: Ctx, input: UserCreateInput) {
 
     const [row] = await tx
       .insert(users)
-      .values({ companyId: ctx.companyId, name: data.name, email: data.email, role: data.role, passwordHash })
-      .returning(columns);
+      .values({
+        companyId: ctx.companyId,
+        name: data.name,
+        email: data.email,
+        groupId: data.groupId,
+        passwordHash,
+      })
+      .returning({ id: users.id });
     if (!row) throw new Error('Falha ao criar usuário.');
-    await audit(tx, ctx, 'create', 'user', row.id, { role: row.role });
-    return row;
+    await audit(tx, ctx, 'create', 'user', row.id, { groupId: data.groupId });
+    return row.id;
   });
+  return getUser(ctx, id);
 }
 
 // Usuários não são excluídos (preserva a auditoria): são desativados, o que encerra as sessões.
 export async function updateUser(ctx: Ctx, id: number, input: UserUpdateInput) {
-  authorize(ctx, 'users', 'update');
+  authorize(ctx, 'users.manage');
   const data = parse(userUpdateSchema, input);
   const passwordHash = data.password ? await hash(data.password) : null;
 
-  return db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const [previous] = await tx.select().from(users).where(scoped(ctx, id)).for('update');
     if (!previous) throw notFound('Usuário não encontrado.');
 
-    const losesOwnerAccess = previous.role === 'owner' && (data.role !== 'owner' || !data.active);
-    if (id === ctx.userId && (losesOwnerAccess || !data.active)) {
-      throw badRequest('Você não pode remover o seu próprio acesso. Peça a outro proprietário.');
+    // Ninguém administra quem tem mais acesso do que ele, nem dá a alguém mais acesso do que tem.
+    const before = await loadGroup(tx, ctx, previous.groupId);
+    const after = data.groupId === previous.groupId ? before : await loadGroup(tx, ctx, data.groupId);
+    assertCanGrant(ctx, before);
+    assertCanGrant(ctx, after);
+
+    if (id === ctx.userId && (data.groupId !== previous.groupId || !data.active)) {
+      throw badRequest(
+        'Você não pode mudar o seu próprio grupo nem se desativar. Peça a outro administrador.',
+      );
     }
+    const losesOwnerAccess = before.isOwner && (!after.isOwner || !data.active);
     if (losesOwnerAccess) {
       const [{ owners } = { owners: 0 }] = await tx
         .select({ owners: sql<number>`count(*)::int` })
         .from(users)
+        .innerJoin(accessGroups, eq(accessGroups.id, users.groupId))
         .where(
           and(
             eq(users.companyId, ctx.companyId),
-            eq(users.role, 'owner'),
+            eq(accessGroups.isOwner, true),
             eq(users.active, true),
             ne(users.id, id),
           ),
@@ -88,22 +110,25 @@ export async function updateUser(ctx: Ctx, id: number, input: UserUpdateInput) {
       if (!owners) throw badRequest('A empresa precisa de pelo menos um proprietário ativo.');
     }
 
-    const [row] = await tx
+    await tx
       .update(users)
-      .set({ name: data.name, role: data.role, active: data.active, ...(passwordHash && { passwordHash }) })
-      .where(scoped(ctx, id))
-      .returning(columns);
-    if (!row) throw notFound('Usuário não encontrado.');
+      .set({
+        name: data.name,
+        groupId: data.groupId,
+        active: data.active,
+        ...(passwordHash && { passwordHash }),
+      })
+      .where(scoped(ctx, id));
 
     // Desativar ou trocar a senha de outra pessoa derruba as sessões abertas dela.
     if (id !== ctx.userId && (!data.active || passwordHash)) {
       await tx.delete(sessions).where(eq(sessions.userId, id));
     }
     await audit(tx, ctx, 'update', 'user', id, {
-      role: row.role,
-      active: row.active,
+      group: { from: previous.groupId, to: data.groupId },
+      active: data.active,
       passwordChanged: Boolean(passwordHash),
     });
-    return row;
   });
+  return getUser(ctx, id);
 }

@@ -1,9 +1,8 @@
-import { can } from '@arandue/shared/rbac';
 import { ChevronRight } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { NavLink } from 'react-router';
 import { navigation } from '../config/navigation.ts';
-import type { Profile } from '../lib/auth.ts';
+import { can, type Profile } from '../lib/auth.ts';
 
 interface Props {
   profile: Profile;
@@ -19,7 +18,7 @@ const subscribe = (onChange: () => void) => {
 };
 
 export function Sidebar({ profile, open, onClose }: Props) {
-  const items = navigation.filter((item) => can(profile.role, item.module, 'read'));
+  const items = navigation.filter((item) => can(profile, item.permission));
   const isMobile = useSyncExternalStore(subscribe, () => mobile.matches);
   return (
     <>

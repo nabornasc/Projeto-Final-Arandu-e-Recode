@@ -1,15 +1,18 @@
+import type { Permission } from '@arandue/shared/permissions';
 import {
   type OrderCreateInput,
   type OrderStatus,
   type OrderUpdateInput,
   orderCreateSchema,
   orderUpdateSchema,
+  type ReceivableSettleInput,
+  receivableSettleSchema,
 } from '@arandue/shared/schemas';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
 import { bankAccounts, cashTransactions, customers, orderItems, orders, products } from '../db/schema.ts';
-import { authorize, type Ctx } from '../lib/context.ts';
-import { badRequest, notFound } from '../lib/errors.ts';
+import { authorize, authorizeAny, type Ctx, ownScope } from '../lib/context.ts';
+import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
@@ -22,7 +25,9 @@ type Order = typeof orders.$inferSelect;
 const RECEIVED: readonly OrderStatus[] = ['paid', 'completed'];
 const isReceived = (status: OrderStatus) => RECEIVED.includes(status);
 
-const scoped = (ctx: Ctx, id: number) => and(eq(orders.id, id), eq(orders.companyId, ctx.companyId));
+// Grupos restritos aos próprios registros não alcançam (nem para ler) os pedidos de outros usuários.
+const scoped = (ctx: Ctx, id: number) =>
+  and(eq(orders.id, id), eq(orders.companyId, ctx.companyId), ownScope(ctx, orders.createdBy));
 
 // Baixa (ou devolve, com sign = -1) o estoque dos itens. As linhas de produto são travadas
 // com FOR UPDATE em ordem de id, então vendas simultâneas não vendem a mesma unidade duas vezes.
@@ -98,7 +103,7 @@ async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccoun
     .onConflictDoUpdate({ target: cashTransactions.orderId, set: values });
 }
 
-async function loadOrders(ctx: Ctx, where = eq(orders.companyId, ctx.companyId)) {
+async function loadOrders(where: SQL | undefined) {
   const rows = await db
     .select({
       id: orders.id,
@@ -146,20 +151,18 @@ async function loadOrders(ctx: Ctx, where = eq(orders.companyId, ctx.companyId))
 }
 
 export async function listOrders(ctx: Ctx) {
-  authorize(ctx, 'sales', 'read');
-  return loadOrders(ctx);
+  authorize(ctx, 'orders.read');
+  return loadOrders(and(eq(orders.companyId, ctx.companyId), ownScope(ctx, orders.createdBy)));
 }
 
 export async function getOrder(ctx: Ctx, id: number) {
-  authorize(ctx, 'sales', 'read');
-  const [row] = await loadOrders(ctx, scoped(ctx, id));
+  authorize(ctx, 'orders.read');
+  const [row] = await loadOrders(scoped(ctx, id));
   if (!row) throw notFound('Pedido não encontrado.');
   return row;
 }
 
 type OrderData = ReturnType<typeof orderCreateSchema.parse>;
-
-// Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
 type ItemInput = OrderData['items'][number];
 
 // Confere os produtos (ativos e da empresa) e calcula subtotais e total. Sem preço informado,
@@ -188,6 +191,8 @@ export async function buildLines(tx: Transaction, ctx: Ctx, items: ItemInput[], 
   return { lines, total: Math.max(0, round2(subtotal - discount)) };
 }
 
+// Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
+// Quem chama confere as permissões (pedido já pago exige também receivables.settle).
 export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, quoteId: number | null = null) {
   if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
   const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
@@ -219,19 +224,42 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, qu
 }
 
 export async function createOrder(ctx: Ctx, input: OrderCreateInput) {
-  authorize(ctx, 'sales', 'create');
+  authorize(ctx, 'orders.create');
   const data = parse(orderCreateSchema, input);
+  if (isReceived(data.status)) authorize(ctx, 'receivables.settle');
   const order = await db.transaction((tx) => insertOrder(tx, ctx, data));
   return getOrder(ctx, order.id);
 }
 
+type OrderUpdateData = ReturnType<typeof orderUpdateSchema.parse>;
+
+// Cada parte da alteração exige a sua permissão: editar dados, cancelar/reativar e mexer no
+// recebimento (pago, concluído, conta ou valor de um pedido já recebido) são separados.
+function permissionsForUpdate(previous: Order, data: OrderUpdateData): Permission[] {
+  const required = new Set<Permission>();
+  const status = data.status ?? previous.status;
+  const edits = [data.customerId, data.orderDate, data.discount, data.notes].some(
+    (value) => value !== undefined,
+  );
+  if (edits) required.add('orders.update');
+  if (status !== previous.status) {
+    if (status === 'cancelled' || previous.status === 'cancelled') required.add('orders.cancel');
+    if (isReceived(status) || isReceived(previous.status)) required.add('receivables.settle');
+  }
+  if (isReceived(status) && (data.bankAccountId || data.discount !== undefined))
+    required.add('receivables.settle');
+  if (!required.size) required.add('orders.update');
+  return [...required];
+}
+
 export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput) {
-  authorize(ctx, 'sales', 'update');
+  authorizeAny(ctx, ['orders.update', 'orders.cancel', 'receivables.settle']);
   const data = parse(orderUpdateSchema, input);
 
   await db.transaction(async (tx) => {
     const [previous] = await tx.select().from(orders).where(scoped(ctx, id)).for('update');
     if (!previous) throw notFound('Pedido não encontrado.');
+    for (const permission of permissionsForUpdate(previous, data)) authorize(ctx, permission);
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
 
     const items = await tx
@@ -277,7 +305,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
 
 // Itens e entrada no caixa são removidos em cascata; o estoque volta se o pedido não estava cancelado.
 export async function deleteOrder(ctx: Ctx, id: number) {
-  authorize(ctx, 'sales', 'delete');
+  authorize(ctx, 'orders.delete');
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(scoped(ctx, id)).for('update');
     if (!order) throw notFound('Pedido não encontrado.');
@@ -293,4 +321,31 @@ export async function deleteOrder(ctx: Ctx, id: number) {
     await tx.delete(orders).where(scoped(ctx, id));
     await audit(tx, ctx, 'delete', 'order', id, { status: order.status, total: order.total });
   });
+}
+
+// ---------- Contas a receber ----------
+
+// Pedidos pendentes de recebimento, de toda a empresa: quem cuida do financeiro dá baixa em todos.
+export async function listReceivables(ctx: Ctx) {
+  authorize(ctx, 'receivables.read');
+  return loadOrders(and(eq(orders.companyId, ctx.companyId), eq(orders.status, 'pending')));
+}
+
+export async function settleReceivable(ctx: Ctx, id: number, input: ReceivableSettleInput) {
+  authorize(ctx, 'receivables.settle');
+  const data = parse(receivableSettleSchema, input);
+  const companyOrder = and(eq(orders.id, id), eq(orders.companyId, ctx.companyId));
+
+  await db.transaction(async (tx) => {
+    const [previous] = await tx.select().from(orders).where(companyOrder).for('update');
+    if (!previous) throw notFound('Pedido não encontrado.');
+    if (previous.status !== 'pending') throw conflict('Só pedidos pendentes podem receber baixa.');
+    const [order] = await tx.update(orders).set({ status: 'paid' }).where(companyOrder).returning();
+    if (!order) throw notFound('Pedido não encontrado.');
+    await syncCash(tx, ctx, order, data.bankAccountId);
+    await audit(tx, ctx, 'status', 'order', id, { from: 'pending', to: 'paid', via: 'receivables' });
+  });
+
+  const [row] = await loadOrders(companyOrder);
+  return row;
 }

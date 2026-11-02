@@ -14,7 +14,7 @@ interface Summary extends Record<string, unknown> {
 
 // Resumo do mês corrente. Os KPIs completos (ticket médio, conversão, funil) chegam na semana 3.
 export async function getDashboard(ctx: Ctx) {
-  authorize(ctx, 'analytics', 'read');
+  authorize(ctx, 'analytics.read');
   const companyId = ctx.companyId;
 
   const [summary] = await db.execute<Summary>(sql`

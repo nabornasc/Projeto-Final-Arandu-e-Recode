@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/client.ts';
 import { ctxOf, requireAuth } from '../plugins/auth.ts';
+import * as accessGroups from '../services/accessGroups.ts';
 import * as bankAccounts from '../services/bankAccounts.ts';
 import * as company from '../services/company.ts';
 import * as customers from '../services/customers.ts';
@@ -100,6 +101,19 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
         idParamSchema.parse(request.params).id,
         request.body as never,
       );
+    });
+
+    protectedApp.get('/receivables', (request) => orders.listReceivables(ctxOf(request)));
+    protectedApp.post('/receivables/:id/settle', (request) =>
+      orders.settleReceivable(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    );
+
+    crudRoutes(protectedApp, '/access-groups', {
+      list: accessGroups.listAccessGroups,
+      get: accessGroups.getAccessGroup,
+      create: accessGroups.createAccessGroup,
+      update: accessGroups.updateAccessGroup,
+      remove: accessGroups.deleteAccessGroup,
     });
 
     // Usuários não têm DELETE: são desativados (preserva a auditoria).

@@ -1,4 +1,4 @@
-import type { Role } from '@arandue/shared/rbac';
+import { can as canWith, type Permission } from '@arandue/shared/permissions';
 import type { LoginInput, RegisterInput } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './api.ts';
@@ -7,9 +7,15 @@ export interface Profile {
   id: number;
   name: string;
   email: string;
-  role: Role;
+  group: { id: number; name: string; isOwner: boolean };
+  // Em orçamentos e pedidos, só vê os registros que criou.
+  ownOnly: boolean;
+  permissions: Permission[];
   company: { id: number; name: string; cnpj: string | null; meiAnnualLimit: number | null };
 }
+
+// Só para esconder menus e botões: quem decide é o backend.
+export const can = (profile: Profile, permission: Permission) => canWith(profile.permissions, permission);
 
 const ME_KEY = ['auth', 'me'] as const;
 

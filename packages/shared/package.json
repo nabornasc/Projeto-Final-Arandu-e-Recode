@@ -4,7 +4,7 @@
   "version": "2.0.0-dev",
   "type": "module",
   "exports": {
-    "./rbac": "./src/rbac.ts",
+    "./permissions": "./src/permissions.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "dependencies": {
