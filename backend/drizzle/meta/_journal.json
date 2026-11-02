@@ -36,6 +36,20 @@
       "when": 1793649764947,
       "tag": "0004_crm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793652853645,
+      "tag": "0005_pessoas",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793652875682,
+      "tag": "0006_remove_clientes_fornecedores",
+      "breakpoints": true
     }
   ]
 }

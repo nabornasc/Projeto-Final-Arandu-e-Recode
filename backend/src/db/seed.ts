@@ -23,7 +23,7 @@ const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISO
 
 async function truncateAll() {
   await db.execute(rawSql`
-    TRUNCATE companies, users, sessions, customers, suppliers, products, leads, interactions,
+    TRUNCATE companies, users, sessions, people, person_contacts, person_addresses, products, leads, interactions,
              quotes, quote_items, orders, order_items, bank_accounts, expenses, cash_transactions,
              audit_logs, events, access_groups, access_group_permissions RESTART IDENTITY CASCADE`);
 }
@@ -63,8 +63,17 @@ async function seedCompany(companyName: string, prefix: string) {
   await createProduct(owner, { name: 'Consultoria financeira', type: 'service', price: 260, cost: 60 });
 
   const market = await createCustomer(owner, {
+    kind: 'company',
     name: 'Mercadinho da Praça',
-    document: '12.345.678/0001-90',
+    legalName: 'Mercadinho da Praça Ltda',
+    // CNPJ fictício com dígitos verificadores válidos.
+    document: '11.222.333/0001-81',
+    zip: '01310100',
+    street: 'Avenida Paulista',
+    number: '1000',
+    district: 'Bela Vista',
+    city: 'São Paulo',
+    state: 'SP',
     phone: '(11) 99999-1111',
     email: 'contato@mercadinho.test',
   });

@@ -65,6 +65,13 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - **Lead ganho vira cliente** sem duplicar (reaproveita cliente com mesmo e-mail ou telefone); perder exige o motivo.
 - Permissões próprias (`leads.*`) com escopo "só os próprios" pelo responsável.
 
+**v2.1 — Cadastro único de pessoas:**
+
+- Clientes, fornecedores, transportadoras e representantes num só cadastro com papéis (quem é cliente e fornecedor é cadastrado uma vez).
+- Pessoa física ou jurídica com CPF/CNPJ validados e únicos por empresa; inscrição estadual, contribuinte, regime tributário.
+- **Busca de CNPJ** (Receita Federal, pela BrasilAPI) e **de CEP** (ViaCEP), feitas pelo servidor; se o serviço falhar, o cadastro segue manual.
+- Endereço estruturado, vários contatos, endereços de entrega e cobrança e aba Comercial (pagamento, frete e transportadora padrão, categoria, região, limite de crédito e **vendedor da carteira**, alterável só com a permissão `customers.assign`).
+
 **Próximas etapas:** cadastro rápido, busca rápida e atalhos, espelhos (impressão/PDF/DOCX) e dashboard modular com os KPIs (até 15/11); deploy e entrega (29/11); assistente de IA e bot do Telegram na fase 2.
 
 ## Tecnologias
@@ -145,8 +152,10 @@ Todas as rotas ficam sob `/api` e, exceto as de autenticação e o healthcheck, 
 GET  /health
 POST /auth/register   POST /auth/login   POST /auth/logout   GET /auth/me
 
-GET|POST        /customers        GET|PUT|DELETE /customers/:id
-GET|POST        /suppliers        GET|PUT|DELETE /suppliers/:id
+GET|POST        /people?role=&q=  GET|PUT|DELETE /people/:id   (cadastro único; GET /people/sellers)
+GET|POST        /customers        GET|PUT|DELETE /customers/:id (atalho: pessoas com papel de cliente)
+GET|POST        /suppliers        GET|PUT|DELETE /suppliers/:id (atalho: fornecedores)
+GET             /lookup/cnpj/:cnpj   GET /lookup/cep/:cep   (consulta externa, 20/min)
 GET|POST        /products         GET|PUT|DELETE /products/:id
 GET|POST        /bank-accounts    GET|PUT|DELETE /bank-accounts/:id
 GET             /bank-accounts/options   (lista mínima para quem registra vendas)
@@ -175,9 +184,10 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
 5. **Orçamentos:** não mexem em estoque nem caixa. Só rascunho é editável; enviar, aprovar/recusar e converter têm permissões próprias (`quotes.send`, `quotes.approve`, `quotes.convert`). Converter cria o pedido com os itens e preços do orçamento, uma única vez (409 na segunda tentativa); orçamento convertido não pode ser excluído.
 6. **Usuários:** não são excluídos (preserva a auditoria). Desativar ou trocar a senha de outra pessoa encerra as sessões dela. Ninguém muda o próprio grupo nem se desativa, e a empresa mantém ao menos um proprietário ativo.
-7. **Permissões:** cada usuário pertence a um grupo de acesso; as permissões são lidas a cada requisição (mudança vale na hora). Marcar pedido como pago/concluído exige `receivables.settle`; pagar despesa exige `payables.pay`. Pré-requisitos são completados automaticamente (qualquer ação implica "ver"; montar orçamento ou pedido implica ver produtos e clientes). O grupo Proprietário é fixo; quem gerencia grupos só concede o que tem e não tira de si a gestão; grupo com usuários não é excluído.
-8. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
-9. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
+7. **Pessoas:** papéis usam as permissões de clientes (`customers.*`) ou de fornecedores (`suppliers.*`, também para transportadoras e representantes); mexer numa pessoa exige a permissão de todos os seus papéis. Pessoa já usada em orçamento, pedido ou lead é arquivada em vez de excluída.
+8. **Permissões:** cada usuário pertence a um grupo de acesso; as permissões são lidas a cada requisição (mudança vale na hora). Marcar pedido como pago/concluído exige `receivables.settle`; pagar despesa exige `payables.pay`. Pré-requisitos são completados automaticamente (qualquer ação implica "ver"; montar orçamento ou pedido implica ver produtos e clientes). O grupo Proprietário é fixo; quem gerencia grupos só concede o que tem e não tira de si a gestão; grupo com usuários não é excluído.
+9. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
+10. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
 
 ## Testes
 
@@ -185,7 +195,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 47 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, CRM (funil, ganho → cliente sem duplicar, escopo pelo responsável) e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 55 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, CRM (funil, ganho → cliente sem duplicar, escopo pelo responsável), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 

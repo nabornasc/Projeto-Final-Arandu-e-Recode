@@ -10,7 +10,7 @@ import {
 } from '@arandue/shared/schemas';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { bankAccounts, cashTransactions, customers, orderItems, orders, products } from '../db/schema.ts';
+import { bankAccounts, cashTransactions, orderItems, orders, people, products } from '../db/schema.ts';
 import { authorize, authorizeAny, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
@@ -109,7 +109,7 @@ async function loadOrders(where: SQL | undefined) {
       id: orders.id,
       number: orders.number,
       customerId: orders.customerId,
-      customerName: customers.name,
+      customerName: people.name,
       quoteId: orders.quoteId,
       orderDate: orders.orderDate,
       status: orders.status,
@@ -119,7 +119,7 @@ async function loadOrders(where: SQL | undefined) {
       createdAt: orders.createdAt,
     })
     .from(orders)
-    .leftJoin(customers, eq(customers.id, orders.customerId))
+    .leftJoin(people, eq(people.id, orders.customerId))
     .where(where)
     .orderBy(desc(orders.orderDate), desc(orders.id))
     .limit(500);

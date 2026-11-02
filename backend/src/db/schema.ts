@@ -2,6 +2,7 @@
 // Colunas em camelCase aqui viram snake_case no banco (casing: 'snake_case').
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   date,
@@ -122,35 +123,6 @@ export const sessions = pgTable(
 
 // ---------- Cadastros ----------
 
-export const customers = pgTable(
-  'customers',
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    companyId: companyId(),
-    name: varchar({ length: 160 }).notNull(),
-    document: varchar({ length: 30 }),
-    phone: varchar({ length: 30 }),
-    email: varchar({ length: 160 }),
-    address: varchar({ length: 255 }),
-    createdAt: createdAt(),
-  },
-  (t) => [index().on(t.companyId, t.name), index().on(t.companyId, t.createdAt)],
-);
-
-export const suppliers = pgTable(
-  'suppliers',
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    companyId: companyId(),
-    name: varchar({ length: 160 }).notNull(),
-    contact: varchar({ length: 160 }),
-    phone: varchar({ length: 30 }),
-    email: varchar({ length: 160 }),
-    createdAt: createdAt(),
-  },
-  (t) => [index().on(t.companyId, t.name)],
-);
-
 export const products = pgTable(
   'products',
   {
@@ -172,6 +144,101 @@ export const products = pgTable(
   (t) => [index().on(t.companyId, t.active, t.name)],
 );
 
+// ---------- Pessoas ----------
+
+export const personKindEnum = pgEnum('person_kind', ['individual', 'company']);
+export const taxpayerEnum = pgEnum('taxpayer_type', ['contributor', 'exempt', 'non_contributor']);
+export const taxRegimeEnum = pgEnum('tax_regime', ['mei', 'simples', 'presumido', 'real']);
+export const freightTypeEnum = pgEnum('freight_type', ['sender', 'recipient', 'none']);
+export const addressKindEnum = pgEnum('address_kind', ['delivery', 'billing']);
+
+const addressColumns = () => ({
+  zip: varchar({ length: 8 }),
+  street: varchar({ length: 160 }),
+  number: varchar({ length: 20 }),
+  complement: varchar({ length: 80 }),
+  district: varchar({ length: 80 }),
+  city: varchar({ length: 80 }),
+  state: varchar({ length: 2 }),
+});
+
+// Cadastro único com papéis: a mesma pessoa pode ser cliente, fornecedor, transportadora e
+// representante. Documento só com dígitos, único por empresa quando informado.
+export const people = pgTable(
+  'people',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    companyId: companyId(),
+    kind: personKindEnum().notNull().default('individual'),
+    document: varchar({ length: 14 }),
+    name: varchar({ length: 160 }).notNull(),
+    legalName: varchar({ length: 160 }),
+    isCustomer: boolean().notNull().default(false),
+    isSupplier: boolean().notNull().default(false),
+    isCarrier: boolean().notNull().default(false),
+    isSalesRep: boolean().notNull().default(false),
+    email: varchar({ length: 160 }),
+    phone: varchar({ length: 30 }),
+    mobile: varchar({ length: 30 }),
+    stateRegistration: varchar({ length: 20 }),
+    taxpayer: taxpayerEnum().notNull().default('non_contributor'),
+    finalConsumer: boolean().notNull().default(true),
+    taxRegime: taxRegimeEnum(),
+    ...addressColumns(),
+    country: varchar({ length: 60 }).default('Brasil'),
+    // Comercial
+    paymentMethod: varchar({ length: 60 }),
+    paymentTerms: varchar({ length: 120 }),
+    freightType: freightTypeEnum(),
+    carrierId: integer().references((): AnyPgColumn => people.id, { onDelete: 'set null' }),
+    category: varchar({ length: 60 }),
+    region: varchar({ length: 60 }),
+    // Vendedor fixo da carteira (usuário do sistema).
+    sellerId: integer().references(() => users.id, { onDelete: 'set null' }),
+    creditLimit: money(),
+    notes: varchar({ length: 1000 }),
+    active: boolean().notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index().on(t.companyId, t.name),
+    index().on(t.companyId, t.city),
+    uniqueIndex().on(t.companyId, t.document).where(sql`${t.document} IS NOT NULL`),
+  ],
+);
+
+export const personContacts = pgTable(
+  'person_contacts',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    personId: integer()
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    name: varchar({ length: 120 }).notNull(),
+    role: varchar({ length: 80 }),
+    phone: varchar({ length: 30 }),
+    email: varchar({ length: 160 }),
+  },
+  (t) => [index().on(t.personId)],
+);
+
+export const personAddresses = pgTable(
+  'person_addresses',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    personId: integer()
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    kind: addressKindEnum().notNull(),
+    ...addressColumns(),
+  },
+  (t) => [index().on(t.personId)],
+);
+
 // ---------- CRM ----------
 
 export const leads = pgTable(
@@ -188,7 +255,7 @@ export const leads = pgTable(
     lostReason: varchar({ length: 255 }),
     nextAction: varchar({ length: 255 }),
     nextActionAt: date({ mode: 'string' }),
-    customerId: integer().references(() => customers.id, { onDelete: 'set null' }),
+    customerId: integer().references(() => people.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -226,7 +293,7 @@ export const quotes = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
     number: integer().notNull(),
-    customerId: integer().references(() => customers.id, { onDelete: 'set null' }),
+    customerId: integer().references(() => people.id, { onDelete: 'set null' }),
     leadId: integer().references(() => leads.id, { onDelete: 'set null' }),
     status: quoteStatusEnum().notNull().default('draft'),
     discount: money().notNull().default(0),
@@ -268,7 +335,7 @@ export const orders = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
     number: integer().notNull(),
-    customerId: integer().references(() => customers.id, { onDelete: 'set null' }),
+    customerId: integer().references(() => people.id, { onDelete: 'set null' }),
     quoteId: integer().references(() => quotes.id, { onDelete: 'set null' }),
     orderDate: date({ mode: 'string' }).notNull(),
     status: orderStatusEnum().notNull().default('pending'),

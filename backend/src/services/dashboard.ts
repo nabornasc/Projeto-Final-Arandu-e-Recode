@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { customers, orders } from '../db/schema.ts';
+import { orders, people } from '../db/schema.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 
 interface Summary extends Record<string, unknown> {
@@ -45,10 +45,10 @@ export async function getDashboard(ctx: Ctx) {
       orderDate: orders.orderDate,
       total: orders.total,
       status: orders.status,
-      customerName: customers.name,
+      customerName: people.name,
     })
     .from(orders)
-    .leftJoin(customers, and(eq(customers.id, orders.customerId)))
+    .leftJoin(people, and(eq(people.id, orders.customerId)))
     .where(eq(orders.companyId, companyId))
     .orderBy(desc(orders.orderDate), desc(orders.id))
     .limit(5);

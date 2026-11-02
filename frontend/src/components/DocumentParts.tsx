@@ -16,7 +16,11 @@ export function CustomerSelect({
   disabled?: boolean;
   emptyLabel?: string;
 }) {
-  const customers = useQuery({ queryKey: ['/customers'], queryFn: () => api<Customer[]>('/customers') });
+  // Só pessoas com o papel de cliente (cadastro único).
+  const customers = useQuery({
+    queryKey: ['/people', 'customer', ''],
+    queryFn: () => api<Customer[]>('/people?role=customer'),
+  });
   return (
     <label>
       Cliente

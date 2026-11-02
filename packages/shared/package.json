@@ -1,9 +1,10 @@
 {
   "name": "@arandue/shared",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "exports": {
+    "./br": "./src/br.ts",
     "./permissions": "./src/permissions.ts",
     "./schemas": "./src/schemas/index.ts"
   },

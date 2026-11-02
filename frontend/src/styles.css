@@ -1242,3 +1242,163 @@ dialog.modal::backdrop {
     grid-template-columns: 1fr;
   }
 }
+
+/* Cadastro de pessoas */
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 6px 12px;
+  border: 1px solid #e2ddea;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b4260;
+  font-size: 11px;
+  font-weight: 700;
+}
+.chip.active {
+  border-color: #6d4fd6;
+  background: #6d4fd6;
+  color: #fff;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(340px, 100%);
+  padding: 0 12px;
+  border: 1px solid #e2ddea;
+  border-radius: 9px;
+  background: #fff;
+  color: #6b6280;
+}
+.search-field input {
+  flex: 1;
+  padding: 9px 0;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 12px;
+}
+.role-tag {
+  display: inline-block;
+  margin: 0 4px 2px 0;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #efeaf8;
+  color: #5d4b8f;
+  font-size: 10px;
+  font-weight: 700;
+}
+.block {
+  display: block;
+}
+.section-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: -1px;
+}
+.section-tabs button {
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+  color: #6b6280;
+  font-size: 12px;
+  font-weight: 700;
+}
+.section-tabs button.active {
+  border-color: #e9e4f2;
+  background: #fff;
+  color: #33284e;
+}
+.plain-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.form-grid[hidden],
+.plain-fieldset > div[hidden] {
+  display: none;
+}
+.input-with-button {
+  display: flex;
+  gap: 6px;
+}
+.input-with-button input {
+  flex: 1;
+  min-width: 0;
+}
+.input-with-button .button {
+  flex-shrink: 0;
+  margin-top: 7px;
+  padding: 8px 10px;
+}
+.role-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.form-subtitle {
+  margin: 8px 0 0;
+  color: #33284e;
+  font-size: 13px;
+}
+.sub-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.sub-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.4fr auto;
+  gap: 6px;
+}
+.sub-row.address-row {
+  grid-template-columns: 110px 150px 1.6fr 70px 1fr 1fr 70px auto;
+}
+.sub-row input,
+.sub-row select {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #e2ddea;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+}
+.sub-row .input-with-button .button {
+  margin-top: 0;
+}
+@media (max-width: 900px) {
+  .sub-row,
+  .sub-row.address-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+fieldset.role-chips,
+fieldset.role-checks {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}

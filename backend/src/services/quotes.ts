@@ -8,7 +8,7 @@ import {
 } from '@arandue/shared/schemas';
 import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { customers, orders, products, quoteItems, quotes } from '../db/schema.ts';
+import { orders, people, products, quoteItems, quotes } from '../db/schema.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
@@ -33,7 +33,7 @@ async function loadQuotes(where: SQL | undefined) {
       id: quotes.id,
       number: quotes.number,
       customerId: quotes.customerId,
-      customerName: customers.name,
+      customerName: people.name,
       status: quotes.status,
       discount: quotes.discount,
       total: quotes.total,
@@ -47,7 +47,7 @@ async function loadQuotes(where: SQL | undefined) {
       orderNumber: orders.number,
     })
     .from(quotes)
-    .leftJoin(customers, eq(customers.id, quotes.customerId))
+    .leftJoin(people, eq(people.id, quotes.customerId))
     .leftJoin(orders, eq(orders.quoteId, quotes.id))
     .where(where)
     .orderBy(desc(quotes.createdAt), desc(quotes.id))

@@ -2,6 +2,22 @@
 
 Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
+## [2.1.0] — 2026-11-02
+
+### Adicionado
+
+- Cadastro único de pessoas (`people`) com papéis: cliente, fornecedor, transportadora e representante.
+- CPF/CNPJ validados pelos dígitos verificadores e únicos por empresa; inscrição estadual, contribuinte, consumidor final e regime tributário.
+- Consulta de CNPJ (BrasilAPI) e de CEP (ViaCEP) pelo servidor, com limite de 5 s e de 20 consultas por minuto.
+- Endereço estruturado, contatos, endereços de entrega e cobrança e dados comerciais (pagamento, frete, transportadora padrão, categoria, região, limite de crédito, vendedor da carteira).
+- Permissão `customers.assign` para alterar o vendedor da carteira.
+- Telas de Clientes, Fornecedores, Transportadoras e Representantes (lista com busca) e cadastro em abas.
+
+### Alterado
+
+- Clientes e fornecedores migrados para `people` mantendo os ids dos clientes; orçamentos, pedidos e leads passam a apontar para `people`. `/customers` e `/suppliers` continuam como atalhos por papel.
+- Pessoa usada em documentos é arquivada em vez de excluída.
+
 ## [2.0.0] — 2026-11-02
 
 Primeira versão do Aranduê como SaaS multiempresa (a v1, monousuário com MySQL, está na tag `v1.0.0`).

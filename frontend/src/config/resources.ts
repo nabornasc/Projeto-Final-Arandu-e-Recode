@@ -1,12 +1,5 @@
 import type { Area } from '@arandue/shared/permissions';
-import {
-  bankAccountSchema,
-  customerSchema,
-  expenseSchema,
-  productSchema,
-  supplierSchema,
-  transactionSchema,
-} from '@arandue/shared/schemas';
+import { bankAccountSchema, expenseSchema, productSchema, transactionSchema } from '@arandue/shared/schemas';
 import type { z } from 'zod';
 
 export type FieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'account';
@@ -23,7 +16,7 @@ export interface ResourceConfig {
   title: string;
   endpoint: string;
   // Área de permissões com ver, criar, editar e excluir.
-  area: Extract<Area, 'products' | 'customers' | 'suppliers' | 'payables' | 'bank_accounts' | 'cash'>;
+  area: Extract<Area, 'products' | 'payables' | 'bank_accounts' | 'cash'>;
   schema: z.ZodType;
   fields: Field[];
   columns: [string, string][];
@@ -58,43 +51,6 @@ export const resources = {
       ['type', 'Tipo'],
       ['price', 'Preço'],
       ['stock', 'Estoque'],
-    ],
-  },
-  customers: {
-    title: 'Clientes',
-    endpoint: '/customers',
-    area: 'customers',
-    schema: customerSchema,
-    fields: [
-      { key: 'name', label: 'Nome completo / Razão social', type: 'text', required: true },
-      { key: 'document', label: 'CPF ou CNPJ', type: 'text' },
-      { key: 'phone', label: 'Telefone / WhatsApp', type: 'text' },
-      { key: 'email', label: 'E-mail', type: 'email' },
-      { key: 'address', label: 'Endereço', type: 'text' },
-    ],
-    columns: [
-      ['name', 'Nome'],
-      ['document', 'Documento'],
-      ['phone', 'Telefone'],
-      ['email', 'E-mail'],
-    ],
-  },
-  suppliers: {
-    title: 'Fornecedores',
-    endpoint: '/suppliers',
-    area: 'suppliers',
-    schema: supplierSchema,
-    fields: [
-      { key: 'name', label: 'Nome / Razão social', type: 'text', required: true },
-      { key: 'contact', label: 'Pessoa de contato', type: 'text' },
-      { key: 'phone', label: 'Telefone / WhatsApp', type: 'text' },
-      { key: 'email', label: 'E-mail', type: 'email' },
-    ],
-    columns: [
-      ['name', 'Nome'],
-      ['contact', 'Contato'],
-      ['phone', 'Telefone'],
-      ['email', 'E-mail'],
     ],
   },
   expenses: {

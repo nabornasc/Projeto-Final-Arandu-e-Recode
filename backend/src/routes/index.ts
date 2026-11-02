@@ -1,6 +1,7 @@
-import { idParamSchema } from '@arandue/shared/schemas';
+import { idParamSchema, PERSON_ROLES } from '@arandue/shared/schemas';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { db } from '../db/client.ts';
 import { ctxOf, requireAuth } from '../plugins/auth.ts';
 import * as accessGroups from '../services/accessGroups.ts';
@@ -11,7 +12,9 @@ import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
 import * as leads from '../services/leads.ts';
+import * as lookup from '../services/lookup.ts';
 import * as orders from '../services/orders.ts';
+import * as people from '../services/people.ts';
 import * as products from '../services/products.ts';
 import * as quotes from '../services/quotes.ts';
 import * as suppliers from '../services/suppliers.ts';
@@ -32,6 +35,45 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
   await app.register(async (protectedApp) => {
     protectedApp.addHook('preHandler', requireAuth);
 
+    // Respostas 201 para rotas que criam registros a partir de um id na URL.
+    const created =
+      (handler: (request: FastifyRequest, id: number) => Promise<unknown>) =>
+      async (request: FastifyRequest, reply: FastifyReply) => {
+        reply.status(201);
+        return handler(request, idParamSchema.parse(request.params).id);
+      };
+
+    // Cadastro único de pessoas; /customers e /suppliers são atalhos por papel.
+    const peopleQuery = z.object({
+      role: z.enum(PERSON_ROLES).optional(),
+      q: z.string().trim().max(100).optional(),
+    });
+    protectedApp.get('/people', (request) =>
+      people.listPeople(ctxOf(request), peopleQuery.parse(request.query)),
+    );
+    protectedApp.get('/people/sellers', (request) => people.listSellerOptions(ctxOf(request)));
+    protectedApp.get('/people/:id', (request) =>
+      people.getPerson(ctxOf(request), idParamSchema.parse(request.params).id),
+    );
+    protectedApp.post('/people', async (request, reply) => {
+      reply.status(201);
+      return people.createPerson(ctxOf(request), request.body as never);
+    });
+    protectedApp.put('/people/:id', (request) =>
+      people.updatePerson(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    );
+    protectedApp.delete('/people/:id', async (request, reply) => {
+      await people.deletePerson(ctxOf(request), idParamSchema.parse(request.params).id);
+      return reply.status(204).send();
+    });
+    // Consultas externas: limite próprio por usuário para não abusar dos serviços públicos.
+    const lookupLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };
+    protectedApp.get('/lookup/cnpj/:cnpj', { config: lookupLimit }, (request) =>
+      lookup.lookupCnpj(ctxOf(request), (request.params as { cnpj: string }).cnpj),
+    );
+    protectedApp.get('/lookup/cep/:cep', { config: lookupLimit }, (request) =>
+      lookup.lookupZip(ctxOf(request), (request.params as { cep: string }).cep),
+    );
     crudRoutes(protectedApp, '/customers', {
       list: customers.listCustomers,
       get: customers.getCustomer,
@@ -97,12 +139,6 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       );
     }
     // Duplicar e copiar entre orçamento e pedido (menu de ações).
-    const created =
-      (handler: (request: FastifyRequest, id: number) => Promise<unknown>) =>
-      async (request: FastifyRequest, reply: FastifyReply) => {
-        reply.status(201);
-        return handler(request, idParamSchema.parse(request.params).id);
-      };
     protectedApp.post(
       '/quotes/:id/duplicate',
       created((r, id) => copies.duplicateQuote(ctxOf(r), id)),

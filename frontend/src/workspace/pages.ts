@@ -14,6 +14,8 @@ const resourcePage = (name: keyof typeof import('../pages/ResourcePages.tsx')) =
 
 const titleOf = (path: string) => navigation.find((item) => item.path === path)?.label ?? 'Aranduê';
 
+const PeopleList = lazy(() => import('../pages/PeopleListPage.tsx'));
+const PersonDocument = lazy(() => import('../pages/PersonDocumentPage.tsx'));
 const LeadDocument = lazy(() => import('../pages/LeadDocumentPage.tsx'));
 const QuoteDocument = lazy(() => import('../pages/QuoteDocumentPage.tsx'));
 const OrderDocument = lazy(() => import('../pages/OrderDocumentPage.tsx'));
@@ -43,8 +45,16 @@ const PAGES: PageDefinition[] = [
     Component: lazy(() => import('../pages/ReceivablesPage.tsx')),
   },
   { pattern: '/produtos', title: titleOf('/produtos'), Component: resourcePage('ProductsPage') },
-  { pattern: '/clientes', title: titleOf('/clientes'), Component: resourcePage('CustomersPage') },
-  { pattern: '/fornecedores', title: titleOf('/fornecedores'), Component: resourcePage('SuppliersPage') },
+  // Cadastro único de pessoas: as listas filtram por papel; o cadastro abre em /pessoas/:id.
+  { pattern: '/clientes', title: titleOf('/clientes'), Component: PeopleList },
+  { pattern: '/fornecedores', title: titleOf('/fornecedores'), Component: PeopleList },
+  { pattern: '/transportadoras', title: titleOf('/transportadoras'), Component: PeopleList },
+  { pattern: '/representantes', title: 'Representantes', Component: PeopleList },
+  { pattern: '/clientes/novo', title: 'Novo cliente', Component: PersonDocument },
+  { pattern: '/fornecedores/novo', title: 'Novo fornecedor', Component: PersonDocument },
+  { pattern: '/transportadoras/novo', title: 'Nova transportadora', Component: PersonDocument },
+  { pattern: '/representantes/novo', title: 'Novo representante', Component: PersonDocument },
+  { pattern: '/pessoas/:id', title: 'Cadastro', Component: PersonDocument },
   { pattern: '/despesas', title: titleOf('/despesas'), Component: resourcePage('ExpensesPage') },
   { pattern: '/contas', title: titleOf('/contas'), Component: resourcePage('AccountsPage') },
   {

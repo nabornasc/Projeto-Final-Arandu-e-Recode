@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { Lead, Order, Quote } from '../lib/documents.ts';
 import { formatCode, label } from '../lib/format.ts';
+import type { PersonSummary } from '../lib/people.ts';
 
 // Registro central de ações. Cada ação é definida uma vez e aparece onde fizer sentido: menu ⋯ das
 // listas e dos documentos, busca rápida, atalhos e acesso rápido do dashboard. O backend decide de
@@ -340,9 +341,50 @@ export const leadActions: RecordAction<Lead>[] = [
   },
 ];
 
+// ---------- Pessoas ----------
+
+// Excluir exige a permissão de todos os papéis da pessoa (cliente → customers; demais → suppliers).
+const peopleAreas = (person: PersonSummary) => [
+  ...(person.isCustomer ? (['customers'] as const) : []),
+  ...(person.isSupplier || person.isCarrier || person.isSalesRep ? (['suppliers'] as const) : []),
+];
+
+export const personActions: RecordAction<PersonSummary>[] = [
+  {
+    id: 'person.open',
+    label: 'Abrir cadastro',
+    icon: FileText,
+    permissions: (person) =>
+      peopleAreas(person)
+        .slice(0, 1)
+        .map((area) => `${area}.read` as const),
+    run: (person, kit) => kit.open(`/pessoas/${person.id}`),
+  },
+  {
+    id: 'person.delete',
+    label: 'Excluir (ou arquivar, se já foi usado)',
+    icon: Trash2,
+    danger: true,
+    permissions: (person) => peopleAreas(person).map((area) => `${area}.delete` as const),
+    confirm: (person) =>
+      `Excluir ${person.name}? Se já tiver orçamentos, pedidos ou leads, o cadastro é arquivado em vez de excluído.`,
+    run: (person, kit) =>
+      kit
+        .request(`/people/${person.id}`, { method: 'DELETE' })
+        .then(() => kit.done(`${person.name} removido da lista.`)),
+  },
+];
+
 // ---------- Ações gerais (busca rápida, atalhos e acesso rápido) ----------
 
 export const globalActions: GlobalAction[] = [
+  {
+    id: 'customer.new',
+    label: 'Novo cliente',
+    icon: UserPlus,
+    permissions: ['customers.create'],
+    run: (kit) => kit.open('/clientes/novo'),
+  },
   {
     id: 'lead.new',
     label: 'Novo lead',

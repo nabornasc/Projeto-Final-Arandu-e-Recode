@@ -13,6 +13,7 @@ export const ACTION_LABELS = {
   settle: 'Dar baixa (marcar como pago)',
   pay: 'Marcar como paga',
   manage: 'Gerenciar',
+  assign: 'Definir vendedor da carteira',
 } as const;
 type ActionKey = keyof typeof ACTION_LABELS;
 
@@ -37,8 +38,8 @@ export const AREAS = {
   payables: { label: 'Contas a pagar (despesas)', actions: ['read', 'create', 'update', 'pay', 'delete'] },
   cash: { label: 'Movimentações de caixa', actions: CRUD },
   bank_accounts: { label: 'Contas bancárias', actions: CRUD },
-  customers: { label: 'Clientes', actions: CRUD },
-  suppliers: { label: 'Fornecedores', actions: CRUD },
+  customers: { label: 'Clientes', actions: [...CRUD, 'assign'] },
+  suppliers: { label: 'Fornecedores, transportadoras e representantes', actions: CRUD },
   products: { label: 'Produtos e serviços', actions: CRUD },
   analytics: { label: 'Visão geral (indicadores)', actions: ['read'] },
   users: { label: 'Usuários', actions: ['read', 'manage'] },

@@ -1,5 +1,6 @@
 // Schemas de validação compartilhados entre frontend (formulários) e backend (API).
 import { z } from 'zod';
+import { isValidCnpj, isValidCpf, onlyDigits, STATES } from '../br.ts';
 import { isPermission, type Permission } from '../permissions.ts';
 
 // Campo de texto opcional: string vazia vira null (o banco guarda NULL, não '').
@@ -100,22 +101,97 @@ export type CompanySettingsInput = z.input<typeof companySettingsSchema>;
 
 // ---------- Cadastros ----------
 
-export const customerSchema = z.object({
-  name: requiredText(160, 'Informe o nome'),
-  document: optionalText(30),
-  phone: optionalText(30),
-  email: optionalEmail,
-  address: optionalText(255),
-});
-export type CustomerInput = z.input<typeof customerSchema>;
+// ---------- Pessoas (clientes, fornecedores, transportadoras, representantes) ----------
 
-export const supplierSchema = z.object({
-  name: requiredText(160, 'Informe o nome'),
-  contact: optionalText(160),
+export const PERSON_KINDS = ['individual', 'company'] as const;
+export const TAXPAYER_TYPES = ['contributor', 'exempt', 'non_contributor'] as const;
+export const TAX_REGIMES = ['mei', 'simples', 'presumido', 'real'] as const;
+export const FREIGHT_TYPES = ['sender', 'recipient', 'none'] as const;
+export const ADDRESS_KINDS = ['delivery', 'billing'] as const;
+export const PERSON_ROLES = ['customer', 'supplier', 'carrier', 'sales_rep'] as const;
+export type PersonRole = (typeof PERSON_ROLES)[number];
+
+const digitsOnly = (max: number) =>
+  z
+    .string()
+    .nullish()
+    .transform((value) => onlyDigits(value).slice(0, max) || null);
+
+const state = z
+  .union([z.literal(''), z.enum(STATES)])
+  .nullish()
+  .transform((value) => value || null);
+
+const addressFields = {
+  zip: digitsOnly(8),
+  street: optionalText(160),
+  number: optionalText(20),
+  complement: optionalText(80),
+  district: optionalText(80),
+  city: optionalText(80),
+  state,
+};
+
+export const personContactSchema = z.object({
+  name: requiredText(120, 'Informe o nome do contato'),
+  role: optionalText(80),
   phone: optionalText(30),
   email: optionalEmail,
 });
-export type SupplierInput = z.input<typeof supplierSchema>;
+
+export const personAddressSchema = z.object({ kind: z.enum(ADDRESS_KINDS), ...addressFields });
+
+// Papéis ausentes no corpo = mantêm os atuais (na edição) ou ficam desligados (no cadastro).
+export const personSchema = z
+  .object({
+    kind: z.enum(PERSON_KINDS).default('individual'),
+    document: digitsOnly(14),
+    name: requiredText(160, 'Informe o nome'),
+    legalName: optionalText(160),
+    isCustomer: z.boolean().optional(),
+    isSupplier: z.boolean().optional(),
+    isCarrier: z.boolean().optional(),
+    isSalesRep: z.boolean().optional(),
+    email: optionalEmail,
+    phone: optionalText(30),
+    mobile: optionalText(30),
+    stateRegistration: optionalText(20),
+    taxpayer: z.enum(TAXPAYER_TYPES).default('non_contributor'),
+    finalConsumer: z.boolean().default(true),
+    taxRegime: z
+      .union([z.literal(''), z.enum(TAX_REGIMES)])
+      .nullish()
+      .transform((value) => value || null),
+    ...addressFields,
+    country: optionalText(60),
+    // Comercial
+    paymentMethod: optionalText(60),
+    paymentTerms: optionalText(120),
+    freightType: z
+      .union([z.literal(''), z.enum(FREIGHT_TYPES)])
+      .nullish()
+      .transform((value) => value || null),
+    carrierId: id.nullish(),
+    category: optionalText(60),
+    region: optionalText(60),
+    sellerId: id.nullish(),
+    creditLimit: money.nullish(),
+    notes: optionalText(1000),
+    contacts: z.array(personContactSchema).max(30).optional(),
+    addresses: z.array(personAddressSchema).max(10).optional(),
+  })
+  .superRefine((data, issue) => {
+    if (!data.document) return;
+    const valid = data.kind === 'company' ? isValidCnpj(data.document) : isValidCpf(data.document);
+    if (!valid) {
+      issue.addIssue({
+        code: 'custom',
+        path: ['document'],
+        message: data.kind === 'company' ? 'CNPJ inválido' : 'CPF inválido',
+      });
+    }
+  });
+export type PersonInput = z.input<typeof personSchema>;
 
 export const PRODUCT_TYPES = ['product', 'service'] as const;
 

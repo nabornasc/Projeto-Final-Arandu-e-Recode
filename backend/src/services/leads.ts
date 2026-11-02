@@ -6,13 +6,14 @@ import {
   leadSchema,
   leadStageSchema,
 } from '@arandue/shared/schemas';
-import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { customers, interactions, leads, users } from '../db/schema.ts';
+import { interactions, leads, users } from '../db/schema.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
+import { ensureCustomer } from './people.ts';
 
 // No CRM, "só os próprios" significa os leads de que o usuário é o responsável.
 const scoped = (ctx: Ctx, id: number) =>
@@ -109,29 +110,15 @@ export async function updateLead(ctx: Ctx, id: number, input: LeadInput) {
   return getLead(ctx, id);
 }
 
-// Lead ganho vira cliente. Se já existe cliente da empresa com o mesmo e-mail ou telefone, só vincula.
+// Lead ganho vira cliente (reaproveita cadastro com o mesmo e-mail ou telefone; ver ensureCustomer).
 async function customerForWonLead(tx: Transaction, ctx: Ctx, lead: typeof leads.$inferSelect) {
   if (lead.customerId) return lead.customerId;
-  const matches = [
-    lead.email ? eq(sql`lower(${customers.email})`, lead.email.toLowerCase()) : undefined,
-    lead.phone ? eq(customers.phone, lead.phone) : undefined,
-  ].filter(Boolean);
-  if (matches.length) {
-    const [existing] = await tx
-      .select({ id: customers.id })
-      .from(customers)
-      .where(and(eq(customers.companyId, ctx.companyId), or(...matches)))
-      .limit(1);
-    if (existing) return existing.id;
-  }
-  authorize(ctx, 'customers.create');
-  const [customer] = await tx
-    .insert(customers)
-    .values({ companyId: ctx.companyId, name: lead.name, phone: lead.phone, email: lead.email })
-    .returning({ id: customers.id });
-  if (!customer) throw new Error('Falha ao criar cliente.');
-  await audit(tx, ctx, 'create', 'customer', customer.id, { fromLead: lead.id });
-  return customer.id;
+  return ensureCustomer(tx, ctx, {
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    sellerId: lead.ownerId,
+  });
 }
 
 export async function moveLead(ctx: Ctx, id: number, input: LeadStageInput) {
