@@ -546,6 +546,42 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 | **v2.7** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
 | **v3.0** | Assistente de IA: chat de ajuda e bot do Telegram (seção 10) | Planejada |
 
+### Notas por versão (referência: telas de ERPs de mercado analisadas em 02/11)
+
+Observações para detalhar no início de cada ciclo. Nada aqui foi implementado ainda.
+
+**v2.1 — Pessoas**
+- Aba Comercial: forma e condição de pagamento padrão, tipo de frete (remetente/destinatário) e transportadora padrão, categoria, região, **vendedor fixo da carteira** (bloqueado para quem não pode mudar), observação.
+- **Vários contatos por pessoa** (nome, cargo, telefone, e-mail), escolhidos no orçamento e na oportunidade.
+- Endereços de entrega e de cobrança além do principal.
+
+**v2.2 — Oportunidades**
+- **Situação separada da etapa**: em andamento, ganha ou perdida, mantendo a etapa onde parou (análise de onde se perdem as vendas).
+- **Etapas do funil configuráveis por empresa** (nome, ordem, cor), cada uma ligada a um marco fixo usado pela automação (início, orçamento enviado, negociação).
+- **Itens de interesse** na oportunidade, que viram o primeiro orçamento.
+- **Indicação (parceiro/indicador e contato) separada da origem** (canal).
+- Kanban com **total em R$ e quantidade por coluna**, total geral e "+" para criar direto na coluna.
+- Menu da oportunidade em grupos: Visualizar (anexos, imprimir), Ações (copiar, criar/ver orçamento e pedido), Situação, Histórico.
+
+**v2.5 — Documentos**
+- **Grupos de itens** com subtotal (ambiente, etapa, kit), duplicar grupo, modelos de grupo pesquisáveis.
+- **Item avulso**: descrição e preço livres, fora do catálogo.
+- **Unidade e medidas** (un, m, m²; largura × comprimento calcula a quantidade).
+- Ocultar item no espelho; desconto em R$ ou %.
+- Validade em dias ↔ data sincronizadas; nº de cotação do cliente; responsável ≠ vendedor; contato do cliente.
+- **Endereço de entrega/serviço** próprio do documento (com busca de CEP).
+- **Condições de pagamento cadastráveis** (entrada %, parcelas, prazos) com várias formas por documento, gerando as parcelas; frete, seguro e outras despesas.
+- Observação externa e **observação interna** (não sai no espelho).
+- **Biblioteca de textos e cláusulas padrão** por empresa, incluída no espelho.
+
+**v2.6 — Gestão**
+- **Margem estimada** no resumo do documento (custo × preço), só para quem pode ver custos; impostos não entram (MEI paga o DAS fixo).
+
+**Backlog**
+- **Parceiro de indicação com comissão %** (equivalente à reserva técnica paga a arquitetos), opcionalmente somada ao preço, com relatório de comissões.
+- Ordem de serviço/produção ligada ao pedido.
+- Campos fiscais de logística (embarque, redespacho, avalista) junto com a nota fiscal.
+
 **Backlog** (sem versão definida): compras e entrada de estoque, tabelas de preço, indicações, anexos e anotações nas oportunidades, nota fiscal (NF-e/NFS-e por serviço externo), várias empresas por usuário, recuperação de senha por e-mail, RLS no Postgres.
 
 ### Histórico: cronograma original de 4 semanas
