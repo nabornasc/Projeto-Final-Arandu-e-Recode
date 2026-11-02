@@ -6,6 +6,14 @@ import { type FormEvent, useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { useAccountOptions } from '../components/FormModal.tsx';
+import {
+  ItemLines,
+  type Line,
+  linesSubtotal,
+  linesToItems,
+  newLine,
+  type Product,
+} from '../components/ItemLines.tsx';
 import { Modal } from '../components/Modal.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
@@ -21,21 +29,9 @@ interface Order {
   total: number;
   items: { id: number; productName: string; quantity: number }[];
 }
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  stock: number | null;
-}
 interface Customer {
   id: number;
   name: string;
-}
-interface Line {
-  key: number;
-  productId: string;
-  quantity: string;
-  unitPrice: string;
 }
 
 const STATUS_OPTIONS: [OrderStatus, string][] = [
@@ -192,14 +188,6 @@ export default function OrdersPage() {
   );
 }
 
-let lineKey = 0;
-const newLine = (product?: Product): Line => ({
-  key: ++lineKey,
-  productId: product ? String(product.id) : '',
-  quantity: '1',
-  unitPrice: product ? String(product.price) : '0',
-});
-
 function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const products = useQuery({ queryKey: ['/products'], queryFn: () => api<Product[]>('/products') });
   const customers = useQuery({ queryKey: ['/customers'], queryFn: () => api<Customer[]>('/customers') });
@@ -220,15 +208,8 @@ function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
     onError: (err) => setError(err.message),
   });
 
-  const productById = new Map(products.data?.map((product) => [String(product.id), product]));
-  const subtotal = lines.reduce(
-    (sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0),
-    0,
-  );
+  const subtotal = linesSubtotal(lines);
   const total = Math.max(0, subtotal - Number(discount || 0));
-
-  const updateLine = (key: number, patch: Partial<Line>) =>
-    setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -239,13 +220,7 @@ function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
       discount: Number(discount || 0),
       notes,
       bankAccountId: status === 'paid' && bankAccountId ? Number(bankAccountId) : null,
-      items: lines
-        .filter((line) => line.productId)
-        .map((line) => ({
-          productId: Number(line.productId),
-          quantity: Number(line.quantity),
-          unitPrice: Number(line.unitPrice),
-        })),
+      items: linesToItems(lines),
     };
     const parsed = orderCreateSchema.safeParse(payload);
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? 'Verifique os campos.');
@@ -283,73 +258,7 @@ function OrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
             />
           </label>
 
-          {lines.map((line, index) => (
-            <div key={line.key} className="order-line">
-              <label>
-                {`Item ${index + 1}`}
-                <select
-                  name={`items.${index}.productId`}
-                  value={line.productId}
-                  onChange={(event) => {
-                    const product = productById.get(event.target.value);
-                    updateLine(line.key, {
-                      productId: event.target.value,
-                      unitPrice: String(product?.price ?? 0),
-                    });
-                  }}
-                >
-                  <option value="">Selecione</option>
-                  {products.data?.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} {product.stock === null ? '(serviço)' : `(estoque: ${product.stock})`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Qtd.
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0.01"
-                  step="0.01"
-                  name={`items.${index}.quantity`}
-                  value={line.quantity}
-                  onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
-                />
-              </label>
-              <label>
-                Preço (R$)
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  name={`items.${index}.unitPrice`}
-                  value={line.unitPrice}
-                  onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })}
-                />
-              </label>
-              <button
-                type="button"
-                className="button secondary"
-                aria-label={`Remover item ${index + 1}`}
-                disabled={lines.length === 1}
-                onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          <div className="full-row">
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setLines((current) => [...current, newLine()])}
-            >
-              <Plus size={14} /> Adicionar item
-            </button>
-          </div>
+          <ItemLines lines={lines} setLines={setLines} products={products.data} />
 
           <label>
             Desconto (R$)

@@ -38,6 +38,8 @@ describe('isolamento entre empresas', () => {
       '/orders',
       '/expenses',
       '/transactions',
+      '/suppliers',
+      '/quotes',
     ]) {
       const response = await b.get(path);
       expect(response.status, path).toBe(200);
@@ -52,6 +54,16 @@ describe('isolamento entre empresas', () => {
     expect((await b.get(`/orders/${orderA}`)).status).toBe(404);
     expect((await b.put(`/orders/${orderA}`, { status: 'cancelled' })).status).toBe(404);
     expect((await b.del(`/products/${productA}`)).status).toBe(404);
+    const supplierA = (await a.post('/suppliers', { name: 'Fornecedor A' })).body.id;
+    const quoteA = (await a.post('/quotes', { items: [{ productId: productA, quantity: 1 }] })).body.id;
+    expect((await b.get(`/suppliers/${supplierA}`)).status).toBe(404);
+    expect((await b.get(`/quotes/${quoteA}`)).status).toBe(404);
+    expect((await b.post(`/quotes/${quoteA}/send`)).status).toBe(404);
+    expect((await b.post(`/quotes/${quoteA}/convert`, { orderDate: today() })).status).toBe(404);
+    const userA = (await a.get('/users')).body[0].id;
+    expect((await b.get(`/users/${userA}`)).status).toBe(404);
+    expect((await b.put(`/users/${userA}`, { name: 'X', role: 'seller', active: false })).status).toBe(404);
+    expect((await b.get('/users')).body).toHaveLength(1);
     // O registro da A continua intacto.
     expect((await a.get(`/customers/${customerA}`)).body.name).toBe('Cliente da A');
   });

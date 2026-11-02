@@ -34,14 +34,23 @@ const router = createBrowserRouter([
     children: [
       { index: true, lazy: async () => ({ Component: (await import('./pages/DashboardPage.tsx')).default }) },
       {
+        path: 'orcamentos',
+        lazy: async () => ({ Component: (await import('./pages/QuotesPage.tsx')).default }),
+      },
+      {
         path: 'pedidos',
         lazy: async () => ({ Component: (await import('./pages/OrdersPage.tsx')).default }),
       },
       { path: 'produtos', lazy: resourcePage('ProductsPage') },
       { path: 'clientes', lazy: resourcePage('CustomersPage') },
+      { path: 'fornecedores', lazy: resourcePage('SuppliersPage') },
       { path: 'despesas', lazy: resourcePage('ExpensesPage') },
       { path: 'contas', lazy: resourcePage('AccountsPage') },
       { path: 'movimentacoes', lazy: resourcePage('TransactionsPage') },
+      {
+        path: 'usuarios',
+        lazy: async () => ({ Component: (await import('./pages/UsersPage.tsx')).default }),
+      },
       {
         path: 'configuracoes',
         lazy: async () => ({ Component: (await import('./pages/SettingsPage.tsx')).default }),

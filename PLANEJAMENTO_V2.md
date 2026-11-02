@@ -295,7 +295,7 @@ Cada semana termina com algo demonstrável e com o critério de pronto conferido
 
 **Pronto quando:** duas empresas usam o sistema sem enxergar os dados uma da outra, e os testes de isolamento passam.
 
-### Semana 2 (09 a 15/11): ERP
+### Semana 2 (09 a 15/11): ERP — concluída em 02/11
 
 | Trilha | Tarefas |
 |---|---|
@@ -344,12 +344,12 @@ Cada semana termina com algo demonstrável e com o critério de pronto conferido
 
 ## 10. Checklist "Preparando o MVP para a IA" (seção 12 do guia)
 
-- [ ] Camada de serviços separada das rotas
-- [ ] RBAC centralizado em `can()`
-- [ ] `company_id` em todas as tabelas de negócio desde a primeira migração
-- [ ] Tabela de auditoria (`audit_logs`)
-- [ ] Tabela de eventos (`events`)
-- [ ] Campo `channel` nas interações do CRM
+- [x] Camada de serviços separada das rotas
+- [x] RBAC centralizado em `can()`
+- [x] `company_id` em todas as tabelas de negócio desde a primeira migração
+- [x] Tabela de auditoria (`audit_logs`)
+- [x] Tabela de eventos (`events`)
+- [x] Campo `channel` nas interações do CRM
 - [ ] Documentação das funções em texto (`docs/ajuda/`), que é o conteúdo do chat de ajuda
 
 ---
@@ -357,6 +357,6 @@ Cada semana termina com algo demonstrável e com o critério de pronto conferido
 ## 11. Próximos passos imediatos
 
 1. Revisar e ajustar este documento (principalmente a seção 3).
-2. Confirmar o valor vigente do limite anual do MEI para o seed de `companies.mei_annual_limit`.
+2. ~~Confirmar o valor vigente do limite anual do MEI~~ Decidido: cada empresa informa o limite em Configurações (campo obrigatório); o sistema usa esse valor como referência.
 3. Criar o repositório Git e o quadro Kanban (GitHub Projects) com as tarefas da semana 1.
 4. Começar pela migração do schema v2 e pela autenticação.

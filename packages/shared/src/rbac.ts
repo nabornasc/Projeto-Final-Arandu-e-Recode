@@ -18,7 +18,8 @@ export const MODULES = [
 ] as const;
 export type Module = (typeof MODULES)[number];
 
-export const ACTIONS = ['read', 'create', 'update', 'delete'] as const;
+// approve: decidir (aprovar ou recusar) um orçamento enviado.
+export const ACTIONS = ['read', 'create', 'update', 'delete', 'approve'] as const;
 export type Action = (typeof ACTIONS)[number];
 
 const ALL: readonly Action[] = ACTIONS;

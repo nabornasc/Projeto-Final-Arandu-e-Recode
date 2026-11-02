@@ -54,6 +54,19 @@ export const userCreateSchema = z.object({
   role: z.enum(ROLES),
   password: passwordSchema,
 });
+export type UserCreateInput = z.input<typeof userCreateSchema>;
+
+// E-mail não muda (é o login). Senha vazia mantém a atual.
+export const userUpdateSchema = z.object({
+  name: requiredText(160, 'Informe o nome'),
+  role: z.enum(ROLES),
+  active: z.boolean(),
+  password: z
+    .union([z.literal(''), passwordSchema])
+    .nullish()
+    .transform((value) => value || null),
+});
+export type UserUpdateInput = z.input<typeof userUpdateSchema>;
 
 // ---------- Empresa ----------
 
@@ -165,5 +178,25 @@ export const orderUpdateSchema = z.object({
   bankAccountId: id.nullish(),
 });
 export type OrderUpdateInput = z.input<typeof orderUpdateSchema>;
+
+export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected'] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+// Criação e edição (só em rascunho) usam o mesmo formato; o status muda por ações próprias.
+export const quoteSchema = z.object({
+  customerId: id.nullish(),
+  validUntil: isoDate.nullish(),
+  discount: money.default(0),
+  notes: optionalText(500),
+  items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
+});
+export type QuoteInput = z.input<typeof quoteSchema>;
+
+export const quoteConvertSchema = z.object({
+  orderDate: isoDate,
+  status: z.enum(['pending', 'paid']).default('pending'),
+  bankAccountId: id.nullish(),
+});
+export type QuoteConvertInput = z.input<typeof quoteConvertSchema>;
 
 export const idParamSchema = z.object({ id: z.coerce.number().int().positive() });

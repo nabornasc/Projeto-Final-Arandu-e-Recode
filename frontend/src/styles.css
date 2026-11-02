@@ -567,7 +567,12 @@ td strong {
   font-size: 11px;
   font-weight: 700;
 }
-.form-grid input,
+.form-grid label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.form-grid input:not([type="checkbox"]),
 .form-grid select {
   display: block;
   width: 100%;
@@ -737,9 +742,24 @@ td strong {
   font-size: 16px;
   font-weight: 800;
 }
-.status.completed {
+.status.completed,
+.status.sent {
   background: #e6f0ff;
   color: #3567c4;
+}
+.status.approved,
+.status.active {
+  background: #e5f7ee;
+  color: #29946a;
+}
+.status.rejected {
+  background: #ffe8ea;
+  color: #ce5962;
+}
+.status.draft,
+.status.inactive {
+  background: #efedf3;
+  color: #5d566b;
 }
 .nav-item {
   text-decoration: none;

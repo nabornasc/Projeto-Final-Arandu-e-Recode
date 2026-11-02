@@ -4,6 +4,7 @@ import {
   customerSchema,
   expenseSchema,
   productSchema,
+  supplierSchema,
   transactionSchema,
 } from '@arandue/shared/schemas';
 import type { z } from 'zod';
@@ -73,6 +74,24 @@ export const resources = {
     columns: [
       ['name', 'Nome'],
       ['document', 'Documento'],
+      ['phone', 'Telefone'],
+      ['email', 'E-mail'],
+    ],
+  },
+  suppliers: {
+    title: 'Fornecedores',
+    endpoint: '/suppliers',
+    module: 'suppliers',
+    schema: supplierSchema,
+    fields: [
+      { key: 'name', label: 'Nome / Razão social', type: 'text', required: true },
+      { key: 'contact', label: 'Pessoa de contato', type: 'text' },
+      { key: 'phone', label: 'Telefone / WhatsApp', type: 'text' },
+      { key: 'email', label: 'E-mail', type: 'email' },
+    ],
+    columns: [
+      ['name', 'Nome'],
+      ['contact', 'Contato'],
       ['phone', 'Telefone'],
       ['email', 'E-mail'],
     ],

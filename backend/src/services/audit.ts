@@ -6,7 +6,7 @@ import type { Ctx } from '../lib/context.ts';
 export async function audit(
   tx: DbOrTx,
   ctx: Ctx,
-  action: 'create' | 'update' | 'delete' | 'archive' | 'login' | 'status',
+  action: 'create' | 'update' | 'delete' | 'archive' | 'login' | 'status' | 'convert',
   entity: string,
   entityId: number | null,
   data?: Record<string, unknown>,

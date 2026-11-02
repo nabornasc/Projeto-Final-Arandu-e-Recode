@@ -160,28 +160,40 @@ export async function getOrder(ctx: Ctx, id: number) {
 type OrderData = ReturnType<typeof orderCreateSchema.parse>;
 
 // Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
-export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, quoteId: number | null = null) {
-  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+type ItemInput = OrderData['items'][number];
 
-  const productIds = [...new Set(data.items.map((item) => item.productId))];
+// Confere os produtos (ativos e da empresa) e calcula subtotais e total. Sem preço informado,
+// usa o preço de cadastro. Compartilhado por pedidos e orçamentos.
+export async function buildLines(tx: Transaction, ctx: Ctx, items: ItemInput[], discount: number) {
+  const productIds = [...new Set(items.map((item) => item.productId))];
   const catalog = await tx
     .select({ id: products.id, price: products.price })
     .from(products)
     .where(
       and(inArray(products.id, productIds), eq(products.companyId, ctx.companyId), eq(products.active, true)),
     );
-  if (catalog.length !== productIds.length) throw badRequest('Produto do pedido não encontrado.');
+  if (catalog.length !== productIds.length) throw badRequest('Produto não encontrado ou arquivado.');
   const priceOf = new Map(catalog.map((product) => [product.id, product.price]));
+
+  const lines = items.map((item) => {
+    const unitPrice = item.unitPrice ?? priceOf.get(item.productId) ?? 0;
+    return {
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice,
+      subtotal: round2(item.quantity * unitPrice),
+    };
+  });
+  const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
+  return { lines, total: Math.max(0, round2(subtotal - discount)) };
+}
+
+export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, quoteId: number | null = null) {
+  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+  const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
 
   // Estoque antes da numeração: a ordem dos bloqueios (produtos, depois empresa) é sempre a mesma.
   await moveStock(tx, ctx, data.items, 1);
-
-  const lines = data.items.map((item) => {
-    const unitPrice = item.unitPrice ?? priceOf.get(item.productId) ?? 0;
-    return { ...item, unitPrice, subtotal: round2(item.quantity * unitPrice) };
-  });
-  const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
-  const total = Math.max(0, round2(subtotal - data.discount));
 
   const [order] = await tx
     .insert(orders)

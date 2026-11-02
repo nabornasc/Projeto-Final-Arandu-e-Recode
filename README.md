@@ -36,7 +36,15 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - Log de auditoria de toda alteração.
 - Interface responsiva, com o menu e os botões ajustados ao papel do usuário.
 
-**Próximas semanas:** gestão de usuários, fornecedores e orçamentos (semana 2); CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
+**Semana 2 (ERP) concluída:**
+
+- Gestão de usuários: convite com senha inicial, troca de papel e desativação (encerra as sessões).
+- Fornecedores.
+- Orçamentos com vários itens: rascunho → enviado → aprovado ou recusado (só o proprietário decide) e **conversão em pedido** numa transação, com baixa de estoque e entrada no caixa se pago.
+- Numeração de pedidos e orçamentos por empresa (#001, #002...).
+- Configurações da empresa com o **limite anual do MEI** obrigatório, usado como referência no dashboard.
+
+**Próximas semanas:** CRM e KPIs (semana 3); assistente de IA, bot do Telegram e deploy (semana 4).
 
 ## Tecnologias
 
@@ -117,12 +125,16 @@ GET  /health
 POST /auth/register   POST /auth/login   POST /auth/logout   GET /auth/me
 
 GET|POST        /customers        GET|PUT|DELETE /customers/:id
+GET|POST        /suppliers        GET|PUT|DELETE /suppliers/:id
 GET|POST        /products         GET|PUT|DELETE /products/:id
 GET|POST        /bank-accounts    GET|PUT|DELETE /bank-accounts/:id
 GET             /bank-accounts/options   (lista mínima para quem registra vendas)
 GET|POST        /expenses         GET|PUT|DELETE /expenses/:id
 GET|POST        /transactions     GET|PUT|DELETE /transactions/:id
 GET|POST        /orders           GET|PUT|DELETE /orders/:id
+GET|POST        /quotes           GET|PUT|DELETE /quotes/:id   (PUT só em rascunho)
+POST            /quotes/:id/send | /approve | /reject | /convert
+GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
 GET             /dashboard
 GET|PUT         /company          (configurações da empresa, incluindo o limite anual do MEI)
 ```
@@ -135,8 +147,10 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 2. **Caixa:** pedido **pago** ou **concluído** gera uma única entrada no caixa, e despesa **paga** com conta gera uma única saída. Voltar o status a pendente remove a movimentação. Movimentações geradas automaticamente não podem ser editadas diretamente (409).
 3. **Saldo:** saldo inicial mais movimentações, considerando só contas ativas nos dois termos.
 4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
-5. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
-6. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
+5. **Orçamentos:** não mexem em estoque nem caixa. Só rascunho é editável; aprovar e recusar exigem a permissão `approve` (proprietário). Converter cria o pedido com os itens e preços do orçamento, uma única vez (409 na segunda tentativa); orçamento convertido não pode ser excluído.
+6. **Usuários:** não são excluídos (preserva a auditoria). Desativar ou trocar a senha de outra pessoa encerra as sessões dela. Ninguém remove o próprio acesso, e a empresa mantém ao menos um proprietário ativo.
+7. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
+8. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
 
 ## Testes
 
@@ -144,7 +158,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 24 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 32 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **RBAC** dos três papéis, estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários e validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 

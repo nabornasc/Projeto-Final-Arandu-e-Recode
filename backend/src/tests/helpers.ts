@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { hash } from '@node-rs/argon2';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../app.ts';
-import { db } from '../db/client.ts';
-import { users } from '../db/schema.ts';
 
 export const PASSWORD = 'senha-de-teste-123';
 
@@ -69,18 +66,19 @@ export async function signupCompany(app: FastifyInstance): Promise<Client> {
   return client(app, cookieFrom(response.headers['set-cookie']), response.json().company.id);
 }
 
-// Até a gestão de usuários existir (semana 2), vendedor e contador são criados direto no banco.
-export async function addMember(app: FastifyInstance, owner: Client, role: 'seller' | 'accountant') {
+// Convida um membro pela gestão de usuários do proprietário e devolve o cliente HTTP já logado.
+export async function addMember(
+  app: FastifyInstance,
+  owner: Client,
+  role: 'owner' | 'seller' | 'accountant',
+) {
   const email = `${role}-${randomUUID()}@teste.test`;
-  await db.insert(users).values({
-    companyId: owner.companyId,
-    name: role,
-    email,
-    role,
-    passwordHash: await hash(PASSWORD),
-  });
+  const created = await owner.post('/users', { name: role, email, role, password: PASSWORD });
+  if (created.status !== 201) throw new Error(`Convite falhou: ${JSON.stringify(created.body)}`);
   const response = await login(app, email);
-  return client(app, cookieFrom(response.headers['set-cookie']), owner.companyId);
+  return Object.assign(client(app, cookieFrom(response.headers['set-cookie']), owner.companyId), {
+    userId: created.body.id as number,
+  });
 }
 
 export const today = () => new Date().toISOString().slice(0, 10);
