@@ -79,7 +79,9 @@ describe('pedidos, estoque e caixa', () => {
       .body;
     expect(await stockOf(productId)).toBe(0);
 
-    expect((await owner.put(`/orders/${order.id}`, { status: 'cancelled' })).status).toBe(200);
+    expect((await owner.put(`/orders/${order.id}`, { status: 'cancelled', reason: 'Desistiu' })).status).toBe(
+      200,
+    );
     expect(await stockOf(productId)).toBe(2);
 
     // Outra venda consome o estoque devolvido; reativar o pedido cancelado não pode deixar estoque negativo.

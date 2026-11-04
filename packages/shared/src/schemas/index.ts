@@ -270,6 +270,8 @@ export const orderUpdateSchema = z.object({
   discount: money.optional(),
   notes: optionalText(500).optional(),
   bankAccountId: id.nullish(),
+  // Obrigatório ao cancelar (conferido no servidor, que sabe o status anterior).
+  reason: optionalText(255).optional(),
 });
 export type OrderUpdateInput = z.input<typeof orderUpdateSchema>;
 
@@ -277,7 +279,7 @@ export type OrderUpdateInput = z.input<typeof orderUpdateSchema>;
 export const receivableSettleSchema = z.object({ bankAccountId: id.nullish() });
 export type ReceivableSettleInput = z.input<typeof receivableSettleSchema>;
 
-export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected'] as const;
+export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected', 'cancelled'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
 // Criação e edição (só em rascunho) usam o mesmo formato; o status muda por ações próprias.
@@ -291,6 +293,10 @@ export const quoteSchema = z.object({
   items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
 });
 export type QuoteInput = z.input<typeof quoteSchema>;
+
+// Recusar e cancelar exigem o motivo, que fica no histórico.
+export const documentReasonSchema = z.object({ reason: requiredText(255, 'Informe o motivo') });
+export type DocumentReasonInput = z.input<typeof documentReasonSchema>;
 
 export const quoteConvertSchema = z.object({
   orderDate: isoDate,

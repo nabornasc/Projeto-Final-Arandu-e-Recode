@@ -150,7 +150,9 @@ describe('duplicar e copiar mantêm o rastreio', () => {
     expect(order.opportunityId).toBe(opp.id);
     expect((await opportunityOf(opp.id)).values).toMatchObject({ inQuotes: 0, inOrders: 40 });
 
-    expect((await owner.put(`/orders/${order.id}`, { status: 'cancelled' })).status).toBe(200);
+    expect((await owner.put(`/orders/${order.id}`, { status: 'cancelled', reason: 'Desistiu' })).status).toBe(
+      200,
+    );
     expect((await opportunityOf(opp.id)).values).toMatchObject({ inQuotes: 40, inOrders: 0 });
   });
 

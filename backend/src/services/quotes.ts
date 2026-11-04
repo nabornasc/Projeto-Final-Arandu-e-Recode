@@ -1,5 +1,7 @@
 import { can, type Permission } from '@arandue/shared/permissions';
 import {
+  type DocumentReasonInput,
+  documentReasonSchema,
   type QuoteConvertInput,
   type QuoteInput,
   type QuoteStatus,
@@ -9,10 +11,11 @@ import {
 import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
 import { opportunities, orders, people, products, quoteItems, quotes } from '../db/schema.ts';
+import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
-import { audit } from './audit.ts';
+import { audit, namedLines, personName } from './audit.ts';
 import { formatCode, nextNumber } from './numbering.ts';
 import {
   advanceToMilestone,
@@ -32,6 +35,7 @@ const STATUS_LABEL: Record<QuoteStatus, string> = {
   sent: 'enviado',
   approved: 'aprovado',
   rejected: 'recusado',
+  cancelled: 'cancelado',
 };
 
 async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
@@ -97,6 +101,19 @@ async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
   }));
 }
 
+const lineItems = (tx: Transaction, id: number) =>
+  tx
+    .select({
+      productId: quoteItems.productId,
+      name: products.name,
+      quantity: quoteItems.quantity,
+      unitPrice: quoteItems.unitPrice,
+    })
+    .from(quoteItems)
+    .innerJoin(products, eq(products.id, quoteItems.productId))
+    .where(eq(quoteItems.quoteId, id))
+    .orderBy(asc(quoteItems.id));
+
 async function lockQuote(tx: Transaction, ctx: Ctx, id: number) {
   const [quote] = await tx.select().from(quotes).where(scoped(ctx, id)).for('update');
   if (!quote) throw notFound('Orçamento não encontrado.');
@@ -151,6 +168,15 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
 
   await tx.insert(quoteItems).values(lines.map((line) => ({ ...line, quoteId: quote.id })));
   await audit(tx, ctx, 'create', 'quote', quote.id, {
+    number,
+    changes: initialFields({
+      customer: await personName(tx, customerId),
+      validUntil: data.validUntil,
+      discount: data.discount,
+      total,
+      notes: data.notes,
+    }),
+    items: diffItems([], await namedLines(tx, lines)),
     total,
     opportunityId,
     originQuoteId: link.originQuoteId,
@@ -180,6 +206,7 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
     if (quote.status !== 'draft') throw conflict('Só orçamentos em rascunho podem ser editados.');
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
     const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+    const previousItems = await lineItems(tx, id);
 
     await tx.delete(quoteItems).where(eq(quoteItems.quoteId, id));
     await tx.insert(quoteItems).values(lines.map((line) => ({ ...line, quoteId: id })));
@@ -193,46 +220,106 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         notes: data.notes,
       })
       .where(scoped(ctx, id));
-    await audit(tx, ctx, 'update', 'quote', id, { total });
+    const changes = diffFields(
+      {
+        customer: await personName(tx, quote.customerId),
+        validUntil: quote.validUntil,
+        discount: quote.discount,
+        total: quote.total,
+        notes: quote.notes,
+      },
+      {
+        customer: await personName(tx, data.customerId),
+        validUntil: data.validUntil,
+        discount: data.discount,
+        total,
+        notes: data.notes,
+      },
+    );
+    const items = diffItems(previousItems, await namedLines(tx, lines));
+    // Salvar sem mudar nada não vira registro.
+    if (changes.length || items.length) {
+      await audit(tx, ctx, 'update', 'quote', id, { number: quote.number, total, changes, items });
+    }
   });
 
   return getQuote(ctx, id);
 }
 
-// Fluxo: rascunho → enviado → aprovado ou recusado. Cada passo tem a sua permissão.
-const TRANSITIONS = {
-  send: { from: 'draft', to: 'sent', permission: 'quotes.send', verb: 'enviar' },
-  approve: { from: 'sent', to: 'approved', permission: 'quotes.approve', verb: 'aprovar' },
-  reject: { from: 'sent', to: 'rejected', permission: 'quotes.approve', verb: 'recusar' },
-} as const satisfies Record<
-  string,
-  { from: QuoteStatus; to: QuoteStatus; permission: Permission; verb: string }
->;
+export type QuoteTransition = 'send' | 'approve' | 'reject' | 'cancel';
 
-export type QuoteTransition = keyof typeof TRANSITIONS;
+// Fluxo: rascunho → enviado → aprovado ou recusado. Enviado ou aprovado ainda pode ser cancelado;
+// rascunho é excluído. Cada passo tem a sua permissão; recusar e cancelar exigem o motivo.
+const TRANSITIONS: Record<
+  QuoteTransition,
+  { from: QuoteStatus[]; to: QuoteStatus; permission: Permission; verb: string; needsReason?: boolean }
+> = {
+  send: { from: ['draft'], to: 'sent', permission: 'quotes.send', verb: 'enviar' },
+  approve: { from: ['sent'], to: 'approved', permission: 'quotes.approve', verb: 'aprovar' },
+  reject: {
+    from: ['sent'],
+    to: 'rejected',
+    permission: 'quotes.approve',
+    verb: 'recusar',
+    needsReason: true,
+  },
+  cancel: {
+    from: ['sent', 'approved'],
+    to: 'cancelled',
+    permission: 'quotes.cancel',
+    verb: 'cancelar',
+    needsReason: true,
+  },
+};
 
-export async function transitionQuote(ctx: Ctx, id: number, name: QuoteTransition) {
+export async function transitionQuote(
+  ctx: Ctx,
+  id: number,
+  name: QuoteTransition,
+  input?: DocumentReasonInput,
+) {
   const step = TRANSITIONS[name];
   authorize(ctx, step.permission);
+  const reason = step.needsReason ? parse(documentReasonSchema, input).reason : null;
 
   await db.transaction(async (tx) => {
     const quote = await lockQuote(tx, ctx, id);
-    if (quote.status !== step.from) {
+    if (!step.from.includes(quote.status)) {
       throw conflict(`Não é possível ${step.verb} um orçamento ${STATUS_LABEL[quote.status]}.`);
+    }
+    if (name === 'cancel') {
+      const [order] = await tx.select({ id: orders.id }).from(orders).where(eq(orders.quoteId, id));
+      if (order) throw conflict('Orçamento convertido em pedido não pode ser cancelado.');
     }
     const now = new Date();
     await tx
       .update(quotes)
       .set({ status: step.to, ...(name === 'send' ? { sentAt: now } : { decidedAt: now }) })
       .where(scoped(ctx, id));
-    await audit(tx, ctx, 'status', 'quote', id, { from: quote.status, to: step.to });
+    await audit(
+      tx,
+      ctx,
+      'status',
+      'quote',
+      id,
+      {
+        number: quote.number,
+        from: quote.status,
+        to: step.to,
+        changes: diffFields({ status: quote.status }, { status: step.to }),
+      },
+      reason,
+    );
     if (quote.opportunityId) {
       const code = formatCode(quote.number);
       if (name === 'send')
         await advanceToMilestone(tx, ctx, quote.opportunityId, 'quote_sent', `Orçamento ${code} enviado`);
       else if (name === 'approve')
         await advanceToMilestone(tx, ctx, quote.opportunityId, 'negotiation', `Orçamento ${code} aprovado`);
-      else await recordDocumentEvent(tx, ctx, quote.opportunityId, `Orçamento ${code} recusado.`);
+      else {
+        const verb = name === 'reject' ? 'recusado' : 'cancelado';
+        await recordDocumentEvent(tx, ctx, quote.opportunityId, `Orçamento ${code} ${verb}: ${reason}`);
+      }
     }
   });
 
@@ -279,7 +366,11 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
       },
       { quoteId: id, opportunityId: quote.opportunityId, originQuoteId: id, originKind: 'converted' },
     );
-    await audit(tx, ctx, 'convert', 'quote', id, { orderId: order.id });
+    await audit(tx, ctx, 'convert', 'quote', id, {
+      number: quote.number,
+      orderId: order.id,
+      orderNumber: order.number,
+    });
     return order.id;
   });
 
@@ -290,10 +381,28 @@ export async function deleteQuote(ctx: Ctx, id: number) {
   authorize(ctx, 'quotes.delete');
   await db.transaction(async (tx) => {
     const quote = await lockQuote(tx, ctx, id);
-    const [order] = await tx.select({ id: orders.id }).from(orders).where(eq(orders.quoteId, id));
-    if (order) throw conflict('Orçamento convertido em pedido não pode ser excluído.');
+    // Enviado já saiu da empresa: cancela-se, com motivo, para o documento não sumir.
+    if (quote.status !== 'draft') {
+      throw conflict('Só rascunhos podem ser excluídos. Use "Cancelar" para encerrar o orçamento.');
+    }
+    const items = await lineItems(tx, id);
+    const customer = await personName(tx, quote.customerId);
     await tx.delete(quotes).where(scoped(ctx, id));
-    await audit(tx, ctx, 'delete', 'quote', id, { status: quote.status });
+    // Cópia do que foi excluído: o documento deixa de existir, o registro não.
+    await audit(tx, ctx, 'delete', 'quote', id, {
+      number: quote.number,
+      createdBy: quote.createdBy,
+      status: quote.status,
+      changes: removedFields({
+        status: quote.status,
+        customer,
+        validUntil: quote.validUntil,
+        discount: quote.discount,
+        total: quote.total,
+        notes: quote.notes,
+      }),
+      items: diffItems(items, []),
+    });
     if (quote.opportunityId) {
       await recordDocumentEvent(
         tx,

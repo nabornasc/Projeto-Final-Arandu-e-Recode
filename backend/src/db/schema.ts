@@ -30,7 +30,7 @@ const companyId = () =>
 export const productTypeEnum = pgEnum('product_type', ['product', 'service']);
 export const accountTypeEnum = pgEnum('account_type', ['checking', 'savings', 'cash']);
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'paid', 'completed', 'cancelled']);
-export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'approved', 'rejected']);
+export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'approved', 'rejected', 'cancelled']);
 export const expenseStatusEnum = pgEnum('expense_status', ['pending', 'paid']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['income', 'outcome']);
 export const channelEnum = pgEnum('channel', ['web', 'telegram', 'whatsapp', 'phone', 'in_person']);
@@ -503,14 +503,18 @@ export const auditLogs = pgTable(
     id: bigint({ mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
     userId: integer().references(() => users.id, { onDelete: 'set null' }),
+    // Nome na data da ação: o registro continua legível se o usuário mudar ou for removido.
+    actorName: varchar({ length: 160 }),
     actor: actorEnum().notNull().default('web'),
     action: varchar({ length: 40 }).notNull(),
     entity: varchar({ length: 40 }).notNull(),
     entityId: integer(),
     data: jsonb(),
+    // Motivo informado ao recusar ou cancelar.
+    reason: varchar({ length: 255 }),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.companyId, t.createdAt)],
+  (t) => [index().on(t.companyId, t.createdAt), index().on(t.companyId, t.entity, t.entityId, t.createdAt)],
 );
 
 export const events = pgTable(

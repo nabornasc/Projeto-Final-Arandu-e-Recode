@@ -10,6 +10,16 @@ export function formatDate(value: string | null | undefined): string {
   return Number.isNaN(parsed.getTime()) ? '—' : date.format(parsed);
 }
 
+// Data e hora de um momento (no fuso do navegador), para o histórico.
+const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+const dateTimeSeconds = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
+
+export function formatDateTime(value: string, seconds = false): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return (seconds ? dateTimeSeconds : dateTime).format(parsed);
+}
+
 // Número sequencial da empresa exibido como #001.
 export const formatCode = (value: number) => `#${String(value).padStart(3, '0')}`;
 

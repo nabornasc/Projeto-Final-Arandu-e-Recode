@@ -2,6 +2,24 @@
 
 Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
+## [Não lançado]
+
+### Adicionado
+
+- **Histórico de alterações** em orçamentos e pedidos: aba com quem fez, o quê e quando; o clique abre o detalhe com valores de antes e depois, campo a campo e item a item.
+- **Cancelar orçamento** enviado ou aprovado, com a permissão `quotes.cancel`, concedida a quem já cancelava pedidos.
+- **Motivo obrigatório** ao recusar orçamento e ao cancelar orçamento ou pedido.
+- O registro de auditoria guarda o nome do usuário na data da ação e, na exclusão, uma cópia do documento.
+
+### Alterado
+
+- **Só rascunhos podem ser excluídos** em orçamentos; enviado ou aprovado é cancelado.
+- O botão de fechar abas e janelas fica à esquerda.
+
+### Corrigido
+
+- Migrações e testes falhavam no Windows por causa do caminho da pasta `drizzle`.
+
 ## [2.2.0] — 2026-11-03
 
 ### Adicionado

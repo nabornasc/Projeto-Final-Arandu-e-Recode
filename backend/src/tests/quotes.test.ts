@@ -95,7 +95,10 @@ describe('orçamento → pedido → estoque → caixa', () => {
   it('orçamento recusado não vira pedido e estoque insuficiente na conversão não altera nada', async () => {
     const rejected = (await seller.post('/quotes', threeItems())).body;
     await seller.post(`/quotes/${rejected.id}/send`);
-    expect((await owner.post(`/quotes/${rejected.id}/reject`)).body.status).toBe('rejected');
+    expect((await owner.post(`/quotes/${rejected.id}/reject`)).status).toBe(400);
+    expect((await owner.post(`/quotes/${rejected.id}/reject`, { reason: 'Preço' })).body.status).toBe(
+      'rejected',
+    );
     expect((await owner.post(`/quotes/${rejected.id}/approve`)).status).toBe(409);
     expect((await owner.post(`/quotes/${rejected.id}/convert`, { orderDate: today() })).status).toBe(409);
 

@@ -260,8 +260,12 @@ export async function getOpportunity(ctx: Ctx, id: number) {
     orders: linkedOrders,
     values: {
       estimated: opportunity.estimatedValue ?? 0,
-      // Em orçamentos: os ainda abertos (recusados e já convertidos não contam em dobro).
-      inQuotes: sum(linkedQuotes.filter((quote) => quote.status !== 'rejected' && !converted.has(quote.id))),
+      // Em orçamentos: os ainda abertos (recusados, cancelados e já convertidos não contam).
+      inQuotes: sum(
+        linkedQuotes.filter(
+          (quote) => quote.status !== 'rejected' && quote.status !== 'cancelled' && !converted.has(quote.id),
+        ),
+      ),
       inOrders: sum(linkedOrders.filter((order) => order.status !== 'cancelled')),
       received: sum(linkedOrders.filter((order) => RECEIVED.includes(order.status))),
     },

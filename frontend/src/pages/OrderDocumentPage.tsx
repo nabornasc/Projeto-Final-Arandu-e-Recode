@@ -7,6 +7,7 @@ import { orderActions } from '../actions/registry.ts';
 import { CustomerSelect, ItemsTable, Totals } from '../components/DocumentParts.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { useAccountOptions } from '../components/FormModal.tsx';
+import { HistoryPanel } from '../components/HistoryPanel.tsx';
 import {
   ItemLines,
   type Line,
@@ -63,6 +64,7 @@ function OrderEditor({ order }: { order: Order | null }) {
     order ? order.items.map((item) => newLine(item)) : [newLine()],
   );
   const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const header = {
     customerId: customerId ? Number(customerId) : null,
@@ -146,7 +148,30 @@ function OrderEditor({ order }: { order: Order | null }) {
         </div>
       </div>
 
-      <form id={formId} className="panel" onSubmit={submit} noValidate>
+      {order && (
+        <div className="section-tabs" role="tablist" aria-label="Seções do pedido">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!showHistory}
+            className={showHistory ? undefined : 'active'}
+            onClick={() => setShowHistory(false)}
+          >
+            Documento
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showHistory}
+            className={showHistory ? 'active' : undefined}
+            onClick={() => setShowHistory(true)}
+          >
+            Histórico
+          </button>
+        </div>
+      )}
+
+      <form id={formId} className="panel" onSubmit={submit} noValidate hidden={showHistory}>
         <div className="form-grid">
           <CustomerSelect
             value={customerId}
@@ -237,7 +262,8 @@ function OrderEditor({ order }: { order: Order | null }) {
           </p>
         )}
       </form>
-      {order && <TracePanel type="order" id={order.id} />}
+      {order && !showHistory && <TracePanel type="order" id={order.id} />}
+      {order && showHistory && <HistoryPanel type="order" id={order.id} />}
     </section>
   );
 }

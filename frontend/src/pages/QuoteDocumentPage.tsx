@@ -6,6 +6,7 @@ import { ActionMenu } from '../actions/ActionMenu.tsx';
 import { quoteActions } from '../actions/registry.ts';
 import { CustomerSelect, ItemsTable, Totals } from '../components/DocumentParts.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { HistoryPanel } from '../components/HistoryPanel.tsx';
 import {
   ItemLines,
   type Line,
@@ -74,6 +75,7 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
         : [newLine()],
   );
   const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const payload = {
     opportunityId: quote ? undefined : (opportunity?.id ?? null),
@@ -142,7 +144,30 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
         </div>
       </div>
 
-      <form id={formId} className="panel" onSubmit={submit} noValidate>
+      {quote && (
+        <div className="section-tabs" role="tablist" aria-label="Seções do orçamento">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!showHistory}
+            className={showHistory ? undefined : 'active'}
+            onClick={() => setShowHistory(false)}
+          >
+            Documento
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showHistory}
+            className={showHistory ? 'active' : undefined}
+            onClick={() => setShowHistory(true)}
+          >
+            Histórico
+          </button>
+        </div>
+      )}
+
+      <form id={formId} className="panel" onSubmit={submit} noValidate hidden={showHistory}>
         <div className="form-grid">
           <CustomerSelect value={customerId} onChange={setCustomerId} disabled={!editable} />
           <label>
@@ -197,7 +222,8 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
           </p>
         )}
       </form>
-      {quote && <TracePanel type="quote" id={quote.id} />}
+      {quote && !showHistory && <TracePanel type="quote" id={quote.id} />}
+      {quote && showHistory && <HistoryPanel type="quote" id={quote.id} />}
     </section>
   );
 }

@@ -1309,6 +1309,54 @@ dialog.modal::backdrop {
   background: #fff;
   color: #33284e;
 }
+.history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.history-row + .history-row {
+  border-top: 1px solid #eeeaf5;
+}
+.history-list a {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto 15px;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 6px;
+  border-radius: 8px;
+  color: #4b4260;
+  font-size: 12px;
+  text-decoration: none;
+}
+.history-list a:hover {
+  background: #f7f5fb;
+}
+.history-list strong {
+  color: #33284e;
+}
+.history-note {
+  display: block;
+  margin-top: 2px;
+}
+.history-list time {
+  color: #6b6280;
+  white-space: nowrap;
+}
+.history-reason {
+  margin-bottom: 14px;
+}
+.history-reason p {
+  margin: 4px 0 0;
+}
+@media (max-width: 640px) {
+  .history-list a {
+    grid-template-columns: minmax(0, 1fr) 15px;
+  }
+  .history-list a > svg {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
 .plain-fieldset {
   min-width: 0;
   margin: 0;

@@ -11,6 +11,7 @@ import * as copies from '../services/copies.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
+import * as history from '../services/history.ts';
 import * as lookup from '../services/lookup.ts';
 import * as opportunities from '../services/opportunities.ts';
 import * as orders from '../services/orders.ts';
@@ -135,9 +136,14 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       update: quotes.updateQuote,
       remove: quotes.deleteQuote,
     });
-    for (const name of ['send', 'approve', 'reject'] as const) {
+    for (const name of ['send', 'approve', 'reject', 'cancel'] as const) {
       protectedApp.post(`/quotes/:id/${name}`, (request) =>
-        quotes.transitionQuote(ctxOf(request), idParamSchema.parse(request.params).id, name),
+        quotes.transitionQuote(
+          ctxOf(request),
+          idParamSchema.parse(request.params).id,
+          name,
+          request.body as never,
+        ),
       );
     }
     // Duplicar e copiar entre orçamento e pedido (menu de ações).
@@ -239,6 +245,18 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     protectedApp.get('/trace/:type/:id', (request) => {
       const { type, id } = traceParams.parse(request.params);
       return trace.getTrace(ctxOf(request), type, id);
+    });
+    // Histórico de alterações: lista do documento e detalhe de um registro.
+    protectedApp.get('/history/entry/:id', (request) =>
+      history.getHistoryEntry(ctxOf(request), idParamSchema.parse(request.params).id),
+    );
+    const historyParams = z.object({
+      type: z.enum(['quote', 'order']),
+      id: z.coerce.number().int().positive(),
+    });
+    protectedApp.get('/history/:type/:id', (request) => {
+      const { type, id } = historyParams.parse(request.params);
+      return history.listDocumentHistory(ctxOf(request), type, id);
     });
     for (const [path, type] of [
       ['quotes', 'quote'],

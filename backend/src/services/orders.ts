@@ -19,11 +19,12 @@ import {
   people,
   products,
 } from '../db/schema.ts';
+import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, authorizeAny, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
-import { audit } from './audit.ts';
+import { audit, namedLines, personName } from './audit.ts';
 import { formatCode, nextNumber } from './numbering.ts';
 import {
   advanceToMilestone,
@@ -117,6 +118,16 @@ async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccoun
     .insert(cashTransactions)
     .values({ ...values, companyId: ctx.companyId, type: 'income', category: 'Vendas', orderId: order.id })
     .onConflictDoUpdate({ target: cashTransactions.orderId, set: values });
+}
+
+// Conta em que o pedido entrou no caixa, para o histórico.
+async function cashAccountName(tx: Transaction, orderId: number): Promise<string | null> {
+  const [row] = await tx
+    .select({ bankName: bankAccounts.bankName, accountName: bankAccounts.accountName })
+    .from(cashTransactions)
+    .innerJoin(bankAccounts, eq(bankAccounts.id, cashTransactions.bankAccountId))
+    .where(eq(cashTransactions.orderId, orderId));
+  return row ? `${row.bankName} — ${row.accountName}` : null;
 }
 
 async function loadOrders(ctx: Ctx, where: SQL | undefined) {
@@ -266,6 +277,18 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, li
   await tx.insert(orderItems).values(lines.map((line) => ({ ...line, orderId: order.id })));
   await syncCash(tx, ctx, order, data.bankAccountId);
   await audit(tx, ctx, 'create', 'order', order.id, {
+    number: order.number,
+    originKind: link.originKind,
+    changes: initialFields({
+      status: order.status,
+      customer: await personName(tx, customerId),
+      orderDate: order.orderDate,
+      discount: order.discount,
+      total,
+      notes: order.notes,
+      bankAccount: await cashAccountName(tx, order.id),
+    }),
+    items: diffItems([], await namedLines(tx, lines)),
     status: order.status,
     total,
     quoteId: order.quoteId,
@@ -330,6 +353,9 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
     const [previous] = await tx.select().from(orders).where(scoped(ctx, id)).for('update');
     if (!previous) throw notFound('Pedido não encontrado.');
     for (const permission of permissionsForUpdate(previous, data)) authorize(ctx, permission);
+    if (data.status === 'cancelled' && previous.status !== 'cancelled' && !data.reason) {
+      throw badRequest('Informe o motivo do cancelamento.');
+    }
     await lockOpportunity(tx, previous.opportunityId);
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
 
@@ -349,6 +375,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
 
     const discount = data.discount ?? previous.discount;
     const subtotal = round2(items.reduce((sum, item) => sum + item.subtotal, 0));
+    const previousAccount = await cashAccountName(tx, id);
 
     const [order] = await tx
       .update(orders)
@@ -365,10 +392,38 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
     if (!order) throw notFound('Pedido não encontrado.');
 
     await syncCash(tx, ctx, order, data.bankAccountId);
-    await audit(tx, ctx, status !== previous.status ? 'status' : 'update', 'order', id, {
-      from: previous.status,
-      to: status,
-    });
+    const changes = diffFields(
+      {
+        status: previous.status,
+        customer: await personName(tx, previous.customerId),
+        orderDate: previous.orderDate,
+        discount: previous.discount,
+        total: previous.total,
+        notes: previous.notes,
+        bankAccount: previousAccount,
+      },
+      {
+        status,
+        customer: await personName(tx, order.customerId),
+        orderDate: order.orderDate,
+        discount: order.discount,
+        total: order.total,
+        notes: order.notes,
+        bankAccount: await cashAccountName(tx, id),
+      },
+    );
+    // Salvar sem mudar nada não vira registro.
+    if (changes.length) {
+      await audit(
+        tx,
+        ctx,
+        status !== previous.status ? 'status' : 'update',
+        'order',
+        id,
+        { number: order.number, from: previous.status, to: status, changes },
+        data.reason,
+      );
+    }
     if (order.opportunityId && status !== previous.status) {
       if (isReceived(status) && !isReceived(previous.status)) {
         await winFromDocument(
@@ -383,7 +438,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
           tx,
           ctx,
           order.opportunityId,
-          `Pedido ${formatCode(order.number)} cancelado.`,
+          `Pedido ${formatCode(order.number)} cancelado: ${data.reason}`,
         );
       }
     }
@@ -400,16 +455,38 @@ export async function deleteOrder(ctx: Ctx, id: number) {
     if (!order) throw notFound('Pedido não encontrado.');
     await lockOpportunity(tx, order.opportunityId);
 
-    if (order.status !== 'cancelled') {
-      const items = await tx
-        .select({ productId: orderItems.productId, quantity: orderItems.quantity })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, id));
-      await moveStock(tx, ctx, items, -1);
-    }
+    const items = await tx
+      .select({
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+        unitPrice: orderItems.unitPrice,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, id))
+      .orderBy(asc(orderItems.id));
+    if (order.status !== 'cancelled') await moveStock(tx, ctx, items, -1);
 
+    // Lê antes de excluir: a entrada no caixa sai em cascata.
+    const customer = await personName(tx, order.customerId);
+    const bankAccount = await cashAccountName(tx, id);
     await tx.delete(orders).where(scoped(ctx, id));
-    await audit(tx, ctx, 'delete', 'order', id, { status: order.status, total: order.total });
+    // Cópia do que foi excluído: o documento deixa de existir, o registro não.
+    await audit(tx, ctx, 'delete', 'order', id, {
+      number: order.number,
+      createdBy: order.createdBy,
+      status: order.status,
+      total: order.total,
+      changes: removedFields({
+        status: order.status,
+        customer,
+        orderDate: order.orderDate,
+        discount: order.discount,
+        total: order.total,
+        notes: order.notes,
+        bankAccount,
+      }),
+      items: diffItems(await namedLines(tx, items), []),
+    });
     if (order.opportunityId) {
       await recordDocumentEvent(tx, ctx, order.opportunityId, `Pedido ${formatCode(order.number)} excluído.`);
     }
@@ -436,7 +513,16 @@ export async function settleReceivable(ctx: Ctx, id: number, input: ReceivableSe
     const [order] = await tx.update(orders).set({ status: 'paid' }).where(companyOrder).returning();
     if (!order) throw notFound('Pedido não encontrado.');
     await syncCash(tx, ctx, order, data.bankAccountId);
-    await audit(tx, ctx, 'status', 'order', id, { from: 'pending', to: 'paid', via: 'receivables' });
+    await audit(tx, ctx, 'status', 'order', id, {
+      number: order.number,
+      from: 'pending',
+      to: 'paid',
+      via: 'receivables',
+      changes: diffFields(
+        { status: 'pending', bankAccount: null },
+        { status: 'paid', bankAccount: await cashAccountName(tx, id) },
+      ),
+    });
     if (order.opportunityId) {
       await winFromDocument(
         tx,

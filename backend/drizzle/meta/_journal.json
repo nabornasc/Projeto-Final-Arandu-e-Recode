@@ -64,6 +64,13 @@
       "when": 1793753314635,
       "tag": "0008_remove_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793822511501,
+      "tag": "0009_historico_e_orcamento_cancelado",
+      "breakpoints": true
     }
   ]
 }

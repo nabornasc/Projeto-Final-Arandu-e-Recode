@@ -1,5 +1,6 @@
 import { can, type Permission } from '@arandue/shared/permissions';
 import {
+  Ban,
   CheckCircle2,
   ClipboardList,
   Copy,
@@ -26,6 +27,7 @@ import {
 import type { Opportunity, Order, Quote } from '../lib/documents.ts';
 import { formatCode } from '../lib/format.ts';
 import type { PersonSummary } from '../lib/people.ts';
+import type { ReasonRequest } from './ReasonModal.tsx';
 
 // Registro central de ações. Cada ação é definida uma vez e aparece onde fizer sentido: menu ⋯ das
 // listas e dos documentos, busca rápida, atalhos e acesso rápido do dashboard. O backend decide de
@@ -42,6 +44,8 @@ export interface ActionKit {
   duplicate(type: 'quote' | 'order', document: Quote | Order): void;
   linkOpportunity(type: 'quote' | 'order', document: Quote | Order): void;
   settle(order: Order): void;
+  // Pede o motivo antes de recusar ou cancelar.
+  askReason(request: ReasonRequest): void;
   today(): string;
 }
 
@@ -95,8 +99,16 @@ const RECEIVED = ['paid', 'completed'];
 
 // ---------- Orçamentos ----------
 
-const transition = (quote: Quote, kit: ActionKit, name: 'send' | 'approve' | 'reject', message: string) =>
+const transition = (quote: Quote, kit: ActionKit, name: 'send' | 'approve', message: string) =>
   kit.request(`/quotes/${quote.id}/${name}`, { method: 'POST' }).then(() => kit.done(message));
+
+const QUOTE_REASONS = [
+  'Preço',
+  'Prazo de entrega',
+  'Escolheu concorrente',
+  'Sem retorno',
+  'Desistiu da compra',
+];
 
 const baseQuoteActions: RecordAction<Quote>[] = [
   {
@@ -129,8 +141,33 @@ const baseQuoteActions: RecordAction<Quote>[] = [
     icon: XCircle,
     permissions: ['quotes.approve'],
     when: (q) => q.status === 'sent',
-    confirm: (q) => `Recusar o orçamento ${formatCode(q.number)}?`,
-    run: (q, kit) => transition(q, kit, 'reject', `Orçamento ${formatCode(q.number)} recusado.`),
+    run: async (q, kit) =>
+      kit.askReason({
+        eyebrow: 'ORÇAMENTO',
+        title: `Recusar o orçamento ${formatCode(q.number)}`,
+        confirmLabel: 'Recusar orçamento',
+        suggestions: QUOTE_REASONS,
+        submit: (reason) => kit.request(`/quotes/${q.id}/reject`, { method: 'POST', body: { reason } }),
+        message: `Orçamento ${formatCode(q.number)} recusado.`,
+      }),
+  },
+  {
+    id: 'quote.cancel',
+    label: 'Cancelar orçamento',
+    icon: Ban,
+    danger: true,
+    permissions: ['quotes.cancel'],
+    when: (q) => (q.status === 'sent' || q.status === 'approved') && q.orderId === null,
+    run: async (q, kit) =>
+      kit.askReason({
+        eyebrow: 'ORÇAMENTO',
+        title: `Cancelar o orçamento ${formatCode(q.number)}`,
+        description: 'O cancelamento é definitivo. Para retomar a venda, duplique o orçamento.',
+        confirmLabel: 'Cancelar orçamento',
+        suggestions: ['Pedido do cliente', 'Erro no orçamento', 'Substituído por outro orçamento'],
+        submit: (reason) => kit.request(`/quotes/${q.id}/cancel`, { method: 'POST', body: { reason } }),
+        message: `Orçamento ${formatCode(q.number)} cancelado.`,
+      }),
   },
   {
     id: 'quote.convert',
@@ -179,7 +216,8 @@ const baseQuoteActions: RecordAction<Quote>[] = [
     icon: Trash2,
     danger: true,
     permissions: ['quotes.delete'],
-    when: (q) => q.orderId === null,
+    // Só rascunho: o que já saiu da empresa é cancelado, com motivo.
+    when: (q) => q.status === 'draft',
     confirm: (q) => `Excluir o orçamento ${formatCode(q.number)}?`,
     run: (q, kit) =>
       kit
@@ -227,8 +265,17 @@ const baseOrderActions: RecordAction<Order>[] = [
     permissions: (o) =>
       RECEIVED.includes(o.status) ? ['orders.cancel', 'receivables.settle'] : ['orders.cancel'],
     when: (o) => o.status !== 'cancelled',
-    confirm: (o) => `Cancelar o pedido ${formatCode(o.number)}? O estoque será devolvido.`,
-    run: (o, kit) => setOrderStatus(o, kit, 'cancelled', `Pedido ${formatCode(o.number)} cancelado.`),
+    run: async (o, kit) =>
+      kit.askReason({
+        eyebrow: 'PEDIDO',
+        title: `Cancelar o pedido ${formatCode(o.number)}`,
+        description: 'O estoque será devolvido.',
+        confirmLabel: 'Cancelar pedido',
+        suggestions: ['Pedido do cliente', 'Falta de estoque', 'Erro no pedido', 'Pagamento não realizado'],
+        submit: (reason) =>
+          kit.request(`/orders/${o.id}`, { method: 'PUT', body: { status: 'cancelled', reason } }),
+        message: `Pedido ${formatCode(o.number)} cancelado.`,
+      }),
   },
   {
     id: 'order.reactivate',

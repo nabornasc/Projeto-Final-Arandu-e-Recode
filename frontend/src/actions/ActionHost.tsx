@@ -15,6 +15,7 @@ import { api } from '../lib/api.ts';
 import { useProfile } from '../lib/auth.ts';
 import type { Opportunity, Order, Quote } from '../lib/documents.ts';
 import { formatCode, todayIso } from '../lib/format.ts';
+import type { ReasonRequest } from './ReasonModal.tsx';
 import type { ActionKit, GlobalAction, RecordAction } from './registry.ts';
 
 interface Runner {
@@ -37,6 +38,7 @@ const LinkOpportunityModal = lazy(async () => ({
 }));
 const DuplicateModal = lazy(async () => ({ default: (await import('./DuplicateModal.tsx')).DuplicateModal }));
 const SettleModal = lazy(async () => ({ default: (await import('./SettleModal.tsx')).SettleModal }));
+const ReasonModal = lazy(async () => ({ default: (await import('./ReasonModal.tsx')).ReasonModal }));
 
 export function useActions(): Runner {
   const runner = useContext(ActionContext);
@@ -53,6 +55,7 @@ export function ActionHost({ children }: { children: ReactNode }) {
   const [converting, setConverting] = useState<Quote | null>(null);
   const [settling, setSettling] = useState<Order | null>(null);
   const [losing, setLosing] = useState<Opportunity | null>(null);
+  const [askingReason, setAskingReason] = useState<ReasonRequest | null>(null);
   const [linking, setLinking] = useState<{ type: 'quote' | 'order'; document: Quote | Order } | null>(null);
   const [duplicating, setDuplicating] = useState<{ type: 'quote' | 'order'; document: Quote | Order } | null>(
     null,
@@ -73,6 +76,7 @@ export function ActionHost({ children }: { children: ReactNode }) {
       done,
       convert: setConverting,
       settle: setSettling,
+      askReason: setAskingReason,
       loseOpportunity: setLosing,
       linkOpportunity: (type, document) => setLinking({ type, document }),
       duplicate: (type, document) => setDuplicating({ type, document }),
@@ -119,6 +123,16 @@ export function ActionHost({ children }: { children: ReactNode }) {
             onSettled={() => {
               setSettling(null);
               done(`Baixa do pedido ${formatCode(settling.number)} registrada no caixa.`);
+            }}
+          />
+        )}
+        {askingReason && (
+          <ReasonModal
+            request={askingReason}
+            onClose={() => setAskingReason(null)}
+            onDone={() => {
+              setAskingReason(null);
+              done(askingReason.message);
             }}
           />
         )}

@@ -30,7 +30,7 @@ const CRUD = ['read', 'create', 'update', 'delete'] as const;
 export const AREAS = {
   quotes: {
     label: 'Orçamentos',
-    actions: ['read', 'create', 'update', 'send', 'approve', 'convert', 'delete'],
+    actions: ['read', 'create', 'update', 'send', 'approve', 'convert', 'cancel', 'delete'],
     scoped: true,
   },
   orders: { label: 'Pedidos', actions: ['read', 'create', 'update', 'cancel', 'delete'], scoped: true },
@@ -119,6 +119,7 @@ export const DEFAULT_GROUPS: { name: string; description: string; permissions: P
       'quotes.update',
       'quotes.send',
       'quotes.convert',
+      'quotes.cancel',
       'orders.create',
       'orders.update',
       'orders.cancel',
