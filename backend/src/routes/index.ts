@@ -1,4 +1,4 @@
-import { idParamSchema, PERSON_ROLES } from '@arandue/shared/schemas';
+import { idParamSchema, opportunityFilterSchema, PERSON_ROLES, TRACE_TYPES } from '@arandue/shared/schemas';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -11,13 +11,15 @@ import * as copies from '../services/copies.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
-import * as leads from '../services/leads.ts';
 import * as lookup from '../services/lookup.ts';
+import * as opportunities from '../services/opportunities.ts';
 import * as orders from '../services/orders.ts';
 import * as people from '../services/people.ts';
+import * as pipeline from '../services/pipeline.ts';
 import * as products from '../services/products.ts';
 import * as quotes from '../services/quotes.ts';
 import * as suppliers from '../services/suppliers.ts';
+import * as trace from '../services/trace.ts';
 import * as transactions from '../services/transactions.ts';
 import * as users from '../services/users.ts';
 import { authRoutes } from './auth.ts';
@@ -141,7 +143,7 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     // Duplicar e copiar entre orçamento e pedido (menu de ações).
     protectedApp.post(
       '/quotes/:id/duplicate',
-      created((r, id) => copies.duplicateQuote(ctxOf(r), id)),
+      created((r, id) => copies.duplicateQuote(ctxOf(r), id, r.body as never)),
     );
     protectedApp.post(
       '/quotes/:id/copy-to-order',
@@ -153,7 +155,7 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     );
     protectedApp.post(
       '/orders/:id/copy-to-quote',
-      created((r, id) => copies.copyOrderToQuote(ctxOf(r), id)),
+      created((r, id) => copies.copyOrderToQuote(ctxOf(r), id, r.body as never)),
     );
 
     protectedApp.post('/quotes/:id/convert', async (request, reply) => {
@@ -178,22 +180,80 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       remove: accessGroups.deleteAccessGroup,
     });
 
-    // CRM: leads (funil) e atendimentos.
-    protectedApp.get('/leads/owners', (request) => leads.listOwnerOptions(ctxOf(request)));
-    crudRoutes(protectedApp, '/leads', {
-      list: leads.listLeads,
-      get: leads.getLead,
-      create: leads.createLead,
-      update: leads.updateLead,
-      remove: leads.deleteLead,
+    // CRM: oportunidades, etapas do funil e atividades.
+    protectedApp.get('/opportunities', (request) =>
+      opportunities.listOpportunities(ctxOf(request), opportunityFilterSchema.parse(request.query)),
+    );
+    protectedApp.get('/opportunities/owners', (request) => opportunities.listOwnerOptions(ctxOf(request)));
+    protectedApp.get('/opportunities/:id', (request) =>
+      opportunities.getOpportunity(ctxOf(request), idParamSchema.parse(request.params).id),
+    );
+    protectedApp.post('/opportunities', async (request, reply) => {
+      reply.status(201);
+      return opportunities.createOpportunity(ctxOf(request), request.body as never);
     });
-    protectedApp.post('/leads/:id/stage', (request) =>
-      leads.moveLead(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    protectedApp.put('/opportunities/:id', (request) =>
+      opportunities.updateOpportunity(
+        ctxOf(request),
+        idParamSchema.parse(request.params).id,
+        request.body as never,
+      ),
+    );
+    protectedApp.delete('/opportunities/:id', async (request, reply) => {
+      await opportunities.deleteOpportunity(ctxOf(request), idParamSchema.parse(request.params).id);
+      return reply.status(204).send();
+    });
+    protectedApp.post('/opportunities/:id/stage', (request) =>
+      opportunities.moveToStage(
+        ctxOf(request),
+        idParamSchema.parse(request.params).id,
+        request.body as never,
+      ),
+    );
+    protectedApp.post('/opportunities/:id/status', (request) =>
+      opportunities.setStatus(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
     );
     protectedApp.post(
-      '/leads/:id/interactions',
-      created((r, id) => leads.addInteraction(ctxOf(r), id, r.body as never)),
+      '/opportunities/:id/interactions',
+      created((r, id) => opportunities.addInteraction(ctxOf(r), id, r.body as never)),
     );
+
+    protectedApp.get('/pipeline-stages', (request) => pipeline.listStages(ctxOf(request)));
+    protectedApp.post('/pipeline-stages', async (request, reply) => {
+      reply.status(201);
+      return pipeline.createStage(ctxOf(request), request.body as never);
+    });
+    protectedApp.put('/pipeline-stages/order', (request) =>
+      pipeline.reorderStages(ctxOf(request), request.body as never),
+    );
+    protectedApp.put('/pipeline-stages/:id', (request) =>
+      pipeline.updateStage(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    );
+    protectedApp.delete('/pipeline-stages/:id', async (request, reply) => {
+      await pipeline.deleteStage(ctxOf(request), idParamSchema.parse(request.params).id);
+      return reply.status(204).send();
+    });
+
+    // Rastreio: cadeia de documentos, vincular/desvincular e criar oportunidade a partir de documento.
+    const traceParams = z.object({ type: z.enum(TRACE_TYPES), id: z.coerce.number().int().positive() });
+    protectedApp.get('/trace/:type/:id', (request) => {
+      const { type, id } = traceParams.parse(request.params);
+      return trace.getTrace(ctxOf(request), type, id);
+    });
+    for (const [path, type] of [
+      ['quotes', 'quote'],
+      ['orders', 'order'],
+    ] as const) {
+      protectedApp.post(`/${path}/:id/link`, async (request) => {
+        const { id } = idParamSchema.parse(request.params);
+        await trace.linkDocument(ctxOf(request), type, id, request.body as never);
+        return trace.getTrace(ctxOf(request), type, id);
+      });
+      protectedApp.post(
+        `/${path}/:id/opportunity`,
+        created((r, id) => trace.createFromDocument(ctxOf(r), type, id)),
+      );
+    }
 
     // Usuários não têm DELETE: são desativados (preserva a auditoria).
     protectedApp.get('/users', (request) => users.listUsers(ctxOf(request)));

@@ -2,11 +2,29 @@
 
 Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
-## [Não lançado]
+## [2.2.0] — 2026-11-03
+
+### Adicionado
+
+- **Oportunidades** no lugar dos leads: título, cliente ou dados de contato, valor estimado, previsão de fechamento e itens de interesse, que preenchem o primeiro orçamento.
+- **Situação separada da etapa:** em andamento, ganha ou perdida, mantendo a etapa onde parou.
+- **Funil configurável por empresa** (nome, ordem, cor e marco da automação), com a permissão `opportunities.configure`.
+- **Automação de etapas, só para frente:** orçamento enviado, orçamento aprovado ou pedido criado e pedido recebido (ganha) geram eventos no histórico.
+- **Rastreio** em cada orçamento e pedido: a cadeia completa desde a oportunidade, com a data do recebimento, respeitando o escopo de quem consulta.
+- **Vincular, desvincular e criar oportunidade a partir de um documento.** Duplicar pergunta se mantém na mesma oportunidade (já marcado) e sempre guarda a origem.
+- Kanban com total em R$ e quantidade por coluna; lista com filtros e totais no rodapé; tela da oportunidade com barra de etapas e valor estimado × em orçamentos × em pedidos × recebido.
+- Tipos de atividade no histórico (comentário, ligação, visita, reunião, proposta, e-mail).
+- Menu ⋯ organizado em grupos.
+
+### Alterado
+
+- Migração preserva os ids: leads viram oportunidades e `leads.*` vira `opportunities.*` nos grupos de acesso. Ganho e perdido deixam de ser colunas do funil e passam a ser situação.
+- `/leads` foi substituído por `/opportunities`.
+- Produto usado como item de interesse é arquivado em vez de excluído.
 
 ### Corrigido
 
-- Contraste dos selos de status (pago, pendente, cancelado, aprovado, ganho, perdido) acima de 4,5:1.
+- Contraste dos selos de status (pago, pendente, cancelado, aprovado, ganho, perdido) e dos textos secundários do menu e do histórico acima de 4,5:1.
 - Barra de abas como navegação (`<nav>` + `aria-current`), sem papéis ARIA inválidos; Lighthouse de acessibilidade volta a 100.
 - Título do topo nas telas fora do menu (ex.: cadastro de pessoa) e alinhamento de nomes longos em listas e cartões.
 

@@ -15,9 +15,10 @@ import {
   type Product,
 } from '../components/ItemLines.tsx';
 import { useToast } from '../components/Toast.tsx';
+import { TracePanel } from '../components/TracePanel.tsx';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
-import { type Quote, useQuote } from '../lib/documents.ts';
+import { type OpportunityDetail, type Quote, useOpportunity, useQuote } from '../lib/documents.ts';
 import { formatCode, label } from '../lib/format.ts';
 import { useTab, useTabDirty, useTabTitle } from '../workspace/tab.ts';
 
@@ -25,17 +26,29 @@ import { useTab, useTabDirty, useTabTitle } from '../workspace/tab.ts';
 export default function QuoteDocumentPage() {
   const { params } = useTab();
   const id = params.id ? Number(params.id) : null;
+  // Aberto a partir de uma oportunidade: já vem com cliente, itens de interesse e vínculo.
+  const opportunityId = params.opportunityId ? Number(params.opportunityId) : null;
   const quote = useQuote(id);
+  const opportunity = useOpportunity(opportunityId);
   useTabTitle(
     id === null ? 'Novo orçamento' : quote.data ? `Orçamento ${formatCode(quote.data.number)}` : null,
   );
 
   if (id !== null && quote.isPending) return <div className="loading">Carregando orçamento...</div>;
   if (quote.isError) return <EmptyState text={quote.error.message} />;
-  return <QuoteEditor key={quote.data?.id ?? 'novo'} quote={quote.data ?? null} />;
+  if (opportunityId !== null && opportunity.isPending)
+    return <div className="loading">Carregando oportunidade...</div>;
+  if (opportunity.isError) return <EmptyState text={opportunity.error.message} />;
+  return (
+    <QuoteEditor
+      key={quote.data?.id ?? 'novo'}
+      quote={quote.data ?? null}
+      opportunity={opportunity.data ?? null}
+    />
+  );
 }
 
-function QuoteEditor({ quote }: { quote: Quote | null }) {
+function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity: OpportunityDetail | null }) {
   const profile = useProfile();
   const tab = useTab();
   const notify = useToast();
@@ -46,16 +59,24 @@ function QuoteEditor({ quote }: { quote: Quote | null }) {
     ? quote.status === 'draft' && can(profile, 'quotes.update')
     : can(profile, 'quotes.create');
 
-  const [customerId, setCustomerId] = useState(quote?.customerId ? String(quote.customerId) : '');
+  const seedCustomer = quote?.customerId ?? opportunity?.customerId;
+  const [customerId, setCustomerId] = useState(seedCustomer ? String(seedCustomer) : '');
   const [validUntil, setValidUntil] = useState(quote?.validUntil ?? '');
   const [discount, setDiscount] = useState(String(quote?.discount ?? 0));
   const [notes, setNotes] = useState(quote?.notes ?? '');
   const [lines, setLines] = useState<Line[]>(() =>
-    quote ? quote.items.map((item) => newLine(item)) : [newLine()],
+    quote
+      ? quote.items.map((item) => newLine(item))
+      : opportunity?.items.length
+        ? opportunity.items.map((item) =>
+            newLine({ ...item, unitPrice: item.unitPrice ?? item.catalogPrice }),
+          )
+        : [newLine()],
   );
   const [error, setError] = useState<string | null>(null);
 
   const payload = {
+    opportunityId: quote ? undefined : (opportunity?.id ?? null),
     customerId: customerId ? Number(customerId) : null,
     validUntil: validUntil || null,
     discount: Number(discount || 0),
@@ -176,6 +197,7 @@ function QuoteEditor({ quote }: { quote: Quote | null }) {
           </p>
         )}
       </form>
+      {quote && <TracePanel type="quote" id={quote.id} />}
     </section>
   );
 }

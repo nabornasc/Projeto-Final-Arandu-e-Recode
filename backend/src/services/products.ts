@@ -1,7 +1,7 @@
 import { type ProductInput, productSchema } from '@arandue/shared/schemas';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { orderItems, products, quoteItems } from '../db/schema.ts';
+import { opportunityItems, orderItems, products, quoteItems } from '../db/schema.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
@@ -63,7 +63,7 @@ export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
   });
 }
 
-// Produto já usado em pedido ou orçamento é arquivado (preserva o histórico); senão, é excluído.
+// Produto já usado em pedido, orçamento ou oportunidade é arquivado (preserva o histórico); senão, é excluído.
 export async function deleteProduct(ctx: Ctx, id: number) {
   authorize(ctx, 'products.delete');
   await db.transaction(async (tx) => {
@@ -72,7 +72,8 @@ export async function deleteProduct(ctx: Ctx, id: number) {
 
     const [{ used } = { used: false }] = await tx.execute<{ used: boolean }>(sql`
       SELECT EXISTS (SELECT 1 FROM ${orderItems} WHERE ${orderItems.productId} = ${id})
-          OR EXISTS (SELECT 1 FROM ${quoteItems} WHERE ${quoteItems.productId} = ${id}) AS used`);
+          OR EXISTS (SELECT 1 FROM ${quoteItems} WHERE ${quoteItems.productId} = ${id})
+          OR EXISTS (SELECT 1 FROM ${opportunityItems} WHERE ${opportunityItems.productId} = ${id}) AS used`);
 
     if (used) {
       await tx.update(products).set({ active: false }).where(scoped(ctx, id));

@@ -39,10 +39,12 @@ interface Props {
   lines: Line[];
   setLines: Dispatch<SetStateAction<Line[]>>;
   products: Product[] | undefined;
+  // Mínimo de linhas (0 quando a lista pode ficar vazia, como nos itens de interesse).
+  minLines?: number;
 }
 
 // Itens com produto, quantidade e preço (pedidos e orçamentos). Escolher o produto preenche o preço.
-export function ItemLines({ lines, setLines, products }: Props) {
+export function ItemLines({ lines, setLines, products, minLines = 1 }: Props) {
   const productById = new Map(products?.map((product) => [String(product.id), product]));
   const updateLine = (key: number, patch: Partial<Line>) =>
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -100,7 +102,7 @@ export function ItemLines({ lines, setLines, products }: Props) {
             type="button"
             className="button secondary"
             aria-label={`Remover item ${index + 1}`}
-            disabled={lines.length === 1}
+            disabled={lines.length <= minLines}
             onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
           >
             <Trash2 size={14} />

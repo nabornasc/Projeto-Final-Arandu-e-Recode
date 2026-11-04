@@ -2,9 +2,9 @@ import { useMutation } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { Modal } from '../components/Modal.tsx';
 import { api } from '../lib/api.ts';
-import type { Lead } from '../lib/documents.ts';
+import type { Opportunity } from '../lib/documents.ts';
 
-// Perder um lead exige o motivo (alimenta a análise de perdas do CRM).
+// Perder uma oportunidade exige o motivo (alimenta a análise de perdas). A etapa fica registrada.
 const SUGGESTIONS = [
   'Preço',
   'Prazo de entrega',
@@ -14,17 +14,20 @@ const SUGGESTIONS = [
 ];
 
 interface Props {
-  lead: Lead;
+  opportunity: Opportunity;
   onClose: () => void;
   onLost: () => void;
 }
 
-export function LostLeadModal({ lead, onClose, onLost }: Props) {
+export function LostOpportunityModal({ opportunity, onClose, onLost }: Props) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const lose = useMutation({
     mutationFn: () =>
-      api(`/leads/${lead.id}/stage`, { method: 'POST', body: { stage: 'lost', lostReason: reason } }),
+      api(`/opportunities/${opportunity.id}/status`, {
+        method: 'POST',
+        body: { status: 'lost', lostReason: reason },
+      }),
     onSuccess: onLost,
     onError: (err) => setError(err.message),
   });
@@ -37,7 +40,7 @@ export function LostLeadModal({ lead, onClose, onLost }: Props) {
   }
 
   return (
-    <Modal eyebrow="CRM" title={`Marcar ${lead.name} como perdido`} onClose={onClose}>
+    <Modal eyebrow="CRM" title={`Marcar como perdida: ${opportunity.title}`} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <div className="form-grid">
           <label className="full-row">
@@ -67,7 +70,7 @@ export function LostLeadModal({ lead, onClose, onLost }: Props) {
             Cancelar
           </button>
           <button className="button primary" type="submit" disabled={lose.isPending}>
-            {lose.isPending ? 'Salvando...' : 'Marcar como perdido'}
+            {lose.isPending ? 'Salvando...' : 'Marcar como perdida'}
           </button>
         </div>
       </form>

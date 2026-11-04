@@ -1,6 +1,5 @@
 import { can, type Permission } from '@arandue/shared/permissions';
 import {
-  ArrowRightCircle,
   CheckCircle2,
   ClipboardList,
   Copy,
@@ -10,6 +9,9 @@ import {
   FilePlus2,
   FileText,
   HandCoins,
+  Handshake,
+  Link2,
+  Link2Off,
   type LucideIcon,
   PackageCheck,
   RotateCcw,
@@ -21,8 +23,8 @@ import {
   UserPlus,
   XCircle,
 } from 'lucide-react';
-import type { Lead, Order, Quote } from '../lib/documents.ts';
-import { formatCode, label } from '../lib/format.ts';
+import type { Opportunity, Order, Quote } from '../lib/documents.ts';
+import { formatCode } from '../lib/format.ts';
 import type { PersonSummary } from '../lib/people.ts';
 
 // Registro central de ações. Cada ação é definida uma vez e aparece onde fizer sentido: menu ⋯ das
@@ -35,13 +37,27 @@ export interface ActionKit {
   // Recarrega os dados afetados e mostra a mensagem de sucesso.
   done(message: string): void;
   convert(quote: Quote): void;
-  loseLead(lead: Lead): void;
+  loseOpportunity(opportunity: Opportunity): void;
+  // Pergunta se a cópia fica na mesma oportunidade (quando o documento tem vínculo).
+  duplicate(type: 'quote' | 'order', document: Quote | Order): void;
+  linkOpportunity(type: 'quote' | 'order', document: Quote | Order): void;
   settle(order: Order): void;
   today(): string;
 }
 
+export type ActionGroup = 'open' | 'actions' | 'trace' | 'link' | 'danger';
+export const GROUP_LABELS: Record<ActionGroup, string | null> = {
+  open: null,
+  actions: 'Ações',
+  trace: 'Rastrear',
+  link: 'Oportunidade',
+  danger: null,
+};
+export const GROUP_ORDER: ActionGroup[] = ['open', 'actions', 'trace', 'link', 'danger'];
+
 export interface RecordAction<T> {
   id: string;
+  group?: ActionGroup;
   label: string | ((record: T) => string);
   icon: LucideIcon;
   // Todas são exigidas. Função quando depende do registro (ex.: cancelar pedido já pago).
@@ -82,9 +98,10 @@ const RECEIVED = ['paid', 'completed'];
 const transition = (quote: Quote, kit: ActionKit, name: 'send' | 'approve' | 'reject', message: string) =>
   kit.request(`/quotes/${quote.id}/${name}`, { method: 'POST' }).then(() => kit.done(message));
 
-export const quoteActions: RecordAction<Quote>[] = [
+const baseQuoteActions: RecordAction<Quote>[] = [
   {
     id: 'quote.open',
+    group: 'open',
     label: (q) => (q.status === 'draft' ? 'Abrir e editar' : 'Abrir'),
     icon: FileText,
     permissions: ['quotes.read'],
@@ -125,6 +142,7 @@ export const quoteActions: RecordAction<Quote>[] = [
   },
   {
     id: 'quote.openOrder',
+    group: 'trace',
     label: (q) => `Abrir pedido ${formatCode(q.orderNumber ?? 0)}`,
     icon: ClipboardList,
     permissions: ['orders.read'],
@@ -136,11 +154,7 @@ export const quoteActions: RecordAction<Quote>[] = [
     label: 'Duplicar',
     icon: CopyPlus,
     permissions: ['quotes.create'],
-    run: async (q, kit) => {
-      const copy = await kit.request<Quote>(`/quotes/${q.id}/duplicate`, { method: 'POST' });
-      kit.done(`Orçamento ${formatCode(copy.number)} criado a partir do ${formatCode(q.number)}.`);
-      kit.open(`/orcamentos/${copy.id}`);
-    },
+    run: (q, kit) => kit.duplicate('quote', q),
   },
   {
     id: 'quote.copyToOrder',
@@ -160,6 +174,7 @@ export const quoteActions: RecordAction<Quote>[] = [
   },
   {
     id: 'quote.delete',
+    group: 'danger',
     label: 'Excluir',
     icon: Trash2,
     danger: true,
@@ -178,9 +193,10 @@ export const quoteActions: RecordAction<Quote>[] = [
 const setOrderStatus = (order: Order, kit: ActionKit, status: string, message: string) =>
   kit.request(`/orders/${order.id}`, { method: 'PUT', body: { status } }).then(() => kit.done(message));
 
-export const orderActions: RecordAction<Order>[] = [
+const baseOrderActions: RecordAction<Order>[] = [
   {
     id: 'order.open',
+    group: 'open',
     label: 'Abrir',
     icon: FileText,
     permissions: ['orders.read'],
@@ -224,6 +240,7 @@ export const orderActions: RecordAction<Order>[] = [
   },
   {
     id: 'order.openQuote',
+    group: 'trace',
     label: 'Abrir orçamento de origem',
     icon: FileText,
     permissions: ['quotes.read'],
@@ -235,15 +252,7 @@ export const orderActions: RecordAction<Order>[] = [
     label: 'Duplicar',
     icon: Copy,
     permissions: ['orders.create'],
-    confirm: (o) => `Criar um pedido igual ao ${formatCode(o.number)}? O estoque será baixado.`,
-    run: async (o, kit) => {
-      const copy = await kit.request<Order>(`/orders/${o.id}/duplicate`, {
-        method: 'POST',
-        body: { orderDate: kit.today() },
-      });
-      kit.done(`Pedido ${formatCode(copy.number)} criado a partir do ${formatCode(o.number)}.`);
-      kit.open(`/pedidos/${copy.id}`);
-    },
+    run: (o, kit) => kit.duplicate('order', o),
   },
   {
     id: 'order.copyToQuote',
@@ -258,6 +267,7 @@ export const orderActions: RecordAction<Order>[] = [
   },
   {
     id: 'order.delete',
+    group: 'danger',
     label: 'Excluir',
     icon: Trash2,
     danger: true,
@@ -272,73 +282,129 @@ export const orderActions: RecordAction<Order>[] = [
 
 // ---------- CRM ----------
 
-// Etapas abertas do funil, na ordem; ganho e perdido são decididos por ações próprias.
-export const OPEN_STAGES = ['new', 'contacted', 'quote_sent', 'negotiation'] as const;
-
-const moveLead = (lead: Lead, kit: ActionKit, stage: string, message: string) =>
-  kit.request(`/leads/${lead.id}/stage`, { method: 'POST', body: { stage } }).then(() => kit.done(message));
-
-const nextStage = (lead: Lead) => {
-  const index = OPEN_STAGES.indexOf(lead.stage as (typeof OPEN_STAGES)[number]);
-  return index >= 0 && index < OPEN_STAGES.length - 1 ? OPEN_STAGES[index + 1] : null;
-};
-
-export const leadActions: RecordAction<Lead>[] = [
+export const opportunityActions: RecordAction<Opportunity>[] = [
   {
-    id: 'lead.open',
+    id: 'opportunity.open',
+    group: 'open',
     label: 'Abrir',
     icon: FileText,
-    permissions: ['leads.read'],
-    run: (lead, kit) => kit.open(`/crm/${lead.id}`),
+    permissions: ['opportunities.read'],
+    run: (opportunity, kit) => kit.open(`/crm/${opportunity.id}`),
   },
   {
-    id: 'lead.advance',
-    label: (lead) => `Avançar para "${label(nextStage(lead))}"`,
-    icon: ArrowRightCircle,
-    permissions: ['leads.update'],
-    when: (lead) => nextStage(lead) !== null,
-    run: (lead, kit) => {
-      const stage = nextStage(lead);
-      if (stage) return moveLead(lead, kit, stage, `${lead.name}: ${label(stage)}.`);
-    },
+    id: 'opportunity.quote',
+    label: 'Criar orçamento',
+    icon: FilePlus2,
+    permissions: ['quotes.create'],
+    when: (opportunity) => opportunity.status === 'open',
+    run: (opportunity, kit) => kit.open(`/crm/${opportunity.id}/orcamento`),
   },
   {
-    id: 'lead.won',
-    label: 'Marcar como ganho (vira cliente)',
+    id: 'opportunity.won',
+    label: 'Marcar como ganha (vira cliente)',
     icon: Trophy,
-    permissions: ['leads.update'],
-    when: (lead) => lead.stage !== 'won',
-    run: (lead, kit) => moveLead(lead, kit, 'won', `${lead.name} ganho e vinculado como cliente.`),
+    permissions: ['opportunities.update'],
+    when: (opportunity) => opportunity.status === 'open',
+    run: (opportunity, kit) =>
+      kit
+        .request(`/opportunities/${opportunity.id}/status`, { method: 'POST', body: { status: 'won' } })
+        .then(() => kit.done(`${opportunity.title}: ganha.`)),
   },
   {
-    id: 'lead.lost',
-    label: 'Marcar como perdido',
+    id: 'opportunity.lost',
+    label: 'Marcar como perdida',
     icon: ThumbsDown,
-    danger: true,
-    permissions: ['leads.update'],
-    when: (lead) => lead.stage !== 'lost',
-    run: (lead, kit) => kit.loseLead(lead),
+    permissions: ['opportunities.update'],
+    when: (opportunity) => opportunity.status === 'open',
+    run: (opportunity, kit) => kit.loseOpportunity(opportunity),
   },
   {
-    id: 'lead.reopen',
-    label: 'Reabrir negociação',
+    id: 'opportunity.reopen',
+    label: 'Reabrir',
     icon: Undo2,
-    permissions: ['leads.update'],
-    when: (lead) => lead.stage === 'won' || lead.stage === 'lost',
-    run: (lead, kit) => moveLead(lead, kit, 'negotiation', `${lead.name} voltou para negociação.`),
+    permissions: ['opportunities.update'],
+    when: (opportunity) => opportunity.status !== 'open',
+    run: (opportunity, kit) =>
+      kit
+        .request(`/opportunities/${opportunity.id}/status`, { method: 'POST', body: { status: 'open' } })
+        .then(() => kit.done(`${opportunity.title}: reaberta.`)),
   },
   {
-    id: 'lead.delete',
+    id: 'opportunity.delete',
+    group: 'danger',
     label: 'Excluir',
     icon: Trash2,
     danger: true,
-    permissions: ['leads.delete'],
-    confirm: (lead) => `Excluir o lead ${lead.name} e o histórico de atendimentos?`,
-    run: (lead, kit) =>
+    permissions: ['opportunities.delete'],
+    confirm: (opportunity) =>
+      `Excluir a oportunidade ${opportunity.title} e o histórico? Orçamentos e pedidos vinculados continuam existindo.`,
+    run: (opportunity, kit) =>
       kit
-        .request(`/leads/${lead.id}`, { method: 'DELETE' })
-        .then(() => kit.done(`Lead ${lead.name} excluído.`)),
+        .request(`/opportunities/${opportunity.id}`, { method: 'DELETE' })
+        .then(() => kit.done(`${opportunity.title}: excluída.`)),
   },
+];
+
+// ---------- Vínculo com oportunidade (orçamentos e pedidos) ----------
+
+function linkActions<T extends Quote | Order>(type: 'quote' | 'order', label: string): RecordAction<T>[] {
+  const path = type === 'quote' ? 'quotes' : 'orders';
+  const update = type === 'quote' ? 'quotes.update' : 'orders.update';
+  return [
+    {
+      id: `${type}.openOpportunity`,
+      group: 'trace',
+      label: (doc) => `Abrir oportunidade${doc.opportunityTitle ? `: ${doc.opportunityTitle}` : ''}`,
+      icon: Handshake,
+      permissions: ['opportunities.read'],
+      when: (doc) => doc.opportunityId !== null,
+      run: (doc, kit) => kit.open(`/crm/${doc.opportunityId}`),
+    },
+    {
+      id: `${type}.link`,
+      group: 'link',
+      label: (doc) => (doc.opportunityId ? 'Mover para outra oportunidade' : 'Vincular a uma oportunidade'),
+      icon: Link2,
+      permissions: [update, 'opportunities.read'],
+      run: (doc, kit) => kit.linkOpportunity(type, doc),
+    },
+    {
+      id: `${type}.createOpportunity`,
+      group: 'link',
+      label: 'Criar oportunidade a partir deste documento',
+      icon: Handshake,
+      permissions: [update, 'opportunities.create'],
+      when: (doc) => doc.opportunityId === null,
+      run: async (doc, kit) => {
+        const created = await kit.request<Opportunity>(`/${path}/${doc.id}/opportunity`, { method: 'POST' });
+        kit.done(`Oportunidade criada a partir do ${label} ${formatCode(doc.number)}.`);
+        kit.open(`/crm/${created.id}`);
+      },
+    },
+    {
+      id: `${type}.unlink`,
+      group: 'link',
+      label: 'Desvincular da oportunidade',
+      icon: Link2Off,
+      permissions: [update],
+      when: (doc) => doc.opportunityId !== null,
+      confirm: (doc) =>
+        `Desvincular o ${label} ${formatCode(doc.number)} da oportunidade? Os documentos que nasceram dele também saem; a origem continua registrada.`,
+      run: (doc, kit) =>
+        kit
+          .request(`/${path}/${doc.id}/link`, { method: 'POST', body: { opportunityId: null } })
+          .then(() => kit.done(`${label} ${formatCode(doc.number)} desvinculado.`)),
+    },
+  ];
+}
+
+export const quoteActions: RecordAction<Quote>[] = [
+  ...baseQuoteActions,
+  ...linkActions<Quote>('quote', 'orçamento'),
+];
+export const orderActions: RecordAction<Order>[] = [
+  ...baseOrderActions,
+  ...linkActions<Order>('order', 'pedido'),
 ];
 
 // ---------- Pessoas ----------
@@ -352,6 +418,7 @@ const peopleAreas = (person: PersonSummary) => [
 export const personActions: RecordAction<PersonSummary>[] = [
   {
     id: 'person.open',
+    group: 'open',
     label: 'Abrir cadastro',
     icon: FileText,
     permissions: (person) =>
@@ -362,12 +429,13 @@ export const personActions: RecordAction<PersonSummary>[] = [
   },
   {
     id: 'person.delete',
+    group: 'danger',
     label: 'Excluir (ou arquivar, se já foi usado)',
     icon: Trash2,
     danger: true,
     permissions: (person) => peopleAreas(person).map((area) => `${area}.delete` as const),
     confirm: (person) =>
-      `Excluir ${person.name}? Se já tiver orçamentos, pedidos ou leads, o cadastro é arquivado em vez de excluído.`,
+      `Excluir ${person.name}? Se já tiver orçamentos, pedidos ou oportunidades, o cadastro é arquivado em vez de excluído.`,
     run: (person, kit) =>
       kit
         .request(`/people/${person.id}`, { method: 'DELETE' })
@@ -386,10 +454,10 @@ export const globalActions: GlobalAction[] = [
     run: (kit) => kit.open('/clientes/novo'),
   },
   {
-    id: 'lead.new',
-    label: 'Novo lead',
+    id: 'opportunity.new',
+    label: 'Nova oportunidade',
     icon: UserPlus,
-    permissions: ['leads.create'],
+    permissions: ['opportunities.create'],
     run: (kit) => kit.open('/crm/novo'),
   },
   {

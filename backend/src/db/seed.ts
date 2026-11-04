@@ -9,8 +9,9 @@ import { createBankAccount } from '../services/bankAccounts.ts';
 import { updateCompanySettings } from '../services/company.ts';
 import { createCustomer } from '../services/customers.ts';
 import { createExpense } from '../services/expenses.ts';
-import { addInteraction, createLead, moveLead } from '../services/leads.ts';
+import { addInteraction, createOpportunity, moveToStage, setStatus } from '../services/opportunities.ts';
 import { createOrder } from '../services/orders.ts';
+import { loadStages } from '../services/pipeline.ts';
 import { createProduct } from '../services/products.ts';
 import { createUser } from '../services/users.ts';
 import { db, sql } from './client.ts';
@@ -23,7 +24,7 @@ const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISO
 
 async function truncateAll() {
   await db.execute(rawSql`
-    TRUNCATE companies, users, sessions, people, person_contacts, person_addresses, products, leads, interactions,
+    TRUNCATE companies, users, sessions, people, person_contacts, person_addresses, products, opportunities, opportunity_items, pipeline_stages, interactions,
              quotes, quote_items, orders, order_items, bank_accounts, expenses, cash_transactions,
              audit_logs, events, access_groups, access_group_permissions RESTART IDENTITY CASCADE`);
 }
@@ -120,27 +121,41 @@ async function seedCompany(companyName: string, prefix: string) {
     status: 'paid',
     bankAccountId: main.id,
   });
-  // Funil de vendas com leads em etapas diferentes.
-  const padaria = await createLead(owner, {
-    name: 'Padaria Pão Quente',
+  // Funil de vendas com oportunidades em etapas e situações diferentes.
+  const stages = await loadStages(db, owner);
+  const negotiation = stages.find((stage) => stage.milestone === 'negotiation');
+  const padaria = await createOpportunity(owner, {
+    title: 'Kits para eventos da Padaria',
+    contactName: 'Padaria Pão Quente',
+    contactPhone: '(11) 97777-3333',
     source: 'Indicação',
-    phone: '(11) 97777-3333',
+    estimatedValue: 1800,
+    expectedCloseDate: daysAgo(-20),
     nextAction: 'Enviar catálogo de kits para eventos',
     nextActionAt: daysAgo(-2),
+    items: [{ productId: kit.id, quantity: 10 }],
   });
   await addInteraction(owner, padaria.id, {
+    kind: 'call',
     channel: 'whatsapp',
     description: 'Pediu catálogo para eventos.',
   });
-  await moveLead(owner, padaria.id, { stage: 'negotiation' });
-  await createLead(owner, {
-    name: 'Escola Aprender',
+  if (negotiation) await moveToStage(owner, padaria.id, { stageId: negotiation.id });
+  await createOpportunity(owner, {
+    title: 'Identidade visual da Escola Aprender',
+    contactName: 'Escola Aprender',
     source: 'Instagram',
+    estimatedValue: 850,
     nextAction: 'Ligar para entender a demanda',
     nextActionAt: daysAgo(1),
   });
-  const feira = await createLead(owner, { name: 'Loja da Feira', source: 'Feira' });
-  await moveLead(owner, feira.id, { stage: 'lost', lostReason: 'Preço' });
+  const feira = await createOpportunity(owner, {
+    title: 'Papelaria da Loja da Feira',
+    contactName: 'Loja da Feira',
+    source: 'Feira',
+    estimatedValue: 400,
+  });
+  await setStatus(owner, feira.id, { status: 'lost', lostReason: 'Preço' });
 
   await createExpense(owner, {
     description: 'Internet do negócio',

@@ -46,7 +46,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 
 **Etapa extra (permissões e grupos de acesso) concluída:**
 
-- 45 permissões por ação (ex.: aprovar orçamento, dar baixa no recebimento, pagar despesa), combinadas em **grupos de acesso** que cada empresa cria e edita numa matriz.
+- 51 permissões por ação (ex.: aprovar orçamento, dar baixa no recebimento, pagar despesa), combinadas em **grupos de acesso** que cada empresa cria e edita numa matriz.
 - Grupos padrão **Proprietário** (acesso total, fixo), **Vendedor** e **Contador**.
 - Escopo por grupo: ver todos os orçamentos e pedidos da empresa ou **só os próprios**.
 - **Contas a receber**: o financeiro dá baixa nos pedidos pendentes sem precisar acessar vendas.
@@ -58,12 +58,14 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - Orçamento e pedido têm **tela própria** (em vez de janela), com aviso de alterações não salvas.
 - **Menu de ações ⋯** em listas e documentos, conforme status e permissão: abrir, enviar, aprovar, recusar, converter, dar baixa, concluir, cancelar, reativar, duplicar, copiar para o outro tipo e excluir.
 
-**CRM concluído:**
+**v2.2 — Oportunidades e rastreio comercial:**
 
-- Funil de vendas em colunas (Novo, Em contato, Orçamento enviado, Negociação, Ganho, Perdido), com responsável, origem e próxima ação (atrasadas em destaque).
-- Histórico de atendimentos por canal (WhatsApp, telefone, presencial...).
-- **Lead ganho vira cliente** sem duplicar (reaproveita cliente com mesmo e-mail ou telefone); perder exige o motivo.
-- Permissões próprias (`leads.*`) com escopo "só os próprios" pelo responsável.
+- Funil em colunas com etapas configuráveis por empresa e total em R$ por coluna; lista com filtros e totais no rodapé.
+- Oportunidade com cliente ou contato, valor estimado, previsão, responsável, próxima ação (atrasadas em destaque), itens de interesse e histórico de atividades por tipo e canal.
+- **Situação separada da etapa:** perdida ou ganha guarda onde parou. Perder exige o motivo; **ganhar vira cliente** sem duplicar (reaproveita cadastro com mesmo e-mail ou telefone).
+- **A etapa anda sozinha, só para frente**, conforme os orçamentos e pedidos vinculados; pedido recebido ganha a oportunidade.
+- **Rastreio** em cada documento: Oportunidade → Orçamento → duplicado → Pedido → recebido, com links. O vínculo acompanha ao converter, duplicar e copiar.
+- Permissões próprias (`opportunities.*`) com escopo "só os próprios" pelo responsável.
 
 **v2.1 — Cadastro único de pessoas:**
 
@@ -72,7 +74,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - **Busca de CNPJ** (Receita Federal, pela BrasilAPI) e **de CEP** (ViaCEP), feitas pelo servidor; se o serviço falhar, o cadastro segue manual.
 - Endereço estruturado, vários contatos, endereços de entrega e cobrança e aba Comercial (pagamento, frete e transportadora padrão, categoria, região, limite de crédito e **vendedor da carteira**, alterável só com a permissão `customers.assign`).
 
-**Próximas etapas:** cadastro rápido, busca rápida e atalhos, espelhos (impressão/PDF/DOCX) e dashboard modular com os KPIs (até 15/11); deploy e entrega (29/11); assistente de IA e bot do Telegram na fase 2.
+**Próxima versão:** v2.3, publicação (deploy, monitoramento e testes ponta a ponta). O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
 
 ## Tecnologias
 
@@ -165,8 +167,11 @@ GET|POST        /orders           GET|PUT|DELETE /orders/:id
 GET|POST        /quotes           GET|PUT|DELETE /quotes/:id   (PUT só em rascunho)
 POST            /quotes/:id/send | /approve | /reject | /convert | /duplicate | /copy-to-order
 POST            /orders/:id/duplicate | /copy-to-quote
-GET|POST        /leads            GET|PUT|DELETE /leads/:id
-POST            /leads/:id/stage | /interactions   GET /leads/owners
+POST            /quotes/:id/link | /opportunity   POST /orders/:id/link | /opportunity
+GET|POST        /opportunities    GET|PUT|DELETE /opportunities/:id   (lista aceita filtros e traz os totais)
+POST            /opportunities/:id/stage | /status | /interactions   GET /opportunities/owners
+GET|POST        /pipeline-stages  PUT|DELETE /pipeline-stages/:id   PUT /pipeline-stages/order
+GET             /trace/:tipo/:id  (cadeia do documento: quote ou order)
 GET             /receivables      POST /receivables/:id/settle  (contas a receber)
 GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id
 GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
@@ -181,13 +186,15 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 1. **Estoque:** criar um pedido baixa o estoque dos produtos físicos dentro de uma transação, com bloqueio de linha, para que vendas simultâneas não vendam a mesma unidade. Estoque insuficiente retorna 400 e nada é alterado. Cancelar ou excluir o pedido devolve o estoque, e reativar um pedido cancelado valida o saldo de novo.
 2. **Caixa:** pedido **pago** ou **concluído** gera uma única entrada no caixa, e despesa **paga** com conta gera uma única saída. Voltar o status a pendente remove a movimentação. Movimentações geradas automaticamente não podem ser editadas diretamente (409).
 3. **Saldo:** saldo inicial mais movimentações, considerando só contas ativas nos dois termos.
-4. **Histórico:** produto usado em pedido e conta com movimentação são **arquivados** em vez de excluídos.
+4. **Histórico:** produto usado em pedido, orçamento ou oportunidade e conta com movimentação são **arquivados** em vez de excluídos.
 5. **Orçamentos:** não mexem em estoque nem caixa. Só rascunho é editável; enviar, aprovar/recusar e converter têm permissões próprias (`quotes.send`, `quotes.approve`, `quotes.convert`). Converter cria o pedido com os itens e preços do orçamento, uma única vez (409 na segunda tentativa); orçamento convertido não pode ser excluído.
 6. **Usuários:** não são excluídos (preserva a auditoria). Desativar ou trocar a senha de outra pessoa encerra as sessões dela. Ninguém muda o próprio grupo nem se desativa, e a empresa mantém ao menos um proprietário ativo.
-7. **Pessoas:** papéis usam as permissões de clientes (`customers.*`) ou de fornecedores (`suppliers.*`, também para transportadoras e representantes); mexer numa pessoa exige a permissão de todos os seus papéis. Pessoa já usada em orçamento, pedido ou lead é arquivada em vez de excluída.
+7. **Pessoas:** papéis usam as permissões de clientes (`customers.*`) ou de fornecedores (`suppliers.*`, também para transportadoras e representantes); mexer numa pessoa exige a permissão de todos os seus papéis. Pessoa já usada em orçamento, pedido ou oportunidade é arquivada em vez de excluída.
 8. **Permissões:** cada usuário pertence a um grupo de acesso; as permissões são lidas a cada requisição (mudança vale na hora). Marcar pedido como pago/concluído exige `receivables.settle`; pagar despesa exige `payables.pay`. Pré-requisitos são completados automaticamente (qualquer ação implica "ver"; montar orçamento ou pedido implica ver produtos e clientes). O grupo Proprietário é fixo; quem gerencia grupos só concede o que tem e não tira de si a gestão; grupo com usuários não é excluído.
 9. **Numeração:** pedidos e orçamentos são numerados por empresa (#001, #002...), com contador travado na mesma transação. O número exibido não revela o volume de outras empresas.
 10. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
+11. **Oportunidades:** a etapa anda sozinha só para frente (orçamento enviado; orçamento aprovado ou pedido criado; pedido recebido ganha) e pode ser mudada à mão enquanto a oportunidade está em andamento. Encerrada precisa ser reaberta antes de mudar de situação. Cada marco fica em uma etapa; etapa em uso e a última etapa não são excluídas.
+12. **Rastreio:** cada documento guarda de qual orçamento ou pedido nasceu, mesmo sem oportunidade. Vincular e desvincular descem para os documentos gerados que estejam na mesma situação, sem arrastar os de outra oportunidade nem, em grupos "só os próprios", os de outro usuário. O rastreio mostra só o que quem consulta pode ver.
 
 ## Testes
 
@@ -195,7 +202,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 55 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, CRM (funil, ganho → cliente sem duplicar, escopo pelo responsável), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 74 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
 ## Estrutura do projeto
 

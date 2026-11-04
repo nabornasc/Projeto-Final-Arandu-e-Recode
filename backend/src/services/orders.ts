@@ -1,4 +1,4 @@
-import type { Permission } from '@arandue/shared/permissions';
+import { can, type Permission } from '@arandue/shared/permissions';
 import {
   type OrderCreateInput,
   type OrderStatus,
@@ -10,13 +10,29 @@ import {
 } from '@arandue/shared/schemas';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { bankAccounts, cashTransactions, orderItems, orders, people, products } from '../db/schema.ts';
+import {
+  bankAccounts,
+  cashTransactions,
+  opportunities,
+  orderItems,
+  orders,
+  people,
+  products,
+} from '../db/schema.ts';
 import { authorize, authorizeAny, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
-import { nextNumber } from './numbering.ts';
+import { formatCode, nextNumber } from './numbering.ts';
+import {
+  advanceToMilestone,
+  lockOpportunity,
+  noteDocumentValue,
+  prepareDocumentLink,
+  recordDocumentEvent,
+  winFromDocument,
+} from './opportunities.ts';
 import { assertActiveAccount, assertCustomer } from './ownership.ts';
 
 type Order = typeof orders.$inferSelect;
@@ -95,7 +111,7 @@ async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccoun
     bankAccountId: accountId,
     amount: order.total,
     transactionDate: order.orderDate,
-    description: `Recebimento do pedido #${String(order.number).padStart(3, '0')}`,
+    description: `Recebimento do pedido ${formatCode(order.number)}`,
   };
   await tx
     .insert(cashTransactions)
@@ -103,7 +119,7 @@ async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccoun
     .onConflictDoUpdate({ target: cashTransactions.orderId, set: values });
 }
 
-async function loadOrders(where: SQL | undefined) {
+async function loadOrders(ctx: Ctx, where: SQL | undefined) {
   const rows = await db
     .select({
       id: orders.id,
@@ -111,6 +127,11 @@ async function loadOrders(where: SQL | undefined) {
       customerId: orders.customerId,
       customerName: people.name,
       quoteId: orders.quoteId,
+      opportunityId: orders.opportunityId,
+      opportunityTitle: opportunities.title,
+      originQuoteId: orders.originQuoteId,
+      originOrderId: orders.originOrderId,
+      originKind: orders.originKind,
       orderDate: orders.orderDate,
       status: orders.status,
       discount: orders.discount,
@@ -120,6 +141,7 @@ async function loadOrders(where: SQL | undefined) {
     })
     .from(orders)
     .leftJoin(people, eq(people.id, orders.customerId))
+    .leftJoin(opportunities, eq(opportunities.id, orders.opportunityId))
     .where(where)
     .orderBy(desc(orders.orderDate), desc(orders.id))
     .limit(500);
@@ -147,17 +169,23 @@ async function loadOrders(where: SQL | undefined) {
     .orderBy(asc(orderItems.id));
 
   const byOrder = Map.groupBy(items, (item) => item.orderId);
-  return rows.map((row) => ({ ...row, items: byOrder.get(row.id) ?? [] }));
+  // O título da oportunidade só aparece para quem pode ver o CRM.
+  const showOpportunity = can(ctx.permissions, 'opportunities.read');
+  return rows.map((row) => ({
+    ...row,
+    opportunityTitle: showOpportunity ? row.opportunityTitle : null,
+    items: byOrder.get(row.id) ?? [],
+  }));
 }
 
 export async function listOrders(ctx: Ctx) {
   authorize(ctx, 'orders.read');
-  return loadOrders(and(eq(orders.companyId, ctx.companyId), ownScope(ctx, orders.createdBy)));
+  return loadOrders(ctx, and(eq(orders.companyId, ctx.companyId), ownScope(ctx, orders.createdBy)));
 }
 
 export async function getOrder(ctx: Ctx, id: number) {
   authorize(ctx, 'orders.read');
-  const [row] = await loadOrders(scoped(ctx, id));
+  const [row] = await loadOrders(ctx, scoped(ctx, id));
   if (!row) throw notFound('Pedido não encontrado.');
   return row;
 }
@@ -193,8 +221,22 @@ export async function buildLines(tx: Transaction, ctx: Ctx, items: ItemInput[], 
 
 // Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
 // Quem chama confere as permissões (pedido já pago exige também receivables.settle).
-export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, quoteId: number | null = null) {
-  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+// data.opportunityId vem do usuário (é conferida); link.opportunityId é herdada de outro documento.
+export interface DocumentLink {
+  quoteId?: number | null;
+  opportunityId?: number | null;
+  originQuoteId?: number | null;
+  originOrderId?: number | null;
+  originKind?: 'converted' | 'duplicated' | 'copied' | null;
+}
+
+export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, link: DocumentLink = {}) {
+  await lockOpportunity(tx, link.opportunityId);
+  const customerId = data.opportunityId
+    ? await prepareDocumentLink(tx, ctx, data.opportunityId, data.customerId)
+    : data.customerId;
+  const opportunityId = link.opportunityId ?? data.opportunityId ?? null;
+  if (customerId) await assertCustomer(tx, ctx, customerId);
   const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
 
   // Estoque antes da numeração: a ordem dos bloqueios (produtos, depois empresa) é sempre a mesma.
@@ -205,8 +247,12 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, qu
     .values({
       companyId: ctx.companyId,
       number: await nextNumber(tx, ctx, 'order'),
-      customerId: data.customerId ?? null,
-      quoteId,
+      customerId: customerId ?? null,
+      quoteId: link.quoteId ?? null,
+      opportunityId,
+      originQuoteId: link.originQuoteId ?? null,
+      originOrderId: link.originOrderId ?? null,
+      originKind: link.originKind ?? null,
       orderDate: data.orderDate,
       status: data.status,
       discount: data.discount,
@@ -219,7 +265,31 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, qu
 
   await tx.insert(orderItems).values(lines.map((line) => ({ ...line, orderId: order.id })));
   await syncCash(tx, ctx, order, data.bankAccountId);
-  await audit(tx, ctx, 'create', 'order', order.id, { status: order.status, total, quoteId });
+  await audit(tx, ctx, 'create', 'order', order.id, {
+    status: order.status,
+    total,
+    quoteId: order.quoteId,
+    opportunityId,
+  });
+  if (opportunityId) {
+    await noteDocumentValue(tx, opportunityId, total);
+    await advanceToMilestone(
+      tx,
+      ctx,
+      opportunityId,
+      'negotiation',
+      `Pedido ${formatCode(order.number)} gerado`,
+    );
+    if (isReceived(order.status)) {
+      await winFromDocument(
+        tx,
+        ctx,
+        opportunityId,
+        order.customerId,
+        `Pedido ${formatCode(order.number)} recebido`,
+      );
+    }
+  }
   return order;
 }
 
@@ -260,6 +330,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
     const [previous] = await tx.select().from(orders).where(scoped(ctx, id)).for('update');
     if (!previous) throw notFound('Pedido não encontrado.');
     for (const permission of permissionsForUpdate(previous, data)) authorize(ctx, permission);
+    await lockOpportunity(tx, previous.opportunityId);
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
 
     const items = await tx
@@ -298,6 +369,24 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
       from: previous.status,
       to: status,
     });
+    if (order.opportunityId && status !== previous.status) {
+      if (isReceived(status) && !isReceived(previous.status)) {
+        await winFromDocument(
+          tx,
+          ctx,
+          order.opportunityId,
+          order.customerId,
+          `Pedido ${formatCode(order.number)} recebido`,
+        );
+      } else if (status === 'cancelled') {
+        await recordDocumentEvent(
+          tx,
+          ctx,
+          order.opportunityId,
+          `Pedido ${formatCode(order.number)} cancelado.`,
+        );
+      }
+    }
   });
 
   return getOrder(ctx, id);
@@ -309,6 +398,7 @@ export async function deleteOrder(ctx: Ctx, id: number) {
   await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(scoped(ctx, id)).for('update');
     if (!order) throw notFound('Pedido não encontrado.');
+    await lockOpportunity(tx, order.opportunityId);
 
     if (order.status !== 'cancelled') {
       const items = await tx
@@ -320,6 +410,9 @@ export async function deleteOrder(ctx: Ctx, id: number) {
 
     await tx.delete(orders).where(scoped(ctx, id));
     await audit(tx, ctx, 'delete', 'order', id, { status: order.status, total: order.total });
+    if (order.opportunityId) {
+      await recordDocumentEvent(tx, ctx, order.opportunityId, `Pedido ${formatCode(order.number)} excluído.`);
+    }
   });
 }
 
@@ -328,7 +421,7 @@ export async function deleteOrder(ctx: Ctx, id: number) {
 // Pedidos pendentes de recebimento, de toda a empresa: quem cuida do financeiro dá baixa em todos.
 export async function listReceivables(ctx: Ctx) {
   authorize(ctx, 'receivables.read');
-  return loadOrders(and(eq(orders.companyId, ctx.companyId), eq(orders.status, 'pending')));
+  return loadOrders(ctx, and(eq(orders.companyId, ctx.companyId), eq(orders.status, 'pending')));
 }
 
 export async function settleReceivable(ctx: Ctx, id: number, input: ReceivableSettleInput) {
@@ -344,8 +437,17 @@ export async function settleReceivable(ctx: Ctx, id: number, input: ReceivableSe
     if (!order) throw notFound('Pedido não encontrado.');
     await syncCash(tx, ctx, order, data.bankAccountId);
     await audit(tx, ctx, 'status', 'order', id, { from: 'pending', to: 'paid', via: 'receivables' });
+    if (order.opportunityId) {
+      await winFromDocument(
+        tx,
+        ctx,
+        order.opportunityId,
+        order.customerId,
+        `Pedido ${formatCode(order.number)} recebido`,
+      );
+    }
   });
 
-  const [row] = await loadOrders(companyOrder);
+  const [row] = await loadOrders(ctx, companyOrder);
   return row;
 }

@@ -1,4 +1,4 @@
-import type { LeadStage, OrderStatus, QuoteStatus } from '@arandue/shared/schemas';
+import type { OpportunityStatus, OrderStatus, QuoteStatus, StageMilestone } from '@arandue/shared/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api.ts';
 
@@ -17,6 +17,11 @@ export interface Quote {
   number: number;
   customerId: number | null;
   customerName: string | null;
+  opportunityId: number | null;
+  opportunityTitle: string | null;
+  originQuoteId: number | null;
+  originOrderId: number | null;
+  originKind: 'converted' | 'duplicated' | 'copied' | null;
   status: QuoteStatus;
   discount: number;
   total: number;
@@ -33,6 +38,11 @@ export interface Order {
   customerId: number | null;
   customerName: string | null;
   quoteId: number | null;
+  opportunityId: number | null;
+  opportunityTitle: string | null;
+  originQuoteId: number | null;
+  originOrderId: number | null;
+  originKind: 'converted' | 'duplicated' | 'copied' | null;
   orderDate: string;
   status: OrderStatus;
   discount: number;
@@ -46,36 +56,97 @@ export interface Customer {
   name: string;
 }
 
-export interface Lead {
+export interface PipelineStage {
   id: number;
   name: string;
-  phone: string | null;
-  email: string | null;
+  position: number;
+  color: string;
+  milestone: StageMilestone | null;
+}
+
+export interface Opportunity {
+  id: number;
+  title: string;
+  customerId: number | null;
+  customerName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
   source: string;
-  stage: LeadStage;
+  stageId: number;
+  stageName: string;
+  stageColor: string;
+  status: OpportunityStatus;
+  estimatedValue: number | null;
+  expectedCloseDate: string | null;
   ownerId: number | null;
   ownerName: string | null;
   lostReason: string | null;
   nextAction: string | null;
   nextActionAt: string | null;
-  customerId: number | null;
   updatedAt: string;
 }
 
-export interface LeadDetail extends Lead {
+export interface OpportunityTotals {
+  open: { count: number; value: number };
+  won: { count: number; value: number };
+  lost: { count: number; value: number };
+  all: { count: number; value: number };
+}
+
+export interface OpportunityDetail extends Opportunity {
   interactions: {
     id: number;
+    kind: string;
     channel: string;
     description: string;
     occurredAt: string;
     userName: string | null;
   }[];
+  items: {
+    id: number;
+    productId: number;
+    productName: string;
+    quantity: number;
+    unitPrice: number | null;
+    catalogPrice: number;
+  }[];
+  quotes: { id: number; number: number; status: string; total: number }[];
+  orders: { id: number; number: number; status: string; total: number; orderDate: string }[];
+  values: { estimated: number; inQuotes: number; inOrders: number; received: number };
 }
 
-export const useLead = (id: number | null) =>
+export interface TraceNode {
+  type: 'quote' | 'order';
+  id: number;
+  number: number;
+  status: string;
+  total: number;
+  kind: 'converted' | 'duplicated' | 'copied' | null;
+  date: string;
+  receivedAt: string | null;
+  children: TraceNode[];
+}
+
+export interface Trace {
+  opportunity: { id: number; title: string; status: OpportunityStatus; stageName: string } | null;
+  roots: TraceNode[];
+}
+
+export const useOpportunity = (id: number | null) =>
   useQuery({
-    queryKey: ['/leads', id],
-    queryFn: () => api<LeadDetail>(`/leads/${id}`),
+    queryKey: ['/opportunities', id],
+    queryFn: () => api<OpportunityDetail>(`/opportunities/${id}`),
+    enabled: id !== null,
+  });
+
+export const useStages = () =>
+  useQuery({ queryKey: ['/pipeline-stages'], queryFn: () => api<PipelineStage[]>('/pipeline-stages') });
+
+export const useTrace = (type: 'quote' | 'order', id: number | null) =>
+  useQuery({
+    queryKey: ['/trace', type, id],
+    queryFn: () => api<Trace>(`/trace/${type}/${id}`),
     enabled: id !== null,
   });
 

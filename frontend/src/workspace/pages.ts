@@ -16,15 +16,17 @@ const titleOf = (path: string) => navigation.find((item) => item.path === path)?
 
 const PeopleList = lazy(() => import('../pages/PeopleListPage.tsx'));
 const PersonDocument = lazy(() => import('../pages/PersonDocumentPage.tsx'));
-const LeadDocument = lazy(() => import('../pages/LeadDocumentPage.tsx'));
+const OpportunityDocument = lazy(() => import('../pages/OpportunityDocumentPage.tsx'));
 const QuoteDocument = lazy(() => import('../pages/QuoteDocumentPage.tsx'));
 const OrderDocument = lazy(() => import('../pages/OrderDocumentPage.tsx'));
 
 const PAGES: PageDefinition[] = [
   { pattern: '/', title: titleOf('/'), Component: lazy(() => import('../pages/DashboardPage.tsx')) },
   { pattern: '/crm', title: titleOf('/crm'), Component: lazy(() => import('../pages/CrmPage.tsx')) },
-  { pattern: '/crm/novo', title: 'Novo lead', Component: LeadDocument },
-  { pattern: '/crm/:id', title: 'Lead', Component: LeadDocument },
+  { pattern: '/crm/novo', title: 'Nova oportunidade', Component: OpportunityDocument },
+  { pattern: '/crm/novo/:stageId', title: 'Nova oportunidade', Component: OpportunityDocument },
+  { pattern: '/crm/:opportunityId/orcamento', title: 'Novo orçamento', Component: QuoteDocument },
+  { pattern: '/crm/:id', title: 'Oportunidade', Component: OpportunityDocument },
   {
     pattern: '/orcamentos',
     title: titleOf('/orcamentos'),

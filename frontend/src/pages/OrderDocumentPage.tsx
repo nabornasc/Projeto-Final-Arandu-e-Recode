@@ -16,6 +16,7 @@ import {
   type Product,
 } from '../components/ItemLines.tsx';
 import { useToast } from '../components/Toast.tsx';
+import { TracePanel } from '../components/TracePanel.tsx';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
 import { type Order, useOrder } from '../lib/documents.ts';
@@ -236,6 +237,7 @@ function OrderEditor({ order }: { order: Order | null }) {
           </p>
         )}
       </form>
+      {order && <TracePanel type="order" id={order.id} />}
     </section>
   );
 }

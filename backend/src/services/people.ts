@@ -2,7 +2,15 @@ import { can, type Permission } from '@arandue/shared/permissions';
 import { type PersonInput, type PersonRole, personSchema } from '@arandue/shared/schemas';
 import { and, asc, eq, ilike, ne, or, type SQL, sql } from 'drizzle-orm';
 import { type DbOrTx, db, type Transaction } from '../db/client.ts';
-import { leads, orders, people, personAddresses, personContacts, quotes, users } from '../db/schema.ts';
+import {
+  opportunities,
+  orders,
+  people,
+  personAddresses,
+  personContacts,
+  quotes,
+  users,
+} from '../db/schema.ts';
 import { authorize, authorizeAny, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
@@ -255,7 +263,7 @@ export async function updatePerson(ctx: Ctx, id: number, input: PersonInput) {
   return getPerson(ctx, id);
 }
 
-// Pessoa usada em orçamento, pedido, lead ou como transportadora de outra é arquivada (preserva o
+// Pessoa usada em orçamento, pedido, oportunidade ou como transportadora de outra é arquivada (preserva o
 // histórico); senão, é excluída.
 export async function deletePerson(ctx: Ctx, id: number) {
   await db.transaction(async (tx) => {
@@ -266,7 +274,7 @@ export async function deletePerson(ctx: Ctx, id: number) {
     const [{ used } = { used: false }] = await tx.execute<{ used: boolean }>(sql`
       SELECT EXISTS (SELECT 1 FROM ${quotes} WHERE ${quotes.customerId} = ${id})
           OR EXISTS (SELECT 1 FROM ${orders} WHERE ${orders.customerId} = ${id})
-          OR EXISTS (SELECT 1 FROM ${leads} WHERE ${leads.customerId} = ${id})
+          OR EXISTS (SELECT 1 FROM ${opportunities} WHERE ${opportunities.customerId} = ${id})
           OR EXISTS (SELECT 1 FROM ${people} WHERE ${people.carrierId} = ${id}) AS used`);
 
     if (used) {
@@ -279,12 +287,14 @@ export async function deletePerson(ctx: Ctx, id: number) {
   });
 }
 
-// Garante que a pessoa exista como cliente (lead ganho, orçamento a partir de oportunidade).
+// Garante que a pessoa exista como cliente (oportunidade ganha, orçamento a partir de oportunidade).
 // Reaproveita cadastro com o mesmo e-mail ou telefone; se ainda não for cliente, ganha o papel.
+// `system`: efeito automático (ex.: baixa do financeiro ganha a oportunidade), sem exigir permissão.
 export async function ensureCustomer(
   tx: Transaction,
   ctx: Ctx,
   contact: { name: string; email: string | null; phone: string | null; sellerId: number | null },
+  { system = false }: { system?: boolean } = {},
 ): Promise<number> {
   const matches = [
     contact.email ? eq(sql`lower(${people.email})`, contact.email.toLowerCase()) : undefined,
@@ -299,13 +309,13 @@ export async function ensureCustomer(
       .limit(1);
     if (existing?.isCustomer) return existing.id;
     if (existing) {
-      authorize(ctx, 'customers.create');
+      if (!system) authorize(ctx, 'customers.create');
       await tx.update(people).set({ isCustomer: true }).where(eq(people.id, existing.id));
       await audit(tx, ctx, 'update', 'person', existing.id, { roles: 'customer' });
       return existing.id;
     }
   }
-  authorize(ctx, 'customers.create');
+  if (!system) authorize(ctx, 'customers.create');
   const [person] = await tx
     .insert(people)
     .values({

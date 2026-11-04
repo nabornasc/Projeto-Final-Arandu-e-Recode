@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
 import { useProfile } from '../lib/auth.ts';
-import type { Lead, Order, Quote } from '../lib/documents.ts';
+import type { Opportunity, Order, Quote } from '../lib/documents.ts';
 import { formatCode, todayIso } from '../lib/format.ts';
 import type { ActionKit, GlobalAction, RecordAction } from './registry.ts';
 
@@ -29,7 +29,13 @@ const ActionContext = createContext<Runner | null>(null);
 const ConvertQuoteModal = lazy(async () => ({
   default: (await import('./ConvertQuoteModal.tsx')).ConvertQuoteModal,
 }));
-const LostLeadModal = lazy(async () => ({ default: (await import('./LostLeadModal.tsx')).LostLeadModal }));
+const LostOpportunityModal = lazy(async () => ({
+  default: (await import('./LostOpportunityModal.tsx')).LostOpportunityModal,
+}));
+const LinkOpportunityModal = lazy(async () => ({
+  default: (await import('./LinkOpportunityModal.tsx')).LinkOpportunityModal,
+}));
+const DuplicateModal = lazy(async () => ({ default: (await import('./DuplicateModal.tsx')).DuplicateModal }));
 const SettleModal = lazy(async () => ({ default: (await import('./SettleModal.tsx')).SettleModal }));
 
 export function useActions(): Runner {
@@ -46,7 +52,11 @@ export function ActionHost({ children }: { children: ReactNode }) {
   const profile = useProfile();
   const [converting, setConverting] = useState<Quote | null>(null);
   const [settling, setSettling] = useState<Order | null>(null);
-  const [losing, setLosing] = useState<Lead | null>(null);
+  const [losing, setLosing] = useState<Opportunity | null>(null);
+  const [linking, setLinking] = useState<{ type: 'quote' | 'order'; document: Quote | Order } | null>(null);
+  const [duplicating, setDuplicating] = useState<{ type: 'quote' | 'order'; document: Quote | Order } | null>(
+    null,
+  );
 
   const done = useCallback(
     (message: string) => {
@@ -63,7 +73,9 @@ export function ActionHost({ children }: { children: ReactNode }) {
       done,
       convert: setConverting,
       settle: setSettling,
-      loseLead: setLosing,
+      loseOpportunity: setLosing,
+      linkOpportunity: (type, document) => setLinking({ type, document }),
+      duplicate: (type, document) => setDuplicating({ type, document }),
       today: todayIso,
     }),
     [navigate, done],
@@ -111,12 +123,35 @@ export function ActionHost({ children }: { children: ReactNode }) {
           />
         )}
         {losing && (
-          <LostLeadModal
-            lead={losing}
+          <LostOpportunityModal
+            opportunity={losing}
             onClose={() => setLosing(null)}
             onLost={() => {
               setLosing(null);
-              done(`${losing.name} marcado como perdido.`);
+              done(`${losing.title}: perdida.`);
+            }}
+          />
+        )}
+        {linking && (
+          <LinkOpportunityModal
+            type={linking.type}
+            document={linking.document}
+            onClose={() => setLinking(null)}
+            onLinked={() => {
+              setLinking(null);
+              done('Documento vinculado à oportunidade.');
+            }}
+          />
+        )}
+        {duplicating && (
+          <DuplicateModal
+            type={duplicating.type}
+            document={duplicating.document}
+            onClose={() => setDuplicating(null)}
+            onDuplicated={(path, message) => {
+              setDuplicating(null);
+              done(message);
+              navigate(path);
             }}
           />
         )}

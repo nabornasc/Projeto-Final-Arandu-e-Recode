@@ -33,14 +33,6 @@ export const orderStatusEnum = pgEnum('order_status', ['pending', 'paid', 'compl
 export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'approved', 'rejected']);
 export const expenseStatusEnum = pgEnum('expense_status', ['pending', 'paid']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['income', 'outcome']);
-export const leadStageEnum = pgEnum('lead_stage', [
-  'new',
-  'contacted',
-  'quote_sent',
-  'negotiation',
-  'won',
-  'lost',
-]);
 export const channelEnum = pgEnum('channel', ['web', 'telegram', 'whatsapp', 'phone', 'in_person']);
 export const actorEnum = pgEnum('actor', ['web', 'telegram', 'assistant', 'system']);
 
@@ -241,21 +233,63 @@ export const personAddresses = pgTable(
 
 // ---------- CRM ----------
 
-export const leads = pgTable(
-  'leads',
+export const opportunityStatusEnum = pgEnum('opportunity_status', ['open', 'won', 'lost']);
+// Marcos fixos usados pela automação; cada empresa liga as próprias etapas a eles.
+export const stageMilestoneEnum = pgEnum('stage_milestone', ['start', 'quote_sent', 'negotiation']);
+export const activityKindEnum = pgEnum('activity_kind', [
+  'comment',
+  'call',
+  'visit',
+  'meeting',
+  'proposal',
+  'email',
+  'event',
+]);
+export const originKindEnum = pgEnum('origin_kind', ['converted', 'duplicated', 'copied']);
+
+// Etapas do funil de cada empresa.
+export const pipelineStages = pgTable(
+  'pipeline_stages',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
-    name: varchar({ length: 160 }).notNull(),
-    phone: varchar({ length: 30 }),
-    email: varchar({ length: 160 }),
+    name: varchar({ length: 60 }).notNull(),
+    position: integer().notNull(),
+    color: varchar({ length: 7 }).notNull().default('#6d4fd6'),
+    milestone: stageMilestoneEnum(),
+  },
+  (t) => [
+    index().on(t.companyId, t.position),
+    uniqueIndex().on(t.companyId, t.name),
+    // No máximo uma etapa por marco em cada empresa.
+    uniqueIndex().on(t.companyId, t.milestone).where(sql`${t.milestone} IS NOT NULL`),
+  ],
+);
+
+// Oportunidade = um negócio. A situação é separada da etapa: uma perdida mostra onde parou.
+export const opportunities = pgTable(
+  'opportunities',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    companyId: companyId(),
+    title: varchar({ length: 160 }).notNull(),
+    customerId: integer().references(() => people.id, { onDelete: 'set null' }),
+    // Contato de quem ainda não é cliente.
+    contactName: varchar({ length: 160 }),
+    contactPhone: varchar({ length: 30 }),
+    contactEmail: varchar({ length: 160 }),
     source: varchar({ length: 60 }).notNull(),
-    stage: leadStageEnum().notNull().default('new'),
+    stageId: integer()
+      .notNull()
+      .references(() => pipelineStages.id, { onDelete: 'restrict' }),
+    status: opportunityStatusEnum().notNull().default('open'),
+    estimatedValue: money(),
+    expectedCloseDate: date({ mode: 'string' }),
     ownerId: integer().references(() => users.id, { onDelete: 'set null' }),
     lostReason: varchar({ length: 255 }),
     nextAction: varchar({ length: 255 }),
     nextActionAt: date({ mode: 'string' }),
-    customerId: integer().references(() => people.id, { onDelete: 'set null' }),
+    closedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -263,10 +297,28 @@ export const leads = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    index().on(t.companyId, t.stage),
+    index().on(t.companyId, t.status, t.stageId),
     index().on(t.companyId, t.source),
     index().on(t.companyId, t.ownerId),
+    index().on(t.customerId),
   ],
+);
+
+// Itens de interesse: viram o primeiro orçamento da oportunidade.
+export const opportunityItems = pgTable(
+  'opportunity_items',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    opportunityId: integer()
+      .notNull()
+      .references(() => opportunities.id, { onDelete: 'cascade' }),
+    productId: integer()
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    quantity: quantity().notNull(),
+    unitPrice: money(),
+  },
+  (t) => [index().on(t.opportunityId)],
 );
 
 export const interactions = pgTable(
@@ -274,15 +326,16 @@ export const interactions = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     companyId: companyId(),
-    leadId: integer()
-      .notNull()
-      .references(() => leads.id, { onDelete: 'cascade' }),
     userId: integer().references(() => users.id, { onDelete: 'set null' }),
+    opportunityId: integer()
+      .notNull()
+      .references(() => opportunities.id, { onDelete: 'cascade' }),
+    kind: activityKindEnum().notNull().default('comment'),
     channel: channelEnum().notNull().default('web'),
     description: text().notNull(),
     occurredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index().on(t.companyId, t.leadId)],
+  (t) => [index().on(t.companyId, t.opportunityId)],
 );
 
 // ---------- Vendas ----------
@@ -294,7 +347,11 @@ export const quotes = pgTable(
     companyId: companyId(),
     number: integer().notNull(),
     customerId: integer().references(() => people.id, { onDelete: 'set null' }),
-    leadId: integer().references(() => leads.id, { onDelete: 'set null' }),
+    // Rastreio: a oportunidade do documento e o documento de onde ele nasceu (no máximo um).
+    opportunityId: integer().references(() => opportunities.id, { onDelete: 'set null' }),
+    originQuoteId: integer().references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
+    originOrderId: integer().references((): AnyPgColumn => orders.id, { onDelete: 'set null' }),
+    originKind: originKindEnum(),
     status: quoteStatusEnum().notNull().default('draft'),
     discount: money().notNull().default(0),
     total: money().notNull().default(0),
@@ -309,6 +366,9 @@ export const quotes = pgTable(
     index().on(t.companyId, t.status),
     index().on(t.companyId, t.createdAt),
     uniqueIndex().on(t.companyId, t.number),
+    index().on(t.opportunityId),
+    index().on(t.originQuoteId),
+    index().on(t.originOrderId),
   ],
 );
 
@@ -337,6 +397,11 @@ export const orders = pgTable(
     number: integer().notNull(),
     customerId: integer().references(() => people.id, { onDelete: 'set null' }),
     quoteId: integer().references(() => quotes.id, { onDelete: 'set null' }),
+    // Rastreio: mesma ideia do orçamento. quoteId continua marcando a conversão (única por orçamento).
+    opportunityId: integer().references(() => opportunities.id, { onDelete: 'set null' }),
+    originQuoteId: integer().references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
+    originOrderId: integer().references((): AnyPgColumn => orders.id, { onDelete: 'set null' }),
+    originKind: originKindEnum(),
     orderDate: date({ mode: 'string' }).notNull(),
     status: orderStatusEnum().notNull().default('pending'),
     discount: money().notNull().default(0),
@@ -350,6 +415,9 @@ export const orders = pgTable(
     index().on(t.companyId, t.status),
     uniqueIndex().on(t.quoteId),
     uniqueIndex().on(t.companyId, t.number),
+    index().on(t.opportunityId),
+    index().on(t.originQuoteId),
+    index().on(t.originOrderId),
   ],
 );
 

@@ -1,4 +1,4 @@
-import type { Permission } from '@arandue/shared/permissions';
+import { can, type Permission } from '@arandue/shared/permissions';
 import {
   type QuoteConvertInput,
   type QuoteInput,
@@ -8,13 +8,20 @@ import {
 } from '@arandue/shared/schemas';
 import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { orders, people, products, quoteItems, quotes } from '../db/schema.ts';
+import { opportunities, orders, people, products, quoteItems, quotes } from '../db/schema.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
-import { nextNumber } from './numbering.ts';
-import { buildLines, getOrder, insertOrder } from './orders.ts';
+import { formatCode, nextNumber } from './numbering.ts';
+import {
+  advanceToMilestone,
+  lockOpportunity,
+  noteDocumentValue,
+  prepareDocumentLink,
+  recordDocumentEvent,
+} from './opportunities.ts';
+import { buildLines, type DocumentLink, getOrder, insertOrder } from './orders.ts';
 import { assertCustomer } from './ownership.ts';
 
 const scoped = (ctx: Ctx, id: number) =>
@@ -27,13 +34,18 @@ const STATUS_LABEL: Record<QuoteStatus, string> = {
   rejected: 'recusado',
 };
 
-async function loadQuotes(where: SQL | undefined) {
+async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
   const rows = await db
     .select({
       id: quotes.id,
       number: quotes.number,
       customerId: quotes.customerId,
       customerName: people.name,
+      opportunityId: quotes.opportunityId,
+      opportunityTitle: opportunities.title,
+      originQuoteId: quotes.originQuoteId,
+      originOrderId: quotes.originOrderId,
+      originKind: quotes.originKind,
       status: quotes.status,
       discount: quotes.discount,
       total: quotes.total,
@@ -49,6 +61,7 @@ async function loadQuotes(where: SQL | undefined) {
     .from(quotes)
     .leftJoin(people, eq(people.id, quotes.customerId))
     .leftJoin(orders, eq(orders.quoteId, quotes.id))
+    .leftJoin(opportunities, eq(opportunities.id, quotes.opportunityId))
     .where(where)
     .orderBy(desc(quotes.createdAt), desc(quotes.id))
     .limit(500);
@@ -75,7 +88,13 @@ async function loadQuotes(where: SQL | undefined) {
     .orderBy(asc(quoteItems.id));
 
   const byQuote = Map.groupBy(items, (item) => item.quoteId);
-  return rows.map((row) => ({ ...row, items: byQuote.get(row.id) ?? [] }));
+  // O título da oportunidade só aparece para quem pode ver o CRM.
+  const showOpportunity = can(ctx.permissions, 'opportunities.read');
+  return rows.map((row) => ({
+    ...row,
+    opportunityTitle: showOpportunity ? row.opportunityTitle : null,
+    items: byQuote.get(row.id) ?? [],
+  }));
 }
 
 async function lockQuote(tx: Transaction, ctx: Ctx, id: number) {
@@ -86,12 +105,12 @@ async function lockQuote(tx: Transaction, ctx: Ctx, id: number) {
 
 export async function listQuotes(ctx: Ctx) {
   authorize(ctx, 'quotes.read');
-  return loadQuotes(and(eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy)));
+  return loadQuotes(ctx, and(eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy)));
 }
 
 export async function getQuote(ctx: Ctx, id: number) {
   authorize(ctx, 'quotes.read');
-  const [row] = await loadQuotes(scoped(ctx, id));
+  const [row] = await loadQuotes(ctx, scoped(ctx, id));
   if (!row) throw notFound('Orçamento não encontrado.');
   return row;
 }
@@ -100,21 +119,27 @@ export async function getQuote(ctx: Ctx, id: number) {
 type QuoteData = ReturnType<typeof quoteSchema.parse>;
 
 // Cria o rascunho dentro de uma transação já aberta (orçamento novo, duplicado ou copiado de pedido).
-export async function insertQuote(
-  tx: Transaction,
-  ctx: Ctx,
-  data: QuoteData,
-  origin?: Record<string, unknown>,
-) {
-  if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
+export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, link: DocumentLink = {}) {
+  await lockOpportunity(tx, link.opportunityId);
+  // data.opportunityId vem do usuário (é conferida); link.opportunityId é herdada de outro documento.
+  const customerId = data.opportunityId
+    ? await prepareDocumentLink(tx, ctx, data.opportunityId, data.customerId)
+    : data.customerId;
+  const opportunityId = link.opportunityId ?? data.opportunityId ?? null;
+  if (customerId) await assertCustomer(tx, ctx, customerId);
   const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+  const number = await nextNumber(tx, ctx, 'quote');
 
   const [quote] = await tx
     .insert(quotes)
     .values({
       companyId: ctx.companyId,
-      number: await nextNumber(tx, ctx, 'quote'),
-      customerId: data.customerId ?? null,
+      number,
+      customerId: customerId ?? null,
+      opportunityId,
+      originQuoteId: link.originQuoteId ?? null,
+      originOrderId: link.originOrderId ?? null,
+      originKind: link.originKind ?? null,
       validUntil: data.validUntil ?? null,
       discount: data.discount,
       total,
@@ -125,7 +150,17 @@ export async function insertQuote(
   if (!quote) throw new Error('Falha ao criar orçamento.');
 
   await tx.insert(quoteItems).values(lines.map((line) => ({ ...line, quoteId: quote.id })));
-  await audit(tx, ctx, 'create', 'quote', quote.id, { total, ...origin });
+  await audit(tx, ctx, 'create', 'quote', quote.id, {
+    total,
+    opportunityId,
+    originQuoteId: link.originQuoteId,
+    originOrderId: link.originOrderId,
+    originKind: link.originKind,
+  });
+  if (opportunityId) {
+    await noteDocumentValue(tx, opportunityId, total);
+    await recordDocumentEvent(tx, ctx, opportunityId, `Orçamento ${formatCode(number)} criado.`);
+  }
   return quote.id;
 }
 
@@ -191,6 +226,14 @@ export async function transitionQuote(ctx: Ctx, id: number, name: QuoteTransitio
       .set({ status: step.to, ...(name === 'send' ? { sentAt: now } : { decidedAt: now }) })
       .where(scoped(ctx, id));
     await audit(tx, ctx, 'status', 'quote', id, { from: quote.status, to: step.to });
+    if (quote.opportunityId) {
+      const code = formatCode(quote.number);
+      if (name === 'send')
+        await advanceToMilestone(tx, ctx, quote.opportunityId, 'quote_sent', `Orçamento ${code} enviado`);
+      else if (name === 'approve')
+        await advanceToMilestone(tx, ctx, quote.opportunityId, 'negotiation', `Orçamento ${code} aprovado`);
+      else await recordDocumentEvent(tx, ctx, quote.opportunityId, `Orçamento ${code} recusado.`);
+    }
   });
 
   return getQuote(ctx, id);
@@ -209,9 +252,7 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
 
     const [existing] = await tx.select({ number: orders.number }).from(orders).where(eq(orders.quoteId, id));
     if (existing) {
-      throw conflict(
-        `Este orçamento já foi convertido no pedido #${String(existing.number).padStart(3, '0')}.`,
-      );
+      throw conflict(`Este orçamento já foi convertido no pedido ${formatCode(existing.number)}.`);
     }
 
     const items = await tx
@@ -236,7 +277,7 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
         bankAccountId: data.bankAccountId,
         items,
       },
-      id,
+      { quoteId: id, opportunityId: quote.opportunityId, originQuoteId: id, originKind: 'converted' },
     );
     await audit(tx, ctx, 'convert', 'quote', id, { orderId: order.id });
     return order.id;
@@ -253,5 +294,13 @@ export async function deleteQuote(ctx: Ctx, id: number) {
     if (order) throw conflict('Orçamento convertido em pedido não pode ser excluído.');
     await tx.delete(quotes).where(scoped(ctx, id));
     await audit(tx, ctx, 'delete', 'quote', id, { status: quote.status });
+    if (quote.opportunityId) {
+      await recordDocumentEvent(
+        tx,
+        ctx,
+        quote.opportunityId,
+        `Orçamento ${formatCode(quote.number)} excluído.`,
+      );
+    }
   });
 }

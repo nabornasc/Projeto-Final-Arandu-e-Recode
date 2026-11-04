@@ -439,11 +439,14 @@ Ficam para depois da entrega: compras e entrada de estoque, tabelas de preço, i
 | Conceito | O **lead vira Oportunidade**: um negócio com título, valor estimado e previsão de fechamento, ligado a um cliente (ou aos dados de contato de quem ainda não é cliente). Um cliente pode ter várias oportunidades. |
 | Etapas | **Andam sozinhas, só para frente**, conforme os documentos; mudar à mão continua valendo; tudo vai para o histórico. |
 | Duplicar | Pergunta, com **"manter na mesma oportunidade" já marcado** (nova versão ou alternativa). Desmarcado, a cópia fica avulsa, mas continua registrado de qual documento veio. |
+| Situação | **Separada da etapa** (em andamento, ganha ou perdida): a etapa fica onde parou, para analisar onde as vendas se perdem. Encerrada precisa ser reaberta antes de mudar de situação. |
+| Funil | **Configurável por empresa** (nome, ordem, cor). Cada etapa pode ter um marco (início, orçamento enviado, negociação), que a automação procura; a oportunidade nasce na etapa de início ou, sem ela, na primeira. |
 
 ### 9.2 Modelo de dados
 
-- `leads` passa a se chamar `opportunities`: ganha `title`, `estimated_value` e `expected_close_date`; `name`, `phone` e `email` viram os dados de contato. Permissões `leads.*` passam a `opportunities.*` (migração atualiza os grupos).
-- `quotes` e `orders` ganham `opportunity_id` e a **origem**: `origin_type` (orçamento ou pedido), `origin_id` e `origin_kind` (convertido, duplicado, copiado). Cada documento tem um único pai, então o rastreio é uma árvore.
+- `leads` passa a se chamar `opportunities`: ganha `title`, `estimated_value`, `expected_close_date`, `status` e `stage_id`; `name`, `phone` e `email` viram os dados de contato. Permissões `leads.*` passam a `opportunities.*` (migração atualiza os grupos).
+- `pipeline_stages` guarda o funil de cada empresa e `opportunity_items`, os itens de interesse.
+- `quotes` e `orders` ganham `opportunity_id` e a **origem**: `origin_quote_id` ou `origin_order_id`, mais `origin_kind` (convertido, duplicado, copiado). São duas chaves estrangeiras em vez de `origin_type` + `origin_id`, para o banco garantir a integridade. Cada documento tem um único pai, então o rastreio é uma árvore.
 - `interactions` ganha o **tipo** da atividade (comentário, ligação, visita, reunião, proposta, e-mail), além do canal, e o tipo `evento` para registros automáticos.
 
 ### 9.3 Regras do rastreio
@@ -475,7 +478,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 
 ### 9.6 API
 
-`GET /trace/:tipo/:id` (cadeia completa); `POST /quotes/:id/link` e `/orders/:id/link` (`{ opportunityId }` ou `null`); `POST /quotes/:id/opportunity` e `/orders/:id/opportunity` (cria a partir do documento); `duplicate` aceita `{ keepOpportunity }`; `GET /opportunities/:id` inclui documentos e valores.
+`GET /trace/:tipo/:id` (cadeia completa, filtrada pelo que quem consulta pode ver); `GET|POST /pipeline-stages`, `PUT|DELETE /pipeline-stages/:id` e `PUT /pipeline-stages/order`; `POST /quotes/:id/link` e `/orders/:id/link` (`{ opportunityId }` ou `null`); `POST /quotes/:id/opportunity` e `/orders/:id/opportunity` (cria a partir do documento); `duplicate` aceita `{ keepOpportunity }`; `GET /opportunities/:id` inclui documentos e valores.
 
 ---
 
@@ -538,8 +541,8 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 |---|---|---|
 | **v2.0** | Fundação multiempresa, ERP (orçamentos, pedidos, financeiro), permissões e grupos de acesso, abas e menu de ações, CRM com funil | **Concluída em 02/11** |
 | **v2.1** | Cadastro único de pessoas com papéis, CPF/CNPJ validados, endereço estruturado e busca de CNPJ/CEP (seção 8) | **Concluída em 02/11** |
-| **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | Próxima |
-| **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | Planejada |
+| **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | **Concluída em 03/11** |
+| **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | Próxima |
 | **v2.4** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
 | **v2.5** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, campos de entrega, espelhos (impressão, PDF, DOCX) | Planejada |
 | **v2.6** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
@@ -548,7 +551,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 
 ### Notas por versão (referência: telas de ERPs de mercado analisadas em 02/11)
 
-Observações para detalhar no início de cada ciclo. Nada aqui foi implementado ainda.
+Observações para detalhar no início de cada ciclo. As notas de versões concluídas ficam como registro do que foi considerado.
 
 **v2.1 — Pessoas**
 - Aba Comercial: forma e condição de pagamento padrão, tipo de frete (remetente/destinatário) e transportadora padrão, categoria, região, **vendedor fixo da carteira** (bloqueado para quem não pode mudar), observação.
@@ -562,6 +565,7 @@ Observações para detalhar no início de cada ciclo. Nada aqui foi implementado
 - **Indicação (parceiro/indicador e contato) separada da origem** (canal).
 - Kanban com **total em R$ e quantidade por coluna**, total geral e "+" para criar direto na coluna.
 - Menu da oportunidade em grupos: Visualizar (anexos, imprimir), Ações (copiar, criar/ver orçamento e pedido), Situação, Histórico.
+- **Ficou para depois:** indicação separada da origem, anexos e impressão da oportunidade.
 
 **v2.5 — Documentos**
 - **Grupos de itens** com subtotal (ambiente, etapa, kit), duplicar grupo, modelos de grupo pesquisáveis.
@@ -694,6 +698,5 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ## 14. Próximos passos imediatos
 
-1. Publicar a v2.0: `CHANGELOG.md`, tag `v2.0.0` e push.
-2. Começar a v2.1 pela tabela `people` e pela migração de clientes e fornecedores (seção 8.2), com os testes de validação de CPF/CNPJ e de migração antes das telas.
-3. Em seguida, a v2.2 (oportunidades e rastreio, seção 9) e a v2.3 (publicação), com as contas do Supabase e da Vercel já autenticadas no ambiente.
+1. Detalhar a v2.3 (publicação): deploy no Supabase e na Vercel, Sentry e Playwright nos fluxos principais.
+2. Atualizar a demonstração do portfólio com a v2.2 quando a publicação estiver no ar.

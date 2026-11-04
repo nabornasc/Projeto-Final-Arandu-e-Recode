@@ -252,6 +252,7 @@ export const orderItemSchema = z.object({
 });
 
 export const orderCreateSchema = z.object({
+  opportunityId: id.nullish(),
   customerId: id.nullish(),
   orderDate: isoDate,
   status: z.enum(['pending', 'paid']).default('pending'),
@@ -281,6 +282,8 @@ export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
 // Criação e edição (só em rascunho) usam o mesmo formato; o status muda por ações próprias.
 export const quoteSchema = z.object({
+  // Só no cadastro; depois, o vínculo muda pelas rotas de vincular e desvincular.
+  opportunityId: id.nullish(),
   customerId: id.nullish(),
   validUntil: isoDate.nullish(),
   discount: money.default(0),
@@ -297,39 +300,97 @@ export const quoteConvertSchema = z.object({
 export type QuoteConvertInput = z.input<typeof quoteConvertSchema>;
 
 // Duplicar ou copiar para pedido: o pedido novo precisa da data da venda.
-export const copyToOrderSchema = z.object({ orderDate: isoDate });
+export const copyToOrderSchema = z.object({ orderDate: isoDate, keepOpportunity: z.boolean().default(true) });
 export type CopyToOrderInput = z.input<typeof copyToOrderSchema>;
 
 // ---------- CRM ----------
 
-export const LEAD_STAGES = ['new', 'contacted', 'quote_sent', 'negotiation', 'won', 'lost'] as const;
-export type LeadStage = (typeof LEAD_STAGES)[number];
+export const OPPORTUNITY_STATUSES = ['open', 'won', 'lost'] as const;
+export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
+export const STAGE_MILESTONES = ['start', 'quote_sent', 'negotiation'] as const;
+export type StageMilestone = (typeof STAGE_MILESTONES)[number];
 export const CHANNELS = ['web', 'telegram', 'whatsapp', 'phone', 'in_person'] as const;
+// "event" é só para registros automáticos; o usuário escolhe entre estes.
+export const ACTIVITY_KINDS = ['comment', 'call', 'visit', 'meeting', 'proposal', 'email'] as const;
 
-export const leadSchema = z.object({
-  name: requiredText(160, 'Informe o nome do lead'),
-  phone: optionalText(30),
-  email: optionalEmail,
+export const opportunityItemSchema = z.object({
+  productId: id,
+  quantity: z.number().positive('A quantidade deve ser maior que zero').max(1e6),
+  unitPrice: money.nullish(),
+});
+
+export const opportunitySchema = z.object({
+  title: requiredText(160, 'Informe o título da oportunidade'),
+  customerId: id.nullish(),
+  contactName: optionalText(160),
+  contactPhone: optionalText(30),
+  contactEmail: optionalEmail,
   source: requiredText(60, 'Informe a origem (ex.: Indicação, Instagram)'),
+  // Só no cadastro; depois, a etapa muda pela rota própria.
+  stageId: id.nullish(),
+  estimatedValue: money.nullish(),
+  expectedCloseDate: isoDate.nullish(),
   // Responsável; vazio = quem cadastrou.
   ownerId: id.nullish(),
   nextAction: optionalText(255),
   nextActionAt: isoDate.nullish(),
+  items: z.array(opportunityItemSchema).max(100).optional(),
 });
-export type LeadInput = z.input<typeof leadSchema>;
+export type OpportunityInput = z.input<typeof opportunitySchema>;
 
-export const leadStageSchema = z
-  .object({ stage: z.enum(LEAD_STAGES), lostReason: optionalText(255) })
-  .refine((data) => data.stage !== 'lost' || data.lostReason, {
+export const opportunityStageSchema = z.object({ stageId: id });
+export type OpportunityStageInput = z.input<typeof opportunityStageSchema>;
+
+export const opportunityStatusSchema = z
+  .object({ status: z.enum(OPPORTUNITY_STATUSES), lostReason: optionalText(255) })
+  .refine((data) => data.status !== 'lost' || data.lostReason, {
     message: 'Informe o motivo da perda',
     path: ['lostReason'],
   });
-export type LeadStageInput = z.input<typeof leadStageSchema>;
+export type OpportunityStatusInput = z.input<typeof opportunityStatusSchema>;
 
 export const interactionSchema = z.object({
-  channel: z.enum(CHANNELS),
+  kind: z.enum(ACTIVITY_KINDS).default('comment'),
+  channel: z.enum(CHANNELS).default('web'),
   description: requiredText(2000, 'Descreva o atendimento'),
 });
 export type InteractionInput = z.input<typeof interactionSchema>;
+
+export const opportunityFilterSchema = z.object({
+  status: z.enum(OPPORTUNITY_STATUSES).optional(),
+  stageId: z.coerce.number().int().positive().optional(),
+  ownerId: z.coerce.number().int().positive().optional(),
+  source: z.string().trim().max(60).optional(),
+  lostReason: z.string().trim().max(100).optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+  q: z.string().trim().max(100).optional(),
+});
+export type OpportunityFilter = z.output<typeof opportunityFilterSchema>;
+
+export const pipelineStageSchema = z.object({
+  name: requiredText(60, 'Informe o nome da etapa'),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida')
+    .default('#6d4fd6'),
+  milestone: z
+    .union([z.literal(''), z.enum(STAGE_MILESTONES)])
+    .nullish()
+    .transform((value) => value || null),
+});
+export type PipelineStageInput = z.input<typeof pipelineStageSchema>;
+
+export const pipelineOrderSchema = z.object({ ids: z.array(id).min(1).max(50) });
+export type PipelineOrderInput = z.input<typeof pipelineOrderSchema>;
+
+// Vincular um documento a uma oportunidade (null desvincula).
+export const documentLinkSchema = z.object({ opportunityId: id.nullable() });
+export type DocumentLinkInput = z.input<typeof documentLinkSchema>;
+
+export const duplicateQuoteSchema = z.object({ keepOpportunity: z.boolean().default(true) });
+export type DuplicateQuoteInput = z.input<typeof duplicateQuoteSchema>;
+
+export const TRACE_TYPES = ['opportunity', 'quote', 'order'] as const;
 
 export const idParamSchema = z.object({ id: z.coerce.number().int().positive() });

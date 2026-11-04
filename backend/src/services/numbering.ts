@@ -3,6 +3,8 @@ import type { Transaction } from '../db/client.ts';
 import { companies } from '../db/schema.ts';
 import type { Ctx } from '../lib/context.ts';
 
+export const formatCode = (value: number) => `#${String(value).padStart(3, '0')}`;
+
 // Próximo número da empresa (#001, #002...). O UPDATE trava a linha da empresa até o fim da
 // transação, então duas vendas simultâneas nunca recebem o mesmo número.
 export async function nextNumber(tx: Transaction, ctx: Ctx, kind: 'order' | 'quote'): Promise<number> {

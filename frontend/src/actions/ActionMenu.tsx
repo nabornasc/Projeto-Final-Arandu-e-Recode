@@ -2,7 +2,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { type KeyboardEvent, useId, useRef, useState } from 'react';
 import { useProfile } from '../lib/auth.ts';
 import { useActions } from './ActionHost.tsx';
-import { availableActions, labelOf, type RecordAction } from './registry.ts';
+import { availableActions, GROUP_LABELS, GROUP_ORDER, labelOf, type RecordAction } from './registry.ts';
 
 interface Props<T> {
   actions: RecordAction<T>[];
@@ -80,21 +80,30 @@ export function ActionMenu<T>({ actions, record, label, exclude = [] }: Props<T>
         onKeyDown={onKeyDown}
         onToggle={(event) => event.newState === 'closed' && trigger.current?.focus({ preventScroll: true })}
       >
-        {items.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            role="menuitem"
-            className={action.danger ? 'danger' : undefined}
-            onClick={() => {
-              menu.current?.hidePopover();
-              void run(action, record);
-            }}
-          >
-            <action.icon size={15} aria-hidden="true" />
-            {labelOf(action, record)}
-          </button>
-        ))}
+        {GROUP_ORDER.map((group) => {
+          const inGroup = items.filter((action) => (action.group ?? 'actions') === group);
+          if (!inGroup.length) return null;
+          return (
+            <fieldset key={group} className="action-group">
+              {GROUP_LABELS[group] && <legend className="action-group-label">{GROUP_LABELS[group]}</legend>}
+              {inGroup.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  role="menuitem"
+                  className={action.danger ? 'danger' : undefined}
+                  onClick={() => {
+                    menu.current?.hidePopover();
+                    void run(action, record);
+                  }}
+                >
+                  <action.icon size={15} aria-hidden="true" />
+                  {labelOf(action, record)}
+                </button>
+              ))}
+            </fieldset>
+          );
+        })}
       </div>
     </>
   );

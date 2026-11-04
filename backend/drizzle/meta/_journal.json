@@ -50,6 +50,20 @@
       "when": 1793652875682,
       "tag": "0006_remove_clientes_fornecedores",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793753305314,
+      "tag": "0007_oportunidades",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793753314635,
+      "tag": "0008_remove_leads",
+      "breakpoints": true
     }
   ]
 }
