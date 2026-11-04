@@ -34,13 +34,13 @@ export function Modal({ eyebrow, title, onClose, children }: Props) {
     >
       <div className="modal-body">
         <div className="modal-header">
+          <button type="button" onClick={onClose} aria-label="Fechar janela">
+            <X size={19} />
+          </button>
           <div>
             <span className="welcome-label">{eyebrow}</span>
             <h3 id={titleId}>{title}</h3>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar janela">
-            <X size={19} />
-          </button>
         </div>
         {children}
       </div>

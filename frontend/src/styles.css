@@ -537,7 +537,8 @@ td strong {
 }
 .modal-header {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 25px;
 }
 .modal-header h3 {
@@ -553,6 +554,7 @@ td strong {
   border-radius: 50%;
   width: 30px;
   height: 30px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   color: #776d83;
@@ -998,7 +1000,7 @@ dialog.modal::backdrop {
 }
 .tab-title {
   overflow: hidden;
-  padding: 7px 4px 7px 11px;
+  padding: 7px 9px 7px 3px;
   border: 0;
   background: transparent;
   color: #4b4260;
@@ -1017,9 +1019,10 @@ dialog.modal::backdrop {
 .tab-icon {
   display: grid;
   place-items: center;
+  flex-shrink: 0;
   width: 24px;
   height: 24px;
-  margin-right: 3px;
+  margin: 0 2px;
   border: 0;
   border-radius: 5px;
   background: transparent;

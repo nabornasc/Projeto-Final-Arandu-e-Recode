@@ -148,6 +148,14 @@ export function Workspace({ userId, home }: Props) {
             <div key={tab.path} className={`tab${isActive ? ' active' : ''}${isSide ? ' side' : ''}`}>
               <button
                 type="button"
+                className="tab-icon"
+                aria-label={`Fechar ${tab.title}`}
+                onClick={() => close(tab.path)}
+              >
+                <X size={13} />
+              </button>
+              <button
+                type="button"
                 className="tab-title"
                 aria-current={isActive ? 'page' : undefined}
                 title={tab.title}
@@ -172,14 +180,6 @@ export function Workspace({ userId, home }: Props) {
                   <Columns2 size={13} />
                 </button>
               )}
-              <button
-                type="button"
-                className="tab-icon"
-                aria-label={`Fechar ${tab.title}`}
-                onClick={() => close(tab.path)}
-              >
-                <X size={13} />
-              </button>
             </div>
           );
         })}
