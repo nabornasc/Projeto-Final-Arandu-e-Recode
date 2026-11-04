@@ -115,7 +115,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
       ownOnly: false,
       permissions: [],
     });
-    await audit(tx, ctx, 'create', 'company', company.id);
+    await audit(tx, ctx, 'create', 'company', company.id, { label: data.companyName });
     return ctx;
   });
 

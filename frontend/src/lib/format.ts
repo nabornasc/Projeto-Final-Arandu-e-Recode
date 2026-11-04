@@ -72,6 +72,19 @@ export const LABELS: Record<string, string> = {
   checking: 'Corrente',
   savings: 'Poupança',
   cash: 'Caixa físico',
+  // Cadastro de pessoas.
+  individual: 'Pessoa física',
+  company: 'Pessoa jurídica',
+  contributor: 'Contribuinte',
+  exempt: 'Isento',
+  non_contributor: 'Não contribuinte',
+  mei: 'MEI',
+  simples: 'Simples Nacional',
+  presumido: 'Lucro presumido',
+  real: 'Lucro real',
+  sender: 'Por conta do remetente',
+  recipient: 'Por conta do destinatário',
+  none: 'Sem frete',
 };
 
 export const label = (value: string | null | undefined) => (value ? (LABELS[value] ?? value) : '—');

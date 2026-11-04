@@ -8,32 +8,49 @@ export interface HistoryLine {
   summary: string;
   reason: string | null;
   createdAt: string;
+  module: string;
+  label: string | null;
 }
 
 export interface HistoryChange {
   field: string;
   label: string;
-  kind: 'text' | 'money' | 'date' | 'status';
-  from: string | number | null;
-  to: string | number | null;
+  kind: 'text' | 'money' | 'date' | 'status' | 'number' | 'boolean';
+  from: string | number | boolean | null;
+  to: string | number | boolean | null;
+  masked?: boolean;
 }
 
 export interface HistoryItemChange {
   change: 'added' | 'removed' | 'changed';
   name: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number | null;
   fromQuantity?: number;
-  fromUnitPrice?: number;
+  fromUnitPrice?: number | null;
 }
 
 export interface HistoryEntry extends HistoryLine {
-  type: 'quote' | 'order';
-  documentId: number;
+  type: string;
+  documentId: number | null;
   documentNumber: number | null;
   documentExists: boolean;
+  path: string | null;
+  openLabel: string;
   changes: HistoryChange[];
   items: HistoryItemChange[];
+}
+
+export interface HistoryPage {
+  rows: HistoryLine[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface HistoryOptions {
+  actors: { id: number; name: string }[];
+  modules: string[];
 }
 
 export const useDocumentHistory = (type: 'quote' | 'order', id: number) =>

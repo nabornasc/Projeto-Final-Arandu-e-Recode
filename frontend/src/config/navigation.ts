@@ -7,6 +7,7 @@ import {
   Factory,
   FileText,
   HandCoins,
+  History,
   LayoutDashboard,
   type LucideIcon,
   Receipt,
@@ -43,6 +44,7 @@ export const navigation: NavItem[] = [
   { path: '/movimentacoes', label: 'Movimentações', icon: CircleDollarSign, permission: 'cash.read' },
   { path: '/usuarios', label: 'Usuários', icon: UserCog, permission: 'users.read' },
   { path: '/grupos', label: 'Grupos de acesso', icon: ShieldCheck, permission: 'access.manage' },
+  { path: '/auditoria', label: 'Auditoria', icon: History, permission: 'audit.read' },
   { path: '/configuracoes', label: 'Configurações', icon: Settings, permission: 'settings.read' },
 ];
 

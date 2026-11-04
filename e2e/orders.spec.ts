@@ -51,7 +51,7 @@ test('baixa, cancelamento com motivo e reativação ficam no histórico, e o est
 
   await historyRow(page, /Deu baixa no recebimento/).click();
   await expect(page.getByRole('row', { name: /Status\s+Pendente\s+Pago/ })).toBeVisible();
-  await expect(page.getByRole('row', { name: /Conta de recebimento\s+—/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Conta\s+—/ })).toBeVisible();
 });
 
 test('edição do pedido registra o campo alterado', async ({ page }) => {

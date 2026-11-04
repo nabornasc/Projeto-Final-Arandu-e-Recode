@@ -1342,6 +1342,20 @@ dialog.modal::backdrop {
   color: #6b6280;
   white-space: nowrap;
 }
+.audit-filters {
+  margin-bottom: 14px;
+}
+.audit-filters .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.audit-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 12px;
+}
 .history-reason {
   margin-bottom: 14px;
 }

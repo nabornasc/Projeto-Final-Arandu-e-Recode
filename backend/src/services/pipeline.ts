@@ -9,6 +9,7 @@ import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import type { DbOrTx, Transaction } from '../db/client.ts';
 import { db } from '../db/client.ts';
 import { opportunities, pipelineStages } from '../db/schema.ts';
+import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
@@ -88,6 +89,8 @@ async function assertNameFree(tx: DbOrTx, ctx: Ctx, name: string, exceptId?: num
   if (taken) throw conflict('Já existe uma etapa com este nome.');
 }
 
+const TRACKED = ['name', 'color', 'milestone'] as const;
+
 export async function createStage(ctx: Ctx, input: PipelineStageInput) {
   authorize(ctx, 'opportunities.configure');
   const data = parse(pipelineStageSchema, input);
@@ -103,7 +106,10 @@ export async function createStage(ctx: Ctx, input: PipelineStageInput) {
       .values({ ...data, companyId: ctx.companyId, position: last + 1 })
       .returning();
     if (!stage) throw new Error('Falha ao criar etapa.');
-    await audit(tx, ctx, 'create', 'pipeline_stage', stage.id, { name: stage.name });
+    await audit(tx, ctx, 'create', 'pipeline_stage', stage.id, {
+      label: stage.name,
+      changes: initialFields(pick(stage, TRACKED)),
+    });
     return stage;
   });
 }
@@ -114,9 +120,14 @@ export async function updateStage(ctx: Ctx, id: number, input: PipelineStageInpu
   return db.transaction(async (tx) => {
     await assertNameFree(tx, ctx, data.name, id);
     await assertMilestoneFree(tx, ctx, data.milestone, id);
+    const [previous] = await tx.select().from(pipelineStages).where(scoped(ctx, id)).for('update');
+    if (!previous) throw notFound('Etapa do funil não encontrada.');
     const [stage] = await tx.update(pipelineStages).set(data).where(scoped(ctx, id)).returning();
     if (!stage) throw notFound('Etapa do funil não encontrada.');
-    await audit(tx, ctx, 'update', 'pipeline_stage', id, { name: stage.name, milestone: stage.milestone });
+    const changes = diffFields(pick(previous, TRACKED), pick(stage, TRACKED));
+    if (changes.length) {
+      await audit(tx, ctx, 'update', 'pipeline_stage', id, { label: stage.name, changes });
+    }
     return stage;
   });
 }
@@ -137,7 +148,18 @@ export async function reorderStages(ctx: Ctx, input: PipelineOrderInput) {
         .set({ position: index + 1 })
         .where(scoped(ctx, id));
     }
-    await audit(tx, ctx, 'update', 'pipeline_stage', null, { order: ids });
+    const nameOf = (id: number) => current.find((stage) => stage.id === id)?.name ?? '';
+    const changes = diffFields(
+      { order: current.map((stage) => stage.name).join(', ') },
+      { order: ids.map(nameOf).join(', ') },
+    );
+    if (changes.length) {
+      await audit(tx, ctx, 'update', 'pipeline_stage', null, {
+        label: 'Ordem do funil',
+        order: ids,
+        changes,
+      });
+    }
     return loadStages(tx, ctx);
   });
 }
@@ -159,6 +181,9 @@ export async function deleteStage(ctx: Ctx, id: number) {
       .where(eq(pipelineStages.companyId, ctx.companyId));
     if (total <= 1) throw badRequest('O funil precisa de ao menos uma etapa.');
     await tx.delete(pipelineStages).where(scoped(ctx, id));
-    await audit(tx, ctx, 'delete', 'pipeline_stage', id, { name: stage.name });
+    await audit(tx, ctx, 'delete', 'pipeline_stage', id, {
+      label: stage.name,
+      changes: removedFields(pick(stage, TRACKED)),
+    });
   });
 }

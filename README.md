@@ -46,7 +46,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 
 **Etapa extra (permissões e grupos de acesso) concluída:**
 
-- 52 permissões por ação (ex.: aprovar orçamento, dar baixa no recebimento, pagar despesa), combinadas em **grupos de acesso** que cada empresa cria e edita numa matriz.
+- 53 permissões por ação (ex.: aprovar orçamento, dar baixa no recebimento, pagar despesa), combinadas em **grupos de acesso** que cada empresa cria e edita numa matriz.
 - Grupos padrão **Proprietário** (acesso total, fixo), **Vendedor** e **Contador**.
 - Escopo por grupo: ver todos os orçamentos e pedidos da empresa ou **só os próprios**.
 - **Contas a receber**: o financeiro dá baixa nos pedidos pendentes sem precisar acessar vendas.
@@ -74,9 +74,11 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - **Busca de CNPJ** (Receita Federal, pela BrasilAPI) e **de CEP** (ViaCEP), feitas pelo servidor; se o serviço falhar, o cadastro segue manual.
 - Endereço estruturado, vários contatos, endereços de entrega e cobrança e aba Comercial (pagamento, frete e transportadora padrão, categoria, região, limite de crédito e **vendedor da carteira**, alterável só com a permissão `customers.assign`).
 
-**Em desenvolvimento — histórico de alterações (fase 1):**
+**Em desenvolvimento — histórico de alterações:**
 
 - Aba **Histórico** em orçamentos e pedidos: quem fez, o quê e quando. O clique abre o detalhe, com valores de antes e depois, campo a campo e item a item.
+- **Tela de auditoria** com todos os módulos, filtros por usuário, módulo, ação e período, e a permissão `audit.read`.
+- **Dados pessoais protegidos:** CPF/CNPJ, e-mail, telefone, endereço e senha aparecem como "alterado", sem guardar o valor.
 - **Motivo obrigatório** ao recusar orçamento e ao cancelar orçamento ou pedido.
 - Orçamento enviado ou aprovado é **cancelado** em vez de excluído; só rascunhos são excluídos. Documento excluído continua consultável no histórico.
 
@@ -182,6 +184,7 @@ POST            /opportunities/:id/stage | /status | /interactions   GET /opport
 GET|POST        /pipeline-stages  PUT|DELETE /pipeline-stages/:id   PUT /pipeline-stages/order
 GET             /trace/:tipo/:id  (cadeia do documento: quote ou order)
 GET             /history/:tipo/:id   GET /history/entry/:id  (histórico do documento e detalhe de um registro)
+GET             /history   GET /history/options  (tela de auditoria: filtros e paginação; exige audit.read)
 GET             /receivables      POST /receivables/:id/settle  (contas a receber)
 GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id
 GET|POST        /users            GET|PUT /users/:id           (sem DELETE: desativar)
@@ -205,7 +208,7 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 10. **Limite do MEI:** cada empresa informa o limite anual vigente em **Configurações**. É obrigatório: o proprietário é levado à tela até preencher. O dashboard compara o faturamento do ano (pedidos pagos ou concluídos) com esse valor.
 11. **Oportunidades:** a etapa anda sozinha só para frente (orçamento enviado; orçamento aprovado ou pedido criado; pedido recebido ganha) e pode ser mudada à mão enquanto a oportunidade está em andamento. Encerrada precisa ser reaberta antes de mudar de situação. Cada marco fica em uma etapa; etapa em uso e a última etapa não são excluídas.
 12. **Rastreio:** cada documento guarda de qual orçamento ou pedido nasceu, mesmo sem oportunidade. Vincular e desvincular descem para os documentos gerados que estejam na mesma situação, sem arrastar os de outra oportunidade nem, em grupos "só os próprios", os de outro usuário. O rastreio mostra só o que quem consulta pode ver.
-13. **Histórico:** orçamentos e pedidos registram quem fez, quando e o que mudou, na mesma transação da alteração. Salvar sem mudar nada não gera registro. Quem vê o documento vê o histórico dele, com o escopo "só os próprios"; a aplicação não oferece editar nem apagar registros. Cancelar pedido também exige o motivo.
+13. **Histórico:** todos os módulos registram quem fez, quando e o que mudou, na mesma transação da alteração. Salvar sem mudar nada não gera registro. Em orçamentos e pedidos, quem vê o documento vê o histórico dele, com o escopo "só os próprios"; a tela geral e os demais módulos exigem `audit.read`, que alcança tudo da empresa. Dados pessoais e senha ficam só como "alterado". A aplicação não oferece editar nem apagar registros. Cancelar pedido também exige o motivo.
 
 ## Testes
 
@@ -213,9 +216,9 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 90 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), histórico (o que mudou, motivo obrigatório, documento excluído, escopo e isolamento), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 101 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), histórico (o que mudou, motivo obrigatório, documento excluído, escopo e isolamento), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
-Os 17 testes ponta a ponta (Playwright) usam a interface de verdade: histórico, motivo obrigatório, cancelamento, conversão em pedido, estoque, permissões, isolamento entre empresas e abas. Na primeira vez, baixe o navegador com `npx playwright install chromium`.
+Os 20 testes ponta a ponta (Playwright) usam a interface de verdade: histórico, auditoria, motivo obrigatório, cancelamento, conversão em pedido, estoque, permissões, isolamento entre empresas e abas. Na primeira vez, baixe o navegador com `npx playwright install chromium`.
 
 ```bash
 npm run test:e2e

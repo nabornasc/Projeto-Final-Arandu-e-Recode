@@ -362,6 +362,17 @@ export const interactionSchema = z.object({
 });
 export type InteractionInput = z.input<typeof interactionSchema>;
 
+// Tela geral de auditoria. O período vem como instante, já no fuso de quem consulta.
+export const historyFilterSchema = z.object({
+  userId: z.coerce.number().int().positive().optional(),
+  module: z.string().trim().max(60).optional(),
+  action: z.enum(['create', 'update', 'status', 'convert', 'archive', 'delete', 'login']).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  page: z.coerce.number().int().positive().default(1),
+});
+export type HistoryFilterInput = z.input<typeof historyFilterSchema>;
+
 export const opportunityFilterSchema = z.object({
   status: z.enum(OPPORTUNITY_STATUSES).optional(),
   stageId: z.coerce.number().int().positive().optional(),

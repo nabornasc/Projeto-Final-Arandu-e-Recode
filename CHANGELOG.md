@@ -10,6 +10,10 @@ Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas 
 - **Cancelar orçamento** enviado ou aprovado, com a permissão `quotes.cancel`, concedida a quem já cancelava pedidos.
 - **Motivo obrigatório** ao recusar orçamento e ao cancelar orçamento ou pedido.
 - O registro de auditoria guarda o nome do usuário na data da ação e, na exclusão, uma cópia do documento.
+- **Registro detalhado em todos os módulos:** produtos, pessoas, oportunidades, financeiro, usuários, grupos e configurações guardam valores de antes e depois.
+- **Tela de auditoria** com filtros por usuário, módulo, ação e período, e a permissão `audit.read`.
+- **Dados pessoais protegidos no registro:** CPF/CNPJ, e-mail, telefone, endereço e senha aparecem como "alterado", sem guardar o valor.
+- **Testes ponta a ponta** com Playwright.
 
 ### Alterado
 

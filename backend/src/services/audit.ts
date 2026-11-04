@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { DbOrTx } from '../db/client.ts';
-import { auditLogs, people, products, users } from '../db/schema.ts';
+import { accessGroups, auditLogs, bankAccounts, people, products, users } from '../db/schema.ts';
 import type { ItemLine } from '../lib/changes.ts';
 import type { Ctx } from '../lib/context.ts';
 
@@ -31,7 +31,7 @@ export async function audit(
 // Linhas de documento com o nome do produto, para o histórico.
 export async function namedLines(
   tx: DbOrTx,
-  lines: { productId: number; quantity: number; unitPrice: number }[],
+  lines: { productId: number; quantity: number; unitPrice?: number | null }[],
 ): Promise<ItemLine[]> {
   const ids = [...new Set(lines.map((line) => line.productId))];
   const rows = await tx
@@ -43,8 +43,32 @@ export async function namedLines(
     productId,
     name: names.get(productId) ?? 'Produto removido',
     quantity,
-    unitPrice,
+    unitPrice: unitPrice ?? null,
   }));
+}
+
+export async function accountName(tx: DbOrTx, id: number | null | undefined): Promise<string | null> {
+  if (!id) return null;
+  const [row] = await tx
+    .select({ bankName: bankAccounts.bankName, accountName: bankAccounts.accountName })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.id, id));
+  return row ? `${row.bankName} — ${row.accountName}` : null;
+}
+
+export async function userName(tx: DbOrTx, id: number | null | undefined): Promise<string | null> {
+  if (!id) return null;
+  const [row] = await tx.select({ name: users.name }).from(users).where(eq(users.id, id));
+  return row?.name ?? null;
+}
+
+export async function groupName(tx: DbOrTx, id: number | null | undefined): Promise<string | null> {
+  if (!id) return null;
+  const [row] = await tx
+    .select({ name: accessGroups.name })
+    .from(accessGroups)
+    .where(eq(accessGroups.id, id));
+  return row?.name ?? null;
 }
 
 export async function personName(tx: DbOrTx, id: number | null | undefined): Promise<string | null> {

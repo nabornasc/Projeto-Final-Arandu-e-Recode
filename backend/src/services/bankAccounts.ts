@@ -2,6 +2,7 @@ import { type BankAccountInput, bankAccountSchema } from '@arandue/shared/schema
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { bankAccounts, cashTransactions, expenses } from '../db/schema.ts';
+import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, authorizeAny, type Ctx } from '../lib/context.ts';
 import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
@@ -45,6 +46,9 @@ export async function getBankAccount(ctx: Ctx, id: number) {
   return row;
 }
 
+const TRACKED = ['bankName', 'accountName', 'accountType', 'initialBalance'] as const;
+const labelOf = (row: { bankName: string; accountName: string }) => `${row.bankName} — ${row.accountName}`;
+
 export async function createBankAccount(ctx: Ctx, input: BankAccountInput) {
   authorize(ctx, 'bank_accounts.create');
   const data = parse(bankAccountSchema, input);
@@ -54,7 +58,10 @@ export async function createBankAccount(ctx: Ctx, input: BankAccountInput) {
       .values({ ...data, companyId: ctx.companyId })
       .returning();
     if (!row) throw new Error('Falha ao criar conta.');
-    await audit(tx, ctx, 'create', 'bank_account', row.id);
+    await audit(tx, ctx, 'create', 'bank_account', row.id, {
+      label: labelOf(row),
+      changes: initialFields(pick(row, TRACKED)),
+    });
     return row;
   });
 }
@@ -63,9 +70,14 @@ export async function updateBankAccount(ctx: Ctx, id: number, input: BankAccount
   authorize(ctx, 'bank_accounts.update');
   const data = parse(bankAccountSchema, input);
   return db.transaction(async (tx) => {
+    const [previous] = await tx.select().from(bankAccounts).where(scoped(ctx, id)).for('update');
+    if (!previous) throw notFound();
     const [row] = await tx.update(bankAccounts).set(data).where(scoped(ctx, id)).returning();
     if (!row) throw notFound();
-    await audit(tx, ctx, 'update', 'bank_account', id);
+    const changes = diffFields(pick(previous, TRACKED), pick(row, TRACKED));
+    if (changes.length) {
+      await audit(tx, ctx, 'update', 'bank_account', id, { label: labelOf(row), changes });
+    }
     return row;
   });
 }
@@ -74,7 +86,7 @@ export async function updateBankAccount(ctx: Ctx, id: number, input: BankAccount
 export async function deleteBankAccount(ctx: Ctx, id: number) {
   authorize(ctx, 'bank_accounts.delete');
   await db.transaction(async (tx) => {
-    const [account] = await tx.select({ id: bankAccounts.id }).from(bankAccounts).where(scoped(ctx, id));
+    const [account] = await tx.select().from(bankAccounts).where(scoped(ctx, id));
     if (!account) throw notFound();
 
     const [{ used } = { used: false }] = await tx.execute<{ used: boolean }>(sql`
@@ -83,10 +95,16 @@ export async function deleteBankAccount(ctx: Ctx, id: number) {
 
     if (used) {
       await tx.update(bankAccounts).set({ active: false }).where(scoped(ctx, id));
-      await audit(tx, ctx, 'archive', 'bank_account', id);
+      await audit(tx, ctx, 'archive', 'bank_account', id, {
+        label: labelOf(account),
+        changes: diffFields({ active: true }, { active: false }),
+      });
     } else {
       await tx.delete(bankAccounts).where(scoped(ctx, id));
-      await audit(tx, ctx, 'delete', 'bank_account', id);
+      await audit(tx, ctx, 'delete', 'bank_account', id, {
+        label: labelOf(account),
+        changes: removedFields(pick(account, TRACKED)),
+      });
     }
   });
 }

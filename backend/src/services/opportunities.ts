@@ -24,10 +24,11 @@ import {
   quotes,
   users,
 } from '../db/schema.ts';
+import { diffFields, diffItems, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
-import { audit } from './audit.ts';
+import { audit, namedLines, personName, userName } from './audit.ts';
 import { assertCustomer } from './ownership.ts';
 import { ensureCustomer } from './people.ts';
 import { entryStage, loadStage, loadStages } from './pipeline.ts';
@@ -274,6 +275,35 @@ export async function getOpportunity(ctx: Ctx, id: number) {
 
 // ---------- Escrita ----------
 
+const TRACKED = [
+  'title',
+  'contactName',
+  'contactPhone',
+  'contactEmail',
+  'source',
+  'estimatedValue',
+  'expectedCloseDate',
+  'nextAction',
+  'nextActionAt',
+] as const;
+
+const trackedOpportunity = async (tx: DbOrTx, row: Opportunity) => ({
+  ...pick(row, TRACKED),
+  customer: await personName(tx, row.customerId),
+  owner: await userName(tx, row.ownerId),
+});
+
+const opportunityLines = (tx: DbOrTx, id: number) =>
+  tx
+    .select({
+      productId: opportunityItems.productId,
+      quantity: opportunityItems.quantity,
+      unitPrice: opportunityItems.unitPrice,
+    })
+    .from(opportunityItems)
+    .where(eq(opportunityItems.opportunityId, id))
+    .orderBy(asc(opportunityItems.id));
+
 const withoutDerived = ({
   items: _i,
   stageId: _s,
@@ -293,10 +323,14 @@ export async function createOpportunity(ctx: Ctx, input: OpportunityInput) {
     const [opportunity] = await tx
       .insert(opportunities)
       .values({ ...withoutDerived(data), ownerId, stageId: stage.id, companyId: ctx.companyId })
-      .returning({ id: opportunities.id });
+      .returning();
     if (!opportunity) throw new Error('Falha ao criar oportunidade.');
     await replaceItems(tx, ctx, opportunity.id, data.items);
-    await audit(tx, ctx, 'create', 'opportunity', opportunity.id, { source: data.source });
+    await audit(tx, ctx, 'create', 'opportunity', opportunity.id, {
+      label: opportunity.title,
+      changes: initialFields({ ...(await trackedOpportunity(tx, opportunity)), stage: stage.name }),
+      items: diffItems([], await namedLines(tx, await opportunityLines(tx, opportunity.id))),
+    });
     return opportunity.id;
   });
   return getOpportunity(ctx, id);
@@ -310,12 +344,19 @@ export async function updateOpportunity(ctx: Ctx, id: number, input: Opportunity
     if (!previous) throw notFound('Oportunidade não encontrada.');
     const ownerId = await resolveOwner(tx, ctx, data.ownerId ?? previous.ownerId);
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
-    await tx
+    const previousLines = await namedLines(tx, await opportunityLines(tx, id));
+    const [row] = await tx
       .update(opportunities)
       .set({ ...withoutDerived(data), ownerId })
-      .where(eq(opportunities.id, id));
+      .where(eq(opportunities.id, id))
+      .returning();
+    if (!row) throw notFound('Oportunidade não encontrada.');
     await replaceItems(tx, ctx, id, data.items);
-    await audit(tx, ctx, 'update', 'opportunity', id, ownerId !== previous.ownerId ? { ownerId } : undefined);
+    const changes = diffFields(await trackedOpportunity(tx, previous), await trackedOpportunity(tx, row));
+    const items = diffItems(previousLines, await namedLines(tx, await opportunityLines(tx, id)));
+    if (changes.length || items.length) {
+      await audit(tx, ctx, 'update', 'opportunity', id, { label: row.title, changes, items });
+    }
   });
   return getOpportunity(ctx, id);
 }
@@ -324,9 +365,16 @@ export async function deleteOpportunity(ctx: Ctx, id: number) {
   authorize(ctx, 'opportunities.delete');
   await db.transaction(async (tx) => {
     // Orçamentos e pedidos vinculados continuam existindo, só perdem o vínculo.
-    const [row] = await tx.delete(opportunities).where(scoped(ctx, id)).returning({ id: opportunities.id });
-    if (!row) throw notFound('Oportunidade não encontrada.');
-    await audit(tx, ctx, 'delete', 'opportunity', id);
+    const [previous] = await tx.select().from(opportunities).where(scoped(ctx, id)).for('update');
+    if (!previous) throw notFound('Oportunidade não encontrada.');
+    const snapshot = await trackedOpportunity(tx, previous);
+    const items = diffItems(await namedLines(tx, await opportunityLines(tx, id)), []);
+    await tx.delete(opportunities).where(scoped(ctx, id));
+    await audit(tx, ctx, 'delete', 'opportunity', id, {
+      label: previous.title,
+      changes: removedFields({ ...snapshot, status: previous.status }),
+      items,
+    });
   });
 }
 
@@ -351,7 +399,11 @@ export async function moveToStage(ctx: Ctx, id: number, input: OpportunityStageI
     const stage = await loadStage(tx, ctx, stageId);
     await tx.update(opportunities).set({ stageId }).where(eq(opportunities.id, id));
     await logEvent(tx, ctx, id, `Movida para a etapa "${stage.name}".`);
-    await audit(tx, ctx, 'status', 'opportunity', id, { from: opportunity.stageId, to: stageId });
+    const previousStage = await loadStage(tx, ctx, opportunity.stageId);
+    await audit(tx, ctx, 'status', 'opportunity', id, {
+      label: opportunity.title,
+      changes: diffFields({ stage: previousStage.name }, { stage: stage.name }),
+    });
   });
   return getOpportunity(ctx, id);
 }
@@ -384,11 +436,23 @@ export async function setStatus(ctx: Ctx, id: number, input: OpportunityStatusIn
       .where(eq(opportunities.id, id));
     const label = { open: 'Reaberta', won: 'Ganha', lost: `Perdida: ${data.lostReason}` }[data.status];
     await logEvent(tx, ctx, id, `${label}.`);
-    await audit(tx, ctx, 'status', 'opportunity', id, {
-      from: opportunity.status,
-      to: data.status,
-      customerId,
-    });
+    await audit(
+      tx,
+      ctx,
+      'status',
+      'opportunity',
+      id,
+      {
+        label: opportunity.title,
+        from: opportunity.status,
+        to: data.status,
+        changes: diffFields(
+          { status: opportunity.status, customer: await personName(tx, opportunity.customerId) },
+          { status: data.status, customer: await personName(tx, customerId) },
+        ),
+      },
+      data.status === 'lost' ? data.lostReason : null,
+    );
   });
   return getOpportunity(ctx, id);
 }
@@ -405,7 +469,7 @@ export async function addInteraction(ctx: Ctx, id: number, input: InteractionInp
   const data = parse(interactionSchema, input);
   await db.transaction(async (tx) => {
     const [opportunity] = await tx
-      .select({ id: opportunities.id })
+      .select({ id: opportunities.id, title: opportunities.title })
       .from(opportunities)
       .where(scoped(ctx, id));
     if (!opportunity) throw notFound('Oportunidade não encontrada.');
@@ -415,7 +479,12 @@ export async function addInteraction(ctx: Ctx, id: number, input: InteractionInp
       .returning({ id: interactions.id });
     // Registrar atividade também atualiza a oportunidade (aparece como movimentada recentemente).
     await tx.update(opportunities).set({ updatedAt: new Date() }).where(eq(opportunities.id, id));
-    await audit(tx, ctx, 'create', 'interaction', row?.id ?? null, { opportunityId: id, kind: data.kind });
+    await audit(tx, ctx, 'create', 'interaction', row?.id ?? null, {
+      label: opportunity.title,
+      opportunityId: id,
+      kind: data.kind,
+      changes: initialFields({ kind: data.kind, channel: data.channel }),
+    });
   });
   return getOpportunity(ctx, id);
 }

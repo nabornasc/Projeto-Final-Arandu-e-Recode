@@ -50,6 +50,7 @@ export const AREAS = {
   users: { label: 'Usuários', actions: ['read', 'manage'] },
   access: { label: 'Grupos de acesso', actions: ['manage'] },
   settings: { label: 'Configurações da empresa', actions: ['read', 'update'] },
+  audit: { label: 'Auditoria', actions: ['read'] },
 } as const satisfies Record<string, AreaDefinition>;
 
 export type Area = keyof typeof AREAS;

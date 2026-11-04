@@ -42,7 +42,7 @@ Total              R$ 500,00  →  R$ 635,00
 | Motivo | Obrigatório ao recusar orçamento e ao cancelar pedido |
 | Exclusão | Guarda uma cópia do documento excluído. O detalhe abre mesmo sem o documento existir, com o botão "Abrir" desativado |
 | Proteção | A aplicação não oferece editar nem apagar registros do histórico |
-| Dados sensíveis | Nunca registrar senha, hash ou token. Em CPF, CNPJ e outros dados pessoais, avaliar mostrar só "alterado" |
+| Dados sensíveis | Nunca registrar senha, hash ou token. CPF, CNPJ, e-mail, telefone, endereço e contatos aparecem só como "alterado", sem o valor |
 | Quem vê a aba | Quem pode ver o documento, respeitando o escopo "só os próprios" |
 | Quem vê a tela geral | Nova permissão `audit.read`, inicialmente só para o Proprietário |
 | Custos | Mudanças de custo e margem aparecem só para quem pode ver custos |
@@ -139,7 +139,7 @@ Os PDFs seguem a decisão da seção 7.7 do plano principal: modelo HTML e impre
 |---|---|---|
 | Feita | "x" de abas e janelas à esquerda | Aguardando commit |
 | 1 (feita) | Histórico em orçamentos e pedidos: registro, aba e detalhe; cancelamento de orçamento e motivos | Aguardando commit |
-| 2 | Histórico nos demais módulos e tela geral | Mesmo mecanismo da fase 1 |
+| 2 (feita) | Histórico nos demais módulos e tela geral | Aguardando commit |
 | 3 | Dados da empresa, campos novos e espelho do cliente | Antecipa parte da v2.5 |
 | 4 | Custo no item, margem e espelho interno | Antecipa a margem da v2.6 |
 | 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.5 |

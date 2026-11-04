@@ -5,24 +5,43 @@ export interface FieldChange {
   field: string;
   from: unknown;
   to: unknown;
+  // Dado pessoal: registra que mudou, sem guardar o valor.
+  masked?: boolean;
 }
+
+// Dados pessoais e senha nunca vão para o registro.
+const PROTECTED = new Set([
+  'document',
+  'email',
+  'phone',
+  'mobile',
+  'zip',
+  'street',
+  'number',
+  'complement',
+  'contactEmail',
+  'contactPhone',
+  'contacts',
+  'addresses',
+  'password',
+]);
 
 export interface ItemLine {
   productId: number;
   name: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number | null;
 }
 
 export type ItemChange =
-  | { change: 'added' | 'removed'; name: string; quantity: number; unitPrice: number }
+  | { change: 'added' | 'removed'; name: string; quantity: number; unitPrice: number | null }
   | {
       change: 'changed';
       name: string;
       quantity: number;
-      unitPrice: number;
+      unitPrice: number | null;
       fromQuantity: number;
-      fromUnitPrice: number;
+      fromUnitPrice: number | null;
     };
 
 type Values = Record<string, unknown>;
@@ -34,9 +53,13 @@ export function diffFields(before: Values, after: Values): FieldChange[] {
     const from = before[field];
     const to = after[field];
     if (from === to || (isBlank(from) && isBlank(to))) return [];
+    if (PROTECTED.has(field)) return [{ field, from: null, to: null, masked: true }];
     return [{ field, from: from ?? null, to: to ?? null }];
   });
 }
+
+export const pick = <T extends object, K extends keyof T>(row: T, fields: readonly K[]) =>
+  Object.fromEntries(fields.map((field) => [field, row[field]])) as Pick<T, K>;
 
 // Na criação e na exclusão, só os campos preenchidos: desconto zero e vazios não dizem nada.
 const filled = (values: Values) =>

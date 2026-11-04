@@ -11,10 +11,11 @@ import {
   quotes,
   users,
 } from '../db/schema.ts';
+import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, authorizeAny, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
-import { audit } from './audit.ts';
+import { audit, personName, userName } from './audit.ts';
 
 // Cada papel usa as permissões de uma área: cliente → customers; fornecedor, transportadora e
 // representante → suppliers. Mexer numa pessoa exige a permissão de todos os papéis envolvidos.
@@ -188,6 +189,59 @@ async function replaceChildren(tx: Transaction, personId: number, data: Data) {
 
 const columnsOf = ({ contacts: _c, addresses: _a, ...data }: Data) => data;
 
+const TRACKED = [
+  'kind',
+  'document',
+  'name',
+  'legalName',
+  'email',
+  'phone',
+  'mobile',
+  'stateRegistration',
+  'taxpayer',
+  'finalConsumer',
+  'taxRegime',
+  'zip',
+  'street',
+  'number',
+  'complement',
+  'district',
+  'city',
+  'state',
+  'country',
+  'paymentMethod',
+  'paymentTerms',
+  'freightType',
+  'category',
+  'region',
+  'creditLimit',
+  'notes',
+] as const;
+const ROLE_NAMES: Record<PersonRole, string> = {
+  customer: 'Cliente',
+  supplier: 'Fornecedor',
+  carrier: 'Transportadora',
+  sales_rep: 'Representante',
+};
+
+const trackedPerson = async (tx: Transaction, row: typeof people.$inferSelect) => ({
+  ...pick(row, TRACKED),
+  roles: rolesOf(row)
+    .map((role) => ROLE_NAMES[role])
+    .join(', '),
+  carrier: await personName(tx, row.carrierId),
+  seller: await userName(tx, row.sellerId),
+});
+
+// Contatos e endereços adicionais são dados pessoais: o registro guarda só que mudaram.
+async function childrenOf(tx: Transaction, personId: number) {
+  const contacts = await tx.select().from(personContacts).where(eq(personContacts.personId, personId));
+  const addresses = await tx.select().from(personAddresses).where(eq(personAddresses.personId, personId));
+  const clean = <T extends { id: number }>(rows: T[]) =>
+    JSON.stringify(rows.map(({ id: _id, ...row }) => row));
+  return { contacts: clean(contacts), addresses: clean(addresses) };
+}
+
 export async function createPerson(ctx: Ctx, input: PersonInput) {
   const data = parse(personSchema, input);
   const flags: Flags = {
@@ -215,10 +269,13 @@ export async function createPerson(ctx: Ctx, input: PersonInput) {
     const [person] = await tx
       .insert(people)
       .values({ ...columnsOf(data), ...flags, sellerId, companyId: ctx.companyId })
-      .returning({ id: people.id });
+      .returning();
     if (!person) throw new Error('Falha ao criar cadastro.');
     await replaceChildren(tx, person.id, data);
-    await audit(tx, ctx, 'create', 'person', person.id, { roles });
+    await audit(tx, ctx, 'create', 'person', person.id, {
+      label: person.name,
+      changes: initialFields(await trackedPerson(tx, person)),
+    });
     return person.id;
   });
   return getPerson(ctx, id);
@@ -246,19 +303,19 @@ export async function updatePerson(ctx: Ctx, id: number, input: PersonInput) {
 
     await assertUniqueDocument(tx, ctx, data.document, id);
     await assertRelations(tx, ctx, { ...data, sellerId });
-    await tx
+    const before = { ...(await trackedPerson(tx, previous)), ...(await childrenOf(tx, id)) };
+    const [row] = await tx
       .update(people)
       .set({ ...columnsOf(data), ...flags, sellerId })
-      .where(scoped(ctx, id));
+      .where(scoped(ctx, id))
+      .returning();
+    if (!row) throw notFound('Cadastro não encontrado.');
     await replaceChildren(tx, id, data);
-    await audit(
-      tx,
-      ctx,
-      'update',
-      'person',
-      id,
-      roles.join() !== rolesOf(previous).join() ? { roles } : undefined,
-    );
+    const changes = diffFields(before, {
+      ...(await trackedPerson(tx, row)),
+      ...(await childrenOf(tx, id)),
+    });
+    if (changes.length) await audit(tx, ctx, 'update', 'person', id, { label: row.name, changes });
   });
   return getPerson(ctx, id);
 }
@@ -279,10 +336,17 @@ export async function deletePerson(ctx: Ctx, id: number) {
 
     if (used) {
       await tx.update(people).set({ active: false }).where(scoped(ctx, id));
-      await audit(tx, ctx, 'archive', 'person', id);
+      await audit(tx, ctx, 'archive', 'person', id, {
+        label: person.name,
+        changes: diffFields({ active: true }, { active: false }),
+      });
     } else {
+      const snapshot = await trackedPerson(tx, person);
       await tx.delete(people).where(scoped(ctx, id));
-      await audit(tx, ctx, 'delete', 'person', id);
+      await audit(tx, ctx, 'delete', 'person', id, {
+        label: person.name,
+        changes: removedFields(snapshot),
+      });
     }
   });
 }
@@ -302,7 +366,7 @@ export async function ensureCustomer(
   ].filter(Boolean);
   if (matches.length) {
     const [existing] = await tx
-      .select({ id: people.id, isCustomer: people.isCustomer })
+      .select({ id: people.id, isCustomer: people.isCustomer, name: people.name })
       .from(people)
       .where(and(eq(people.companyId, ctx.companyId), eq(people.active, true), or(...matches)))
       .orderBy(sql`${people.isCustomer} DESC`, asc(people.id))
@@ -311,7 +375,10 @@ export async function ensureCustomer(
     if (existing) {
       if (!system) authorize(ctx, 'customers.create');
       await tx.update(people).set({ isCustomer: true }).where(eq(people.id, existing.id));
-      await audit(tx, ctx, 'update', 'person', existing.id, { roles: 'customer' });
+      await audit(tx, ctx, 'update', 'person', existing.id, {
+        label: existing.name,
+        changes: diffFields({ isCustomer: false }, { isCustomer: true }),
+      });
       return existing.id;
     }
   }
@@ -326,9 +393,12 @@ export async function ensureCustomer(
       isCustomer: true,
       sellerId: contact.sellerId,
     })
-    .returning({ id: people.id });
+    .returning();
   if (!person) throw new Error('Falha ao criar cliente.');
-  await audit(tx, ctx, 'create', 'person', person.id, { roles: ['customer'] });
+  await audit(tx, ctx, 'create', 'person', person.id, {
+    label: person.name,
+    changes: initialFields(await trackedPerson(tx, person)),
+  });
   return person.id;
 }
 

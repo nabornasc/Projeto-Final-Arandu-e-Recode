@@ -246,7 +246,9 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       const { type, id } = traceParams.parse(request.params);
       return trace.getTrace(ctxOf(request), type, id);
     });
-    // Histórico de alterações: lista do documento e detalhe de um registro.
+    // Histórico de alterações: tela geral, lista do documento e detalhe de um registro.
+    protectedApp.get('/history', (request) => history.listHistory(ctxOf(request), request.query as never));
+    protectedApp.get('/history/options', (request) => history.historyFilterOptions(ctxOf(request)));
     protectedApp.get('/history/entry/:id', (request) =>
       history.getHistoryEntry(ctxOf(request), idParamSchema.parse(request.params).id),
     );

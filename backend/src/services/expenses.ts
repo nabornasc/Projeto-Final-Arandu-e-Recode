@@ -2,13 +2,20 @@ import { type ExpenseInput, expenseSchema } from '@arandue/shared/schemas';
 import { and, desc, eq } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
 import { cashTransactions, expenses } from '../db/schema.ts';
+import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
-import { audit } from './audit.ts';
+import { accountName, audit } from './audit.ts';
 import { assertActiveAccount } from './ownership.ts';
 
 const scoped = (ctx: Ctx, id: number) => and(eq(expenses.id, id), eq(expenses.companyId, ctx.companyId));
+
+const TRACKED = ['description', 'category', 'amount', 'expenseDate', 'status'] as const;
+const tracked = async (tx: Transaction, row: typeof expenses.$inferSelect) => ({
+  ...pick(row, TRACKED),
+  bankAccount: await accountName(tx, row.bankAccountId),
+});
 
 type Expense = typeof expenses.$inferSelect;
 
@@ -60,7 +67,10 @@ export async function createExpense(ctx: Ctx, input: ExpenseInput) {
       .returning();
     if (!row) throw new Error('Falha ao criar despesa.');
     await syncCash(tx, ctx, row);
-    await audit(tx, ctx, 'create', 'expense', row.id);
+    await audit(tx, ctx, 'create', 'expense', row.id, {
+      label: row.description,
+      changes: initialFields(await tracked(tx, row)),
+    });
     return row;
   });
 }
@@ -69,11 +79,7 @@ export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
   authorize(ctx, 'payables.update');
   const data = parse(expenseSchema, input);
   return db.transaction(async (tx) => {
-    const [previous] = await tx
-      .select({ status: expenses.status })
-      .from(expenses)
-      .where(scoped(ctx, id))
-      .for('update');
+    const [previous] = await tx.select().from(expenses).where(scoped(ctx, id)).for('update');
     if (!previous) throw notFound();
     // Pagar (ou desfazer o pagamento) mexe no caixa e tem permissão própria.
     if (previous.status !== data.status) authorize(ctx, 'payables.pay');
@@ -81,7 +87,8 @@ export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
     const [row] = await tx.update(expenses).set(data).where(scoped(ctx, id)).returning();
     if (!row) throw notFound();
     await syncCash(tx, ctx, row);
-    await audit(tx, ctx, 'update', 'expense', id);
+    const changes = diffFields(await tracked(tx, previous), await tracked(tx, row));
+    if (changes.length) await audit(tx, ctx, 'update', 'expense', id, { label: row.description, changes });
     return row;
   });
 }
@@ -90,8 +97,11 @@ export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
 export async function deleteExpense(ctx: Ctx, id: number) {
   authorize(ctx, 'payables.delete');
   await db.transaction(async (tx) => {
-    const [row] = await tx.delete(expenses).where(scoped(ctx, id)).returning({ id: expenses.id });
+    const [row] = await tx.delete(expenses).where(scoped(ctx, id)).returning();
     if (!row) throw notFound();
-    await audit(tx, ctx, 'delete', 'expense', id);
+    await audit(tx, ctx, 'delete', 'expense', id, {
+      label: row.description,
+      changes: removedFields(await tracked(tx, row)),
+    });
   });
 }

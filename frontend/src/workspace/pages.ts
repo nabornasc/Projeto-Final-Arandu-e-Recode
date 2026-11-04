@@ -42,6 +42,11 @@ const PAGES: PageDefinition[] = [
   { pattern: '/pedidos/novo', title: 'Novo pedido', Component: OrderDocument },
   { pattern: '/pedidos/:id', title: 'Pedido', Component: OrderDocument },
   {
+    pattern: '/auditoria',
+    title: titleOf('/auditoria'),
+    Component: lazy(() => import('../pages/AuditPage.tsx')),
+  },
+  {
     pattern: '/historico/:id',
     title: 'Alteração',
     Component: lazy(() => import('../pages/HistoryEntryPage.tsx')),

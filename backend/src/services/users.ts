@@ -8,11 +8,12 @@ import { hash } from '@node-rs/argon2';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { accessGroups, sessions, users } from '../db/schema.ts';
+import { diffFields, initialFields } from '../lib/changes.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { assertCanGrant, loadGroup } from './accessGroups.ts';
-import { audit } from './audit.ts';
+import { audit, groupName } from './audit.ts';
 
 // Nunca devolve o hash da senha.
 const columns = {
@@ -66,7 +67,14 @@ export async function createUser(ctx: Ctx, input: UserCreateInput) {
       })
       .returning({ id: users.id });
     if (!row) throw new Error('Falha ao criar usuário.');
-    await audit(tx, ctx, 'create', 'user', row.id, { groupId: data.groupId });
+    await audit(tx, ctx, 'create', 'user', row.id, {
+      label: data.name,
+      changes: initialFields({
+        name: data.name,
+        email: data.email,
+        group: await groupName(tx, data.groupId),
+      }),
+    });
     return row.id;
   });
   return getUser(ctx, id);
@@ -124,11 +132,21 @@ export async function updateUser(ctx: Ctx, id: number, input: UserUpdateInput) {
     if (id !== ctx.userId && (!data.active || passwordHash)) {
       await tx.delete(sessions).where(eq(sessions.userId, id));
     }
-    await audit(tx, ctx, 'update', 'user', id, {
-      group: { from: previous.groupId, to: data.groupId },
-      active: data.active,
-      passwordChanged: Boolean(passwordHash),
-    });
+    const changes = diffFields(
+      {
+        name: previous.name,
+        group: await groupName(tx, previous.groupId),
+        active: previous.active,
+        password: 'mantida',
+      },
+      {
+        name: data.name,
+        group: await groupName(tx, data.groupId),
+        active: data.active,
+        password: passwordHash ? 'alterada' : 'mantida',
+      },
+    );
+    if (changes.length) await audit(tx, ctx, 'update', 'user', id, { label: data.name, changes });
   });
   return getUser(ctx, id);
 }

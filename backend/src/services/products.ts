@@ -2,12 +2,15 @@ import { type ProductInput, productSchema } from '@arandue/shared/schemas';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { opportunityItems, orderItems, products, quoteItems } from '../db/schema.ts';
+import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
 
 const scoped = (ctx: Ctx, id: number) => and(eq(products.id, id), eq(products.companyId, ctx.companyId));
+
+const TRACKED = ['name', 'type', 'price', 'cost', 'stock'] as const;
 
 // Serviço não controla estoque.
 const normalize = (data: ReturnType<typeof productSchema.parse>) => ({
@@ -43,7 +46,10 @@ export async function createProduct(ctx: Ctx, input: ProductInput) {
       .values({ ...data, companyId: ctx.companyId })
       .returning();
     if (!row) throw new Error('Falha ao criar produto.');
-    await audit(tx, ctx, 'create', 'product', row.id);
+    await audit(tx, ctx, 'create', 'product', row.id, {
+      label: row.name,
+      changes: initialFields(pick(row, TRACKED)),
+    });
     return row;
   });
 }
@@ -52,13 +58,20 @@ export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
   authorize(ctx, 'products.update');
   const data = normalize(parse(productSchema, input));
   return db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select()
+      .from(products)
+      .where(and(scoped(ctx, id), eq(products.active, true)))
+      .for('update');
+    if (!previous) throw notFound();
     const [row] = await tx
       .update(products)
       .set(data)
       .where(and(scoped(ctx, id), eq(products.active, true)))
       .returning();
     if (!row) throw notFound();
-    await audit(tx, ctx, 'update', 'product', id);
+    const changes = diffFields(pick(previous, TRACKED), pick(row, TRACKED));
+    if (changes.length) await audit(tx, ctx, 'update', 'product', id, { label: row.name, changes });
     return row;
   });
 }
@@ -67,7 +80,7 @@ export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
 export async function deleteProduct(ctx: Ctx, id: number) {
   authorize(ctx, 'products.delete');
   await db.transaction(async (tx) => {
-    const [product] = await tx.select({ id: products.id }).from(products).where(scoped(ctx, id));
+    const [product] = await tx.select().from(products).where(scoped(ctx, id));
     if (!product) throw notFound();
 
     const [{ used } = { used: false }] = await tx.execute<{ used: boolean }>(sql`
@@ -77,10 +90,16 @@ export async function deleteProduct(ctx: Ctx, id: number) {
 
     if (used) {
       await tx.update(products).set({ active: false }).where(scoped(ctx, id));
-      await audit(tx, ctx, 'archive', 'product', id);
+      await audit(tx, ctx, 'archive', 'product', id, {
+        label: product.name,
+        changes: diffFields({ active: true }, { active: false }),
+      });
     } else {
       await tx.delete(products).where(scoped(ctx, id));
-      await audit(tx, ctx, 'delete', 'product', id);
+      await audit(tx, ctx, 'delete', 'product', id, {
+        label: product.name,
+        changes: removedFields(pick(product, TRACKED)),
+      });
     }
   });
 }

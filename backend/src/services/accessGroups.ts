@@ -11,10 +11,12 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { DbOrTx, Transaction } from '../db/client.ts';
 import { db } from '../db/client.ts';
 import { accessGroupPermissions, accessGroups, users } from '../db/schema.ts';
+import { diffFields, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, authorizeAny, type Ctx } from '../lib/context.ts';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
+import { permissionName } from './history.ts';
 
 type GroupRow = typeof accessGroups.$inferSelect;
 export interface Group extends GroupRow {
@@ -156,7 +158,15 @@ export async function createAccessGroup(ctx: Ctx, input: AccessGroupInput) {
       .returning({ id: accessGroups.id });
     if (!group) throw new Error('Falha ao criar grupo.');
     await replacePermissions(tx, group.id, permissions);
-    await audit(tx, ctx, 'create', 'access_group', group.id, { permissions, ownOnly: data.ownOnly });
+    await audit(tx, ctx, 'create', 'access_group', group.id, {
+      label: data.name,
+      changes: initialFields({
+        name: data.name,
+        description: data.description,
+        ownOnly: data.ownOnly,
+        permissionsAdded: permissions.map(permissionName).join('; '),
+      }),
+    });
     return group.id;
   });
   return getAccessGroup(ctx, id);
@@ -190,11 +200,17 @@ export async function updateAccessGroup(ctx: Ctx, id: number, input: AccessGroup
       .set({ name: data.name, description: data.description, ownOnly: data.ownOnly })
       .where(scoped(ctx, id));
     await replacePermissions(tx, id, permissions);
-    await audit(tx, ctx, 'update', 'access_group', id, {
-      added: permissions.filter((p) => !before.includes(p)),
-      removed: before.filter((p) => !permissions.includes(p)),
-      ownOnly: { from: row.ownOnly, to: data.ownOnly },
-    });
+    const added = permissions.filter((p) => !before.includes(p)).map(permissionName);
+    const removed = before.filter((p) => !permissions.includes(p)).map(permissionName);
+    const changes = [
+      ...diffFields(
+        { name: row.name, description: row.description, ownOnly: row.ownOnly },
+        { name: data.name, description: data.description, ownOnly: data.ownOnly },
+      ),
+      ...(added.length ? [{ field: 'permissionsAdded', from: null, to: added.join('; ') }] : []),
+      ...(removed.length ? [{ field: 'permissionsRemoved', from: removed.join('; '), to: null }] : []),
+    ];
+    if (changes.length) await audit(tx, ctx, 'update', 'access_group', id, { label: data.name, changes });
   });
   return getAccessGroup(ctx, id);
 }
@@ -211,6 +227,9 @@ export async function deleteAccessGroup(ctx: Ctx, id: number) {
       .where(eq(users.groupId, id));
     if (count) throw conflict('Mova os usuários deste grupo para outro antes de excluí-lo.');
     await tx.delete(accessGroups).where(scoped(ctx, id));
-    await audit(tx, ctx, 'delete', 'access_group', id, { name: row.name });
+    await audit(tx, ctx, 'delete', 'access_group', id, {
+      label: row.name,
+      changes: removedFields({ name: row.name, description: row.description, ownOnly: row.ownOnly }),
+    });
   });
 }
