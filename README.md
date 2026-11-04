@@ -125,7 +125,8 @@ O seed cria duas empresas, cada uma com os três papéis. A senha de todos é `s
 |---|---|
 | `npm run dev` | API e frontend com recarga automática |
 | `npm test` | Testes do backend (banco `arandue_test`, recriado a cada execução) |
-| `npm run typecheck` | Checagem de tipos dos três pacotes |
+| `npm run test:e2e` | Testes ponta a ponta no navegador (banco `arandue_e2e` e portas 3101 e 5174, recriados a cada execução) |
+| `npm run typecheck` | Checagem de tipos dos pacotes e dos testes ponta a ponta |
 | `npm run lint` / `npm run format` | Verifica / corrige lint e formatação (Biome) |
 | `npm run build` | Build de produção do frontend |
 | `npm run db:generate` | Gera uma nova migração a partir de `backend/src/db/schema.ts` |
@@ -213,6 +214,14 @@ npm run db:up && npm test
 ```
 
 Os 90 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), histórico (o que mudou, motivo obrigatório, documento excluído, escopo e isolamento), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+
+Os 17 testes ponta a ponta (Playwright) usam a interface de verdade: histórico, motivo obrigatório, cancelamento, conversão em pedido, estoque, permissões, isolamento entre empresas e abas. Na primeira vez, baixe o navegador com `npx playwright install chromium`.
+
+```bash
+npm run test:e2e
+```
+
+Eles não tocam no banco de desenvolvimento, mas precisam do PostgreSQL ativo e de um usuário que possa criar bancos.
 
 ## Estrutura do projeto
 

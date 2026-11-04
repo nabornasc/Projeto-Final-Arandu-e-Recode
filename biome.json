@@ -5,6 +5,8 @@
       "**",
       "!**/node_modules",
       "!**/dist",
+      "!**/test-results",
+      "!**/playwright-report",
       "!**/drizzle/meta",
       "!**/*.md",
       "!**/.vscode",

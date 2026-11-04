@@ -1,14 +1,15 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     port: 5173,
     proxy: {
       // 127.0.0.1 em vez de localhost: o Node pode resolver localhost para IPv6 (::1),
       // enquanto a API escuta em IPv4.
-      '/api': { target: 'http://127.0.0.1:3001' },
+      // Os testes ponta a ponta apontam para a API deles, em outra porta.
+      '/api': { target: loadEnv(mode, '.', 'E2E_').E2E_API_TARGET ?? 'http://127.0.0.1:3001' },
     },
   },
   build: {
@@ -23,4 +24,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
