@@ -1,4 +1,5 @@
 // Recria o schema do banco de teste do zero e aplica as migrações antes da suíte.
+import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -11,6 +12,6 @@ export default async function setup() {
   await sql`DROP SCHEMA IF EXISTS public CASCADE`;
   await sql`DROP SCHEMA IF EXISTS drizzle CASCADE`;
   await sql`CREATE SCHEMA public`;
-  await migrate(drizzle(sql), { migrationsFolder: new URL('../../drizzle', import.meta.url).pathname });
+  await migrate(drizzle(sql), { migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)) });
   await sql.end();
 }
