@@ -5,8 +5,11 @@ import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { AppLayout } from './components/AppLayout.tsx';
 import { ToastProvider } from './components/Toast.tsx';
+import { startMonitoring } from './lib/monitoring.ts';
 import { queryClient } from './lib/queryClient.ts';
 import './styles.css';
+
+startMonitoring();
 
 const Loading = () => <div className="page-loading">Carregando...</div>;
 

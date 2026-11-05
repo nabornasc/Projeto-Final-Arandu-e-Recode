@@ -1,3 +1,4 @@
+import './lib/monitoring.ts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { config, isProduction } from './config.ts';
 import { registerAuth } from './plugins/auth.ts';

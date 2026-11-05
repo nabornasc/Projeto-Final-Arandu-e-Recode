@@ -13,7 +13,8 @@ Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas 
 - **Registro detalhado em todos os módulos:** produtos, pessoas, oportunidades, financeiro, usuários, grupos e configurações guardam valores de antes e depois.
 - **Tela de auditoria** com filtros por usuário, módulo, ação e período, e a permissão `audit.read`.
 - **Dados pessoais protegidos no registro:** CPF/CNPJ, e-mail, telefone, endereço e senha aparecem como "alterado", sem guardar o valor.
-- **Testes ponta a ponta** com Playwright.
+- **Testes ponta a ponta** com Playwright, também no CI.
+- **Preparação da publicação:** pacote para a Vercel em `gru1`, usuário de banco sem poder de alterar a estrutura, RLS em todas as tabelas, cabeçalhos de segurança e monitoramento opcional com Sentry, sem dados pessoais.
 
 ### Alterado
 

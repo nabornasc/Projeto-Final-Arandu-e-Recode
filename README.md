@@ -19,6 +19,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - [Regras de negócio](#regras-de-negócio)
 - [Testes](#testes)
 - [Estrutura do projeto](#estrutura-do-projeto)
+- [Publicação](DEPLOY.md)
 - [Solução de problemas](#solução-de-problemas)
 - [Planejamento](#planejamento)
 - [Licença](#licença)
@@ -95,7 +96,8 @@ O plano completo está em [PLANEJAMENTO_ORCAMENTOS_HISTORICO.md](PLANEJAMENTO_OR
 | Banco | PostgreSQL 17 (Docker no desenvolvimento; Supabase em produção) |
 | Frontend | React 19, Vite 8, React Router 8, TanStack Query |
 | Compartilhado | `packages/shared`: schemas Zod e matriz de permissões usados no front e no back |
-| Qualidade | Biome (lint e formatação), Vitest, GitHub Actions, Dependabot |
+| Qualidade | Biome (lint e formatação), Vitest, Playwright, GitHub Actions, Dependabot |
+| Monitoramento | Sentry, opcional (erros, sem dados pessoais) |
 
 ## Execução local
 
