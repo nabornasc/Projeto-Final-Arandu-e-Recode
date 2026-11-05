@@ -250,18 +250,18 @@ async function seedConvenience() {
     {
       description: 'Compra de bebidas: Distribuidora Rio Claro',
       category: 'Mercadorias',
-      amount: 1850,
+      amount: 480,
       days: 45,
     },
-    { description: 'Aluguel do ponto', category: 'Operacional', amount: 950, days: 35 },
+    { description: 'Aluguel do ponto', category: 'Operacional', amount: 350, days: 35 },
     {
       description: 'Compra de bebidas: Distribuidora Rio Claro',
       category: 'Mercadorias',
-      amount: 1420,
+      amount: 390,
       days: 12,
     },
-    { description: 'Compra de gelo: Gelo Polar', category: 'Mercadorias', amount: 180, days: 6 },
-    { description: 'Energia dos freezers', category: 'Operacional', amount: 310, days: 3 },
+    { description: 'Compra de gelo: Gelo Polar', category: 'Mercadorias', amount: 60, days: 6 },
+    { description: 'Energia dos freezers', category: 'Operacional', amount: 120, days: 3 },
   ];
   for (const expense of expenses) {
     await createExpense(owner, {
@@ -276,7 +276,7 @@ async function seedConvenience() {
   await createExpense(owner, {
     description: 'Aluguel do ponto',
     category: 'Operacional',
-    amount: 950,
+    amount: 350,
     expenseDate: daysAgo(-5),
     status: 'pending',
     bankAccountId: main.id,
