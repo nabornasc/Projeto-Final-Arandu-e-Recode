@@ -6,6 +6,7 @@ Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das pró
 
 ### Alterado
 
+- **Monitoramento ligado:** erros da API e do navegador chegam ao Sentry, sem dados pessoais.
 - **Novo nome: Arandu Gestão**, na interface, na documentação e no endereço da demonstração.
 
 ## [2.3.0] — 2026-11-05

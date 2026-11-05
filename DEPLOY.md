@@ -58,8 +58,9 @@ NODE_ENV=development DATABASE_URL="<conexão do postgres>?sslmode=require" node 
    | `DATABASE_URL` | Conexão do *transaction pooler* (porta 6543) com o usuário `arandue_app.<ref-do-projeto>`, terminada em `?sslmode=require` |
    | `ALLOWED_ORIGINS` | Endereço público da aplicação, como `https://seu-projeto.vercel.app` |
    | `VITE_DEMO_MODE` | `true` para mostrar o aviso e o acesso de teste na demonstração |
-   | `SENTRY_DSN` | Opcional: DSN do projeto Node no Sentry |
-   | `VITE_SENTRY_DSN` | Opcional: DSN do projeto React no Sentry |
+   | `SENTRY_DSN` | Opcional: DSN do projeto `arandu-gestao-api` no Sentry |
+   | `VITE_SENTRY_DSN` | Opcional: DSN do projeto `arandu-gestao-web` no Sentry |
+   | `SENTRY_AUTH_TOKEN` | Opcional e secreto: token da organização no Sentry, para enviar os source maps no build |
 
 3. Faça o deploy e abra `/api/health`. A resposta esperada é `{"status":"ok"}`.
 

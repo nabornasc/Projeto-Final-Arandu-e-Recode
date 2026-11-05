@@ -1,8 +1,25 @@
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 
+// Só com o token (build de produção na Vercel) os source maps são gerados, enviados e apagados da saída.
+const sentryToken = loadEnv('production', '.', 'SENTRY_').SENTRY_AUTH_TOKEN;
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    ...(sentryToken
+      ? [
+          sentryVitePlugin({
+            org: 'nabornasc',
+            project: 'arandu-gestao-web',
+            authToken: sentryToken,
+            sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+            telemetry: false,
+          }),
+        ]
+      : []),
+  ],
   server: {
     port: 5173,
     proxy: {
@@ -14,6 +31,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: 'es2022',
+    sourcemap: sentryToken ? 'hidden' : false,
     rollupOptions: {
       output: {
         // React e roteador mudam pouco: ficam num arquivo separado que o navegador mantém em cache.

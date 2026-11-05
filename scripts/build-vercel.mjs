@@ -3,10 +3,12 @@
 import { execSync } from 'node:child_process';
 import { cpSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import { build } from 'esbuild';
 
 const OUTPUT = '.vercel/output';
 const FUNCTION = `${OUTPUT}/functions/api.func`;
+const sentryToken = process.env.SENTRY_AUTH_TOKEN;
 
 rmSync(OUTPUT, { recursive: true, force: true });
 execSync('npm run build', { stdio: 'inherit' });
@@ -34,6 +36,19 @@ await build({
     ].join('\n'),
   },
   logLevel: 'warning',
+  // Com o token, os erros da API aparecem no Sentry apontando para o código original.
+  sourcemap: sentryToken ? true : false,
+  plugins: sentryToken
+    ? [
+        sentryEsbuildPlugin({
+          org: 'nabornasc',
+          project: 'arandu-gestao-api',
+          authToken: sentryToken,
+          sourcemaps: { filesToDeleteAfterUpload: [`${FUNCTION}/*.map`] },
+          telemetry: false,
+        }),
+      ]
+    : [],
 });
 
 // Copia o argon2 com os binários instalados para a plataforma atual.
