@@ -12,7 +12,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
-  reporter: [['list']],
+  // No CI, o relatório do GitHub mostra o teste que falhou ou que só passou na segunda tentativa.
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   use: {
     baseURL: WEB_URL,
     locale: 'pt-BR',
