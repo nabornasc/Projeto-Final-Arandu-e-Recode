@@ -137,6 +137,8 @@ test('orçamento aprovado vira pedido, com o caminho nos dois históricos', asyn
   await openMenuItem(page, 'Converter em pedido');
   await page.getByRole('dialog').getByRole('button', { name: 'Criar pedido' }).click();
   await expect(page).toHaveURL(/\/pedidos\/\d+$/);
+  // A URL muda antes de o pedido aparecer: até lá, a aba Histórico na tela é a do orçamento.
+  await expect(page.getByRole('heading', { name: /Pedido #\d+ / })).toBeVisible();
   await openHistory(page);
   await expect(historyRow(page, /Criou o pedido a partir do orçamento/)).toBeVisible();
 
