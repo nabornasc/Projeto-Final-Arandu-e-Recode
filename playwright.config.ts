@@ -19,6 +19,8 @@ export default defineConfig({
     baseURL: WEB_URL,
     locale: 'pt-BR',
     timezoneId: 'America/Cuiaba',
+    // Sem limite por ação, um clique travado só aparece como tempo esgotado do teste inteiro.
+    actionTimeout: 10_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
