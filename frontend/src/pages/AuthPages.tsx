@@ -9,7 +9,7 @@ function Brand() {
     <div className="brand">
       <span className="brand-mark">A</span>
       <div>
-        <strong>aranduê</strong>
+        <strong>arandu gestão</strong>
         <small>Gestão que gera futuro</small>
       </div>
     </div>

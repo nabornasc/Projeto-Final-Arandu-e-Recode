@@ -32,14 +32,14 @@ test('alteração aparece no histórico e o clique abre antes e depois', async (
   await openHistory(page);
   const change = historyRow(page, /Alterou desconto.*itens/);
   await expect(change).toBeVisible();
-  await expect(change).toContainText('Dona Ateliê Aranduê');
+  await expect(change).toContainText('Dona Ateliê Arandu');
   await expect(historyRow(page, /Criou o orçamento/)).toBeVisible();
   await capture(page, 'orcamento-historico');
 
   await change.click();
   await expect(page).toHaveURL(/\/historico\/\d+$/);
   await expect(
-    page.getByText(/^Por Dona Ateliê Aranduê em \d{2}\/\d{2}\/\d{2,4}.*\d{2}:\d{2}:\d{2}$/),
+    page.getByText(/^Por Dona Ateliê Arandu em \d{2}\/\d{2}\/\d{2,4}.*\d{2}:\d{2}:\d{2}$/),
   ).toBeVisible();
   await expect(page.getByRole('row', { name: /Desconto\s+R\$\s*0,00\s+R\$\s*10,00/ })).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(`Item alterado: ${SERVICE}`) })).toBeVisible();

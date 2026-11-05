@@ -12,7 +12,7 @@ interface PageDefinition {
 const resourcePage = (name: keyof typeof import('../pages/ResourcePages.tsx')) =>
   lazy(async () => ({ default: (await import('../pages/ResourcePages.tsx'))[name] }));
 
-const titleOf = (path: string) => navigation.find((item) => item.path === path)?.label ?? 'Aranduê';
+const titleOf = (path: string) => navigation.find((item) => item.path === path)?.label ?? 'Arandu Gestão';
 
 const PeopleList = lazy(() => import('../pages/PeopleListPage.tsx'));
 const PersonDocument = lazy(() => import('../pages/PersonDocumentPage.tsx'));

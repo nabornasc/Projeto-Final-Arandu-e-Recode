@@ -168,7 +168,7 @@ async function seedCompany(companyName: string, prefix: string) {
 }
 
 await truncateAll();
-await seedCompany('Ateliê Aranduê', 'atelie');
+await seedCompany('Ateliê Arandu', 'atelie');
 await seedCompany('Doces da Vila', 'doces');
 await sql.end();
 

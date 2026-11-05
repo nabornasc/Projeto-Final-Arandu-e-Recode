@@ -1,10 +1,10 @@
-# Aranduê
+# Arandu Gestão
 
 SaaS de gestão para microempreendedores individuais (MEIs): vendas, estoque, clientes e caixa em um só lugar, com dados isolados por empresa e controle de acesso por papel.
 
 Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco em organização financeira e apoio à decisão para quem empreende por conta própria.
 
-> **[Demonstração no ar](https://arandue-mu.vercel.app).** Entre com `dono@atelie.test` e a senha `senha-demo-123`. Os dados são fictícios e compartilhados, e voltam ao padrão às 00h e às 12h de Cuiabá.
+> **[Demonstração no ar](https://arandu-gestao.vercel.app).** Entre com `dono@atelie.test` e a senha `senha-demo-123`. Os dados são fictícios e compartilhados, e voltam ao padrão às 00h e às 12h de Cuiabá.
 >
 > **Versão 2 em evolução.** A v1 (monousuário, MySQL) está preservada na tag `v1.0.0`. O andamento da v2 segue o [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md).
 
@@ -124,7 +124,7 @@ O seed cria duas empresas, cada uma com os três papéis. A senha de todos é `s
 
 | Empresa | Proprietário | Vendedor | Contador |
 |---|---|---|---|
-| Ateliê Aranduê | `dono@atelie.test` | `vendedor@atelie.test` | `contador@atelie.test` |
+| Ateliê Arandu | `dono@atelie.test` | `vendedor@atelie.test` | `contador@atelie.test` |
 | Doces da Vila | `dono@doces.test` | `vendedor@doces.test` | `contador@doces.test` |
 
 ## Scripts

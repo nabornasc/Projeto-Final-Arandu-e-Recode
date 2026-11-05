@@ -20,7 +20,7 @@ test('proprietário filtra a auditoria e abre o detalhe da alteração', async (
   await filters.getByLabel('Ação').selectOption('update');
   const line = page.getByRole('row', { name: /Consultoria financeira/ }).first();
   await expect(line).toContainText('Alterou preço');
-  await expect(line).toContainText('Dona Ateliê Aranduê');
+  await expect(line).toContainText('Dona Ateliê Arandu');
   await capture(page, 'auditoria');
 
   await line.getByRole('link', { name: 'Alterou preço' }).click();

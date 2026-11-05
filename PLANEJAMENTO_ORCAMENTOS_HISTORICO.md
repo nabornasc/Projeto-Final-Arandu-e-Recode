@@ -77,7 +77,7 @@ Os dois PDFs são gerados a partir do mesmo orçamento, e os números batem entr
 
 ### Entra agora
 
-| Ideia | Como fica no Aranduê |
+| Ideia | Como fica no Arandu Gestão |
 |---|---|
 | Espelho do cliente | Sem custos nem margem, em A4, com "Imprimir / Salvar PDF" |
 | Espelho interno | Resumo por categoria, custos, margem e resultado, com a permissão `costs.read` e o aviso **"Uso interno: não enviar ao cliente"** |

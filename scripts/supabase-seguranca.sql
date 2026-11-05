@@ -1,7 +1,7 @@
 -- Proteção do banco no Supabase. Rode depois de cada migração: é seguro repetir.
 --
 -- O Supabase publica o schema public por uma API própria, acessível com a chave pública do projeto.
--- O Aranduê não usa essa API, então os papéis dela perdem o acesso e toda tabela fica com RLS ligado.
+-- O Arandu Gestão não usa essa API, então os papéis dela perdem o acesso e toda tabela fica com RLS ligado.
 -- A aplicação conecta como arandue_app, sem poder de alterar a estrutura do banco.
 
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;

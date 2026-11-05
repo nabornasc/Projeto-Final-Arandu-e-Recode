@@ -1,6 +1,6 @@
-# Planejamento da Versão 2 — Aranduê SaaS
+# Planejamento da Versão 2 — Arandu Gestão SaaS
 
-> **Escopo:** evolução do protótipo Aranduê (monousuário) para um SaaS multiempresa com ERP, CRM, análise gerencial e assistente de IA.
+> **Escopo:** evolução do protótipo Arandu Gestão (monousuário) para um SaaS multiempresa com ERP, CRM, análise gerencial e assistente de IA.
 > **Ritmo:** desenvolvimento **contínuo por versões** desde 02/11/2026, sem data de término: cada versão é um ciclo de planejar, implementar, testar e publicar (roadmap na seção 11). O cronograma original de 4 semanas fica como histórico.
 > **Base:** *Guia SaaS de Gestão para MEI* (requisitos RF/RNF e histórias HU) + avaliação técnica da versão 1.
 
@@ -8,7 +8,7 @@
 
 ## 1. Proposta
 
-> **O Aranduê ajuda microempreendedores individuais a organizar vendas, clientes e caixa em um só lugar, com um assistente que responde dúvidas e registra informações pelo Telegram.**
+> **O Arandu Gestão ajuda microempreendedores individuais a organizar vendas, clientes e caixa em um só lugar, com um assistente que responde dúvidas e registra informações pelo Telegram.**
 
 ### Premissas
 
@@ -367,7 +367,7 @@ Botões **"+ Novo cliente"** e **"+ Novo produto/serviço"** ao lado dos seletor
 
 Comparação com um ERP de mercado (telas de agenda, módulo de vendas, lista e formulário de orçamento). Entram até a entrega:
 
-| # | Recurso | Como fica no Aranduê |
+| # | Recurso | Como fica no Arandu Gestão |
 |---|---|---|
 | A | Menu por módulos + página do módulo | Menu lateral agrupado (Início, Agenda, CRM, Vendas, Financeiro, Cadastros, Administração); cada módulo com página de entrada em blocos montada a partir do registro de ações, com setas do fluxo (Lead → Orçamento → Pedido → Recebimento) |
 | B | Filtros avançados e paginação | Filtros no servidor (período, cliente, vendedor/responsável, status múltiplo, número, texto), paginação, filtros lembrados por usuário, escolha de colunas e impressão da lista |

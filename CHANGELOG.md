@@ -1,6 +1,12 @@
 # Changelog
 
-Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
+Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
+
+## [Não lançado]
+
+### Alterado
+
+- **Novo nome: Arandu Gestão**, na interface, na documentação e no endereço da demonstração.
 
 ## [2.3.0] — 2026-11-05
 
@@ -70,7 +76,7 @@ Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas 
 
 ## [2.0.0] — 2026-11-02
 
-Primeira versão do Aranduê como SaaS multiempresa (a v1, monousuário com MySQL, está na tag `v1.0.0`).
+Primeira versão do Arandu Gestão como SaaS multiempresa (a v1, monousuário com MySQL, está na tag `v1.0.0`).
 
 ### Adicionado
 

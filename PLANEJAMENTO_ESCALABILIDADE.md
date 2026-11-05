@@ -1,4 +1,4 @@
-# Plano Estratégico de Escalabilidade — Plataforma Aranduê
+# Plano Estratégico de Escalabilidade — Plataforma Arandu Gestão
 
 > **Documento de Engenharia de Software e Arquitetura de Sistemas**  
 > **Versão:** 1.0.0  
@@ -8,7 +8,7 @@
 
 ## Sumário Executivo
 
-O **Aranduê** nasceu como um sistema de gestão financeira e operacional simples, intuitivo e focado nas necessidades reais de microempreendedores individuais no Brasil. Após a consolidação do MVP funcional (com controle de estoque, reconciliação de caixa e catálogo de produtos/serviços), o objetivo deste documento é traçar o **plano técnico e arquitetural para transformar o protótipo em uma plataforma SaaS (Software as a Service) resiliente, segura e capaz de atender de 1 a 100.000 MEIs ativos**.
+O **Arandu Gestão** nasceu como um sistema de gestão financeira e operacional simples, intuitivo e focado nas necessidades reais de microempreendedores individuais no Brasil. Após a consolidação do MVP funcional (com controle de estoque, reconciliação de caixa e catálogo de produtos/serviços), o objetivo deste documento é traçar o **plano técnico e arquitetural para transformar o protótipo em uma plataforma SaaS (Software as a Service) resiliente, segura e capaz de atender de 1 a 100.000 MEIs ativos**.
 
 ---
 
@@ -129,12 +129,12 @@ Para suportar múltiplos clientes mantendo o custo controlado e o isolamento de 
 
 ## 4. Automações de Negócio de Alto Impacto para MEIs
 
-O grande diferencial do Aranduê para escalar sua base é resolver burocracias diárias do microempreendedor:
+O grande diferencial do Arandu Gestão para escalar sua base é resolver burocracias diárias do microempreendedor:
 
 ### 4.1. PIX Cobrança Automático (Baixa Instantânea)
-1. Ao fechar o pedido, o Aranduê gera um **QR Code PIX Dinâmico** com valor exato, expiração e identificador único `txid`.
+1. Ao fechar o pedido, o Arandu Gestão gera um **QR Code PIX Dinâmico** com valor exato, expiração e identificador único `txid`.
 2. O cliente do MEI paga pelo app do banco dele.
-3. O gateway bancário (ex: Asaas, Mercado Pago, Efí) envia um **Webhook** para o Aranduê.
+3. O gateway bancário (ex: Asaas, Mercado Pago, Efí) envia um **Webhook** para o Arandu Gestão.
 4. O worker processa o webhook com idempotência, marca o pedido como `paid`, estorna o estoque se necessário e gera o crédito na conta bancária correspondente em menos de 2 segundos.
 
 ### 4.2. Emissão Simplificada de NFS-e Nacional
@@ -148,7 +148,7 @@ O grande diferencial do Aranduê para escalar sua base é resolver burocracias d
 
 ### 4.4. Conciliação Bancária via Open Finance
 - Conexão via consentimento seguro do MEI para ler extratos bancários de bancos como Nubank, Inter, Caixa, Itaú e Bradesco.
-- Cruzamento automático das saídas da conta com as despesas cadastradas no Aranduê.
+- Cruzamento automático das saídas da conta com as despesas cadastradas no Arandu Gestão.
 
 ---
 
@@ -254,5 +254,5 @@ Para operar com padrão de alta confiabilidade:
 
 ## Conclusão
 
-O projeto Aranduê já possui alicerces sólidos: arquitetura clara, proposta de valor humanizada alinhada com o ODS 1 e código limpo. A execução do plano de escalabilidade acima garantirá que a plataforma evolua de um protótipo acadêmico para uma ferramenta comercial de impacto real na sobrevivência e prosperidade de milhares de microempreendedores pelo Brasil.
+O projeto Arandu Gestão já possui alicerces sólidos: arquitetura clara, proposta de valor humanizada alinhada com o ODS 1 e código limpo. A execução do plano de escalabilidade acima garantirá que a plataforma evolua de um protótipo acadêmico para uma ferramenta comercial de impacto real na sobrevivência e prosperidade de milhares de microempreendedores pelo Brasil.
 
