@@ -25,7 +25,7 @@ import {
   UserPlus,
   XCircle,
 } from 'lucide-react';
-import type { Opportunity, Order, Quote } from '../lib/documents.ts';
+import { canReopenQuote, type Opportunity, type Order, type Quote } from '../lib/documents.ts';
 import { formatCode } from '../lib/format.ts';
 import type { PersonSummary } from '../lib/people.ts';
 import type { ReasonRequest } from './ReasonModal.tsx';
@@ -68,6 +68,8 @@ export interface RecordAction<T> {
   // Todas são exigidas. Função quando depende do registro (ex.: cancelar pedido já pago).
   permissions: Permission[] | ((record: T) => Permission[]);
   when?: (record: T) => boolean;
+  // Além das permissões: nenhum grupo pode receber esta ação, só o Proprietário.
+  ownerOnly?: (record: T) => boolean;
   confirm?: (record: T) => string;
   danger?: boolean;
   run(record: T, kit: ActionKit): void | Promise<void>;
@@ -85,8 +87,10 @@ export function availableActions<T>(
   actions: RecordAction<T>[],
   record: T,
   granted: readonly string[],
+  isOwner: boolean,
 ): RecordAction<T>[] {
   return actions.filter((action) => {
+    if (!isOwner && action.ownerOnly?.(record)) return false;
     const required =
       typeof action.permissions === 'function' ? action.permissions(record) : action.permissions;
     return required.every((permission) => can(granted, permission)) && (action.when?.(record) ?? true);
@@ -162,6 +166,24 @@ const baseQuoteActions: RecordAction<Quote>[] = [
       }),
   },
   {
+    id: 'quote.reopen',
+    label: 'Reabrir para alterar',
+    icon: Undo2,
+    permissions: ['quotes.update'],
+    when: canReopenQuote,
+    run: async (q, kit) =>
+      kit.askReason({
+        eyebrow: 'ORÇAMENTO',
+        title: `Reabrir o orçamento ${formatCode(q.number)}`,
+        description:
+          'O orçamento volta para rascunho e precisa ser enviado de novo. Se estava aprovado, a aprovação deixa de valer.',
+        confirmLabel: 'Reabrir orçamento',
+        suggestions: ['Cliente pediu alteração', 'Erro no orçamento', 'Ajuste de preço ou prazo'],
+        submit: (reason) => kit.request(`/quotes/${q.id}/reopen`, { method: 'POST', body: { reason } }),
+        message: `Orçamento ${formatCode(q.number)} reaberto.`,
+      }),
+  },
+  {
     id: 'quote.cancel',
     label: 'Cancelar orçamento',
     icon: Ban,
@@ -228,7 +250,12 @@ const baseQuoteActions: RecordAction<Quote>[] = [
     permissions: ['quotes.delete'],
     // Só rascunho: o que já saiu da empresa é cancelado, com motivo.
     when: (q) => q.status === 'draft',
-    confirm: (q) => `Excluir o orçamento ${formatCode(q.number)}?`,
+    // Rascunho reaberto já foi enviado: só o Proprietário pode desbloquear a exclusão.
+    ownerOnly: (q) => q.sentAt !== null,
+    confirm: (q) =>
+      q.sentAt
+        ? `O orçamento ${formatCode(q.number)} já foi enviado ao cliente. Excluir mesmo assim? O registro continua no histórico.`
+        : `Excluir o orçamento ${formatCode(q.number)}?`,
     run: (q, kit) =>
       kit
         .request(`/quotes/${q.id}`, { method: 'DELETE' })

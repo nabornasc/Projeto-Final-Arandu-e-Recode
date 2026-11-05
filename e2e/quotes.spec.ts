@@ -139,6 +139,43 @@ test('logo enviado em Configurações sai no espelho, e o botão abre a impress�
   await saveSettings();
 });
 
+test('reabrir volta para rascunho, permite alterar e exige novo envio', async ({ page }) => {
+  await createQuote(page);
+  await sendQuote(page);
+  await expect(page.getByText('Para alterar, use "Reabrir para alterar"')).toBeVisible();
+  await expect(page.getByLabel('Desconto (R$)')).toBeDisabled();
+
+  await openMenuItem(page, 'Reabrir para alterar');
+  await confirmWithReason(page, 'Reabrir orçamento', 'Cliente pediu alteração');
+  await expect(page.getByRole('heading', { name: /Orçamento #\d+ Rascunho/ })).toBeVisible();
+
+  await page.getByLabel('Desconto (R$)').fill('5');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(toast(page, 'Orçamento salvo.')).toBeVisible();
+  await sendQuote(page);
+
+  await openHistory(page);
+  await expect(historyRow(page, /Reabriu para alterar.*Motivo: Cliente pediu alteração/)).toBeVisible();
+  await expect(historyRow(page, /Alterou desconto/)).toBeVisible();
+});
+
+test('proprietário pode excluir orçamento reaberto, com aviso de que já foi enviado', async ({ page }) => {
+  await createQuote(page);
+  await sendQuote(page);
+  await openMenuItem(page, 'Reabrir para alterar');
+  await confirmWithReason(page, 'Reabrir orçamento', 'Erro no orçamento');
+  await expect(page.getByRole('heading', { name: /Orçamento #\d+ Rascunho/ })).toBeVisible();
+
+  let question = '';
+  page.once('dialog', (dialog) => {
+    question = dialog.message();
+    return dialog.accept();
+  });
+  await openMenuItem(page, 'Excluir');
+  await expect(toast(page, 'excluído.')).toBeVisible();
+  expect(question).toContain('já foi enviado ao cliente');
+});
+
 test('recusar exige motivo, e o motivo fica no histórico', async ({ page }) => {
   await createQuote(page);
   await sendQuote(page);

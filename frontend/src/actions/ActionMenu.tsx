@@ -22,7 +22,7 @@ export function ActionMenu<T>({ actions, record, label, exclude = [] }: Props<T>
   const menu = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 0, right: 0 });
 
-  const items = availableActions(actions, record, profile.permissions).filter(
+  const items = availableActions(actions, record, profile.permissions, profile.group.isOwner).filter(
     (action) => !exclude.includes(action.id),
   );
   if (!items.length) return null;

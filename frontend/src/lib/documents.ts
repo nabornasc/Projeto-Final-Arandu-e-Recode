@@ -34,10 +34,16 @@ export interface Quote {
   siteContact: string | null;
   siteAddress: string | null;
   sellerName: string | null;
+  // Último envio. Continua preenchido depois de reabrir: o documento já saiu da empresa.
+  sentAt: string | null;
   orderId: number | null;
   orderNumber: number | null;
   items: DocumentItem[];
 }
+
+// Cancelamento é definitivo, e orçamento que virou pedido não muda mais.
+export const canReopenQuote = (quote: Quote) =>
+  ['sent', 'approved', 'rejected'].includes(quote.status) && quote.orderId === null;
 
 // Espelho do cliente: o que vai para o cliente, sem custos nem observação interna.
 export interface QuoteMirror {

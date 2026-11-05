@@ -217,6 +217,7 @@ const QUOTE_STATUS_SUMMARY: Record<string, string> = {
   approved: 'Aprovou',
   rejected: 'Recusou',
   cancelled: 'Cancelou',
+  draft: 'Reabriu para alterar',
 };
 
 const OPPORTUNITY_STATUS_SUMMARY: Record<string, string> = {

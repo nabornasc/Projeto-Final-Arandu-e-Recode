@@ -13,7 +13,7 @@ import { db, type Transaction } from '../db/client.ts';
 import { opportunities, orders, people, products, quoteItems, quotes, users } from '../db/schema.ts';
 import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
-import { conflict, notFound } from '../lib/errors.ts';
+import { conflict, forbidden, notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit, namedLines, personName } from './audit.ts';
 import { formatCode, nextNumber } from './numbering.ts';
@@ -327,10 +327,12 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
   return getQuote(ctx, id);
 }
 
-export type QuoteTransition = 'send' | 'approve' | 'reject' | 'cancel';
+export type QuoteTransition = 'send' | 'approve' | 'reject' | 'cancel' | 'reopen';
 
 // Fluxo: rascunho → enviado → aprovado ou recusado. Enviado ou aprovado ainda pode ser cancelado;
-// rascunho é excluído. Cada passo tem a sua permissão; recusar e cancelar exigem o motivo.
+// rascunho é excluído. Enviado, aprovado ou recusado pode voltar a rascunho para ser alterado, e aí
+// passa de novo por envio e aprovação. Cada passo tem a sua permissão; recusar, cancelar e reabrir
+// exigem o motivo.
 const TRANSITIONS: Record<
   QuoteTransition,
   { from: QuoteStatus[]; to: QuoteStatus; permission: Permission; verb: string; needsReason?: boolean }
@@ -351,6 +353,13 @@ const TRANSITIONS: Record<
     verb: 'cancelar',
     needsReason: true,
   },
+  reopen: {
+    from: ['sent', 'approved', 'rejected'],
+    to: 'draft',
+    permission: 'quotes.update',
+    verb: 'reabrir',
+    needsReason: true,
+  },
 };
 
 export async function transitionQuote(
@@ -368,9 +377,12 @@ export async function transitionQuote(
     if (!step.from.includes(quote.status)) {
       throw conflict(`Não é possível ${step.verb} um orçamento ${STATUS_LABEL[quote.status]}.`);
     }
-    if (name === 'cancel') {
+    if (name === 'cancel' || name === 'reopen') {
       const [order] = await tx.select({ id: orders.id }).from(orders).where(eq(orders.quoteId, id));
-      if (order) throw conflict('Orçamento convertido em pedido não pode ser cancelado.');
+      if (order) {
+        const done = name === 'cancel' ? 'cancelado' : 'reaberto';
+        throw conflict(`Orçamento convertido em pedido não pode ser ${done}.`);
+      }
     }
     const now = new Date();
     await tx
@@ -379,7 +391,11 @@ export async function transitionQuote(
         status: step.to,
         ...(name === 'send'
           ? { sentAt: now, mirrorSnapshot: await buildMirrorSnapshot(tx, ctx.companyId, quote) }
-          : { decidedAt: now }),
+          : name === 'reopen'
+            ? // Volta a acompanhar os cadastros; a cópia nova nasce no próximo envio.
+              // sentAt fica: é o que marca que o documento já saiu da empresa, e bloqueia a exclusão.
+              { decidedAt: null, mirrorSnapshot: null }
+            : { decidedAt: now }),
       })
       .where(scoped(ctx, id));
     await audit(
@@ -403,7 +419,7 @@ export async function transitionQuote(
       else if (name === 'approve')
         await advanceToMilestone(tx, ctx, quote.opportunityId, 'negotiation', `Orçamento ${code} aprovado`);
       else {
-        const verb = name === 'reject' ? 'recusado' : 'cancelado';
+        const verb = { reject: 'recusado', cancel: 'cancelado', reopen: 'reaberto' }[name];
         await recordDocumentEvent(tx, ctx, quote.opportunityId, `Orçamento ${code} ${verb}: ${reason}`);
       }
     }
@@ -472,6 +488,11 @@ export async function deleteQuote(ctx: Ctx, id: number) {
     // Enviado já saiu da empresa: cancela-se, com motivo, para o documento não sumir.
     if (quote.status !== 'draft') {
       throw conflict('Só rascunhos podem ser excluídos. Use "Cancelar" para encerrar o orçamento.');
+    }
+    // Reaberto já saiu da empresa: só o Proprietário decide apagar. Não é uma permissão do catálogo
+    // porque nenhum outro grupo pode recebê-la.
+    if (quote.sentAt && !ctx.isOwner) {
+      throw forbidden('Este orçamento já foi enviado ao cliente. Só o Proprietário pode excluí-lo.');
     }
     const items = await lineItems(tx, id);
     const customer = await personName(tx, quote.customerId);

@@ -136,7 +136,7 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
       update: quotes.updateQuote,
       remove: quotes.deleteQuote,
     });
-    for (const name of ['send', 'approve', 'reject', 'cancel'] as const) {
+    for (const name of ['send', 'approve', 'reject', 'cancel', 'reopen'] as const) {
       protectedApp.post(`/quotes/:id/${name}`, (request) =>
         quotes.transitionQuote(
           ctxOf(request),

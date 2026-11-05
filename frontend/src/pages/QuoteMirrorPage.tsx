@@ -80,7 +80,10 @@ export default function QuoteMirrorPage() {
           <div className="mirror-title">
             <h1>Orçamento {code}</h1>
             <dl>
-              <Field label="Emissão" value={formatDate(quote.sentAt ?? quote.createdAt)} />
+              <Field
+                label="Emissão"
+                value={formatDate((quote.status !== 'draft' && quote.sentAt) || quote.createdAt)}
+              />
               <Field label="Validade" value={quote.validUntil && formatDate(quote.validUntil)} />
               <Field label="Vendedor" value={quote.sellerName} />
             </dl>

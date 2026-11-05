@@ -6,6 +6,8 @@ Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das pró
 
 ### Adicionado
 
+- **Reabrir orçamento:** enviado, aprovado ou recusado volta para rascunho, com motivo no histórico, e passa de novo por envio e aprovação. Cancelado e convertido em pedido não reabrem.
+- **Exclusão bloqueada depois do envio:** orçamento reaberto só pode ser excluído pelo Proprietário. Nenhum outro grupo recebe essa liberação.
 - **Espelho do cliente:** o orçamento vira um documento A4, pronto para imprimir ou salvar em PDF, sem custos nem observação interna. Rascunho, recusado e cancelado saem com um aviso.
 - **Dados da empresa no documento:** razão social, endereço, telefone, e-mail, logo e condições padrão, nas configurações.
 - **Novos campos no orçamento:** frete, outras despesas, local de entrega ou serviço e observação interna. Frete e despesas entram no total e seguem para o pedido.

@@ -150,4 +150,5 @@ Aprovadas em 04/11/2026:
 
 1. **Publicação:** as fases 1 e 2 vêm antes da v2.3 (deploy). As fases 3 e 4 podem vir antes ou depois, conforme a urgência da demonstração.
 2. **Cancelar orçamento:** existe o status "cancelado", com motivo obrigatório, para orçamento enviado ou aprovado sem pedido. Só rascunhos são excluídos. O cancelamento é definitivo: para retomar, duplica-se o orçamento.
+   Adicionado em 05/11/2026: enviado, aprovado sem pedido ou recusado pode ser reaberto para rascunho, com motivo obrigatório. Depois de reaberto, só o Proprietário pode excluí-lo.
 3. **Quem vê o histórico:** todos que podem ver o documento, respeitando o escopo "só os próprios". A tela geral de auditoria fica inicialmente só com o Proprietário.

@@ -20,7 +20,13 @@ import { useToast } from '../components/Toast.tsx';
 import { TracePanel } from '../components/TracePanel.tsx';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
-import { type OpportunityDetail, type Quote, useOpportunity, useQuote } from '../lib/documents.ts';
+import {
+  canReopenQuote,
+  type OpportunityDetail,
+  type Quote,
+  useOpportunity,
+  useQuote,
+} from '../lib/documents.ts';
 import { formatCode, label } from '../lib/format.ts';
 import type { Person } from '../lib/people.ts';
 import { useTab, useTabDirty, useTabTitle } from '../workspace/tab.ts';
@@ -148,7 +154,9 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
           <p>
             {editable
               ? 'Rascunho: escolha os itens e salve. Depois, envie ao cliente pelo menu de ações.'
-              : 'Somente rascunhos podem ser editados. Use o menu de ações para os próximos passos.'}
+              : quote && canReopenQuote(quote) && can(profile, 'quotes.update')
+                ? 'Para alterar, use "Reabrir para alterar" no menu de ações.'
+                : 'Somente rascunhos podem ser editados. Use o menu de ações para os próximos passos.'}
           </p>
         </div>
         <div className="document-actions">
