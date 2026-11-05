@@ -6,7 +6,7 @@ test('proprietário filtra a auditoria e abre o detalhe da alteração', async (
 
   // Altera um produto pela tela, para ter o que procurar.
   await page.goto('/produtos');
-  const row = page.getByRole('row', { name: /Consultoria financeira/ });
+  const row = page.getByRole('row', { name: /Montagem de bar para eventos/ });
   await row.getByRole('button', { name: /Editar/ }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Preço').fill('275');
@@ -18,14 +18,14 @@ test('proprietário filtra a auditoria e abre o detalhe da alteração', async (
   const filters = page.getByRole('form', { name: 'Filtros da auditoria' });
   await chooseOption(filters.getByLabel('Módulo'), 'Produtos e serviços');
   await filters.getByLabel('Ação').selectOption('update');
-  const line = page.getByRole('row', { name: /Consultoria financeira/ }).first();
+  const line = page.getByRole('row', { name: /Montagem de bar para eventos/ }).first();
   await expect(line).toContainText('Alterou preço');
-  await expect(line).toContainText('Dona Ateliê Arandu');
+  await expect(line).toContainText('Marina Rocha');
   await capture(page, 'auditoria');
 
   await line.getByRole('link', { name: 'Alterou preço' }).click();
   await expect(page).toHaveURL(/\/historico\/\d+$/);
-  await expect(page.getByRole('row', { name: /Preço\s+R\$\s*260,00\s+R\$\s*275,00/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Preço\s+R\$\s*250,00\s+R\$\s*275,00/ })).toBeVisible();
   await page.getByRole('link', { name: 'Abrir produtos e serviços' }).click();
   await expect(page).toHaveURL(/\/produtos$/);
 });

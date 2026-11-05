@@ -4,7 +4,7 @@ SaaS de gestão para microempreendedores individuais (MEIs): vendas, estoque, cl
 
 Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco em organização financeira e apoio à decisão para quem empreende por conta própria.
 
-> **[Demonstração no ar](https://arandu-gestao.vercel.app).** Entre com `dono@atelie.test` e a senha `senha-demo-123`. Os dados são fictícios e compartilhados, e voltam ao padrão às 00h e às 12h de Cuiabá.
+> **[Demonstração no ar](https://arandu-gestao.vercel.app).** Entre com `dono@conveniencia.test` e a senha `senha-demo-123`. Os dados são fictícios e compartilhados, e voltam ao padrão às 00h e às 12h de Cuiabá.
 >
 > **Versão 2 em evolução.** A v1 (monousuário, MySQL) está preservada na tag `v1.0.0`. O andamento da v2 segue o [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md).
 
@@ -128,11 +128,11 @@ Abra [http://localhost:5173](http://localhost:5173). Healthcheck da API: [http:/
 
 ## Usuários de demonstração
 
-O seed cria duas empresas, cada uma com os três papéis. A senha de todos é `senha-demo-123`.
+O seed cria duas empresas, cada uma com os três papéis: uma mini conveniência de bebidas, com vendas, orçamentos, oportunidades e financeiro de exemplo, e uma confeitaria simples, para mostrar o isolamento entre empresas. A senha de todos é `senha-demo-123`.
 
 | Empresa | Proprietário | Vendedor | Contador |
 |---|---|---|---|
-| Ateliê Arandu | `dono@atelie.test` | `vendedor@atelie.test` | `contador@atelie.test` |
+| Conveniência da Esquina | `dono@conveniencia.test` | `vendedor@conveniencia.test` | `contador@conveniencia.test` |
 | Doces da Vila | `dono@doces.test` | `vendedor@doces.test` | `contador@doces.test` |
 
 ## Scripts

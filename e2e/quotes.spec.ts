@@ -32,14 +32,14 @@ test('alteração aparece no histórico e o clique abre antes e depois', async (
   await openHistory(page);
   const change = historyRow(page, /Alterou desconto.*itens/);
   await expect(change).toBeVisible();
-  await expect(change).toContainText('Dona Ateliê Arandu');
+  await expect(change).toContainText('Marina Rocha');
   await expect(historyRow(page, /Criou o orçamento/)).toBeVisible();
   await capture(page, 'orcamento-historico');
 
   await change.click();
   await expect(page).toHaveURL(/\/historico\/\d+$/);
   await expect(
-    page.getByText(/^Por Dona Ateliê Arandu em \d{2}\/\d{2}\/\d{2,4}.*\d{2}:\d{2}:\d{2}$/),
+    page.getByText(/^Por Marina Rocha em \d{2}\/\d{2}\/\d{2,4}.*\d{2}:\d{2}:\d{2}$/),
   ).toBeVisible();
   await expect(page.getByRole('row', { name: /Desconto\s+R\$\s*0,00\s+R\$\s*10,00/ })).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(`Item alterado: ${SERVICE}`) })).toBeVisible();
@@ -76,8 +76,8 @@ test('espelho do cliente mostra o documento e esconde a observação interna', a
   const mirror = await popup;
 
   await expect(mirror.getByRole('heading', { name: /Orçamento #\d+/ })).toBeVisible();
-  await expect(mirror).toHaveTitle(/Orçamento #\d+ - Ateliê Arandu/);
-  await expect(mirror.getByText('Ateliê Arandu MEI')).toBeVisible();
+  await expect(mirror).toHaveTitle(/Orçamento #\d+ - Conveniência da Esquina/);
+  await expect(mirror.getByText('Conveniência da Esquina MEI')).toBeVisible();
   await expect(mirror.getByText('Rascunho: ainda não enviado ao cliente.')).toBeVisible();
   await expect(mirror.getByRole('cell', { name: SERVICE })).toBeVisible();
   await expect(mirror.getByText('Loja do centro')).toBeVisible();

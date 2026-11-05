@@ -21,7 +21,7 @@ npm run db:seed
 npm run dev
 ```
 
-Abra <http://localhost:5173> e entre com `dono@atelie.test` / `senha-demo-123`. Não use `npm run db:up` nesse ambiente: ele depende do Docker.
+Abra <http://localhost:5173> e entre com `dono@conveniencia.test` / `senha-demo-123`. Não use `npm run db:up` nesse ambiente: ele depende do Docker.
 
 ## Cuidados
 

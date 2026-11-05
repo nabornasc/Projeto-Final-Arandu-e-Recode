@@ -10,7 +10,7 @@ export function DemoNotice({ credentials = false }: { credentials?: boolean }) {
       {credentials && (
         <>
           {' '}
-          Para testar, entre com <code>dono@atelie.test</code> e a senha <code>senha-demo-123</code>.
+          Para testar, entre com <code>dono@conveniencia.test</code> e a senha <code>senha-demo-123</code>.
         </>
       )}
     </p>

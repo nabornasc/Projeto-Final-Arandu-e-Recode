@@ -2,6 +2,12 @@
 
 Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
+## [Não lançado]
+
+### Alterado
+
+- **Dados de demonstração:** a empresa padrão agora é uma mini conveniência de bebidas, com vendas, orçamentos em cada situação, oportunidades e financeiro de exemplo. O acesso de teste passa a ser `dono@conveniencia.test`.
+
 ## [2.4.0] — 2026-11-05
 
 ### Adicionado

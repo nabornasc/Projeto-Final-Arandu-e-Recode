@@ -19,7 +19,7 @@ test('senha errada não entra, e a mensagem não revela se o e-mail existe', asy
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   const wrongPassword = (await page.getByRole('alert').textContent()) ?? '';
 
-  await page.locator('input[name="email"]').fill('ninguem@atelie.test');
+  await page.locator('input[name="email"]').fill('ninguem@conveniencia.test');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(wrongPassword);
   await expect(page).toHaveURL(/\/login/);

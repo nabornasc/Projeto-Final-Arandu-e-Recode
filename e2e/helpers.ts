@@ -1,14 +1,14 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 // Usuários criados pelo seed (backend/src/db/seed.ts).
-export const OWNER = 'dono@atelie.test';
-export const SELLER = 'vendedor@atelie.test';
-export const ACCOUNTANT = 'contador@atelie.test';
+export const OWNER = 'dono@conveniencia.test';
+export const SELLER = 'vendedor@conveniencia.test';
+export const ACCOUNTANT = 'contador@conveniencia.test';
 export const OTHER_COMPANY_OWNER = 'dono@doces.test';
 export const PASSWORD = 'senha-demo-123';
 
-export const SERVICE = 'Identidade visual';
-export const STOCK_PRODUCT = 'Kit papelaria artesanal';
+export const SERVICE = 'Entrega em domicílio';
+export const STOCK_PRODUCT = 'Cerveja Pilsen lata 350 ml';
 export const CUSTOMER = 'Ana Souza';
 
 export async function login(page: Page, email: string, password = PASSWORD) {
