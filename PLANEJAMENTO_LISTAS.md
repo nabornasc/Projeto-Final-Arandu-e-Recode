@@ -30,7 +30,7 @@ Hoje a empresa não consegue ajustar esses valores. Parte tem sugestões fixas n
 | Lista do print | Campo atual | Como está hoje |
 |---|---|---|
 | Formas de pagamento | `people.payment_method` | Sugestões fixas |
-| Condições de pagamento | `people.payment_terms` | Sugestões fixas. A versão com parcelas continua na v2.5 |
+| Condições de pagamento | `people.payment_terms` | Sugestões fixas. A versão com parcelas continua na v2.6 |
 | Motivos de perda | `opportunities.lost_reason` | Sugestões fixas |
 | Origem da indicação | `opportunities.source` | Sugestões fixas |
 | Categorias de cliente | `people.category` | Texto livre |
@@ -47,7 +47,7 @@ Hoje a empresa não consegue ajustar esses valores. Parte tem sugestões fixas n
 |---|---|
 | Unidades | Medidas opcionais (fase 5 do plano de orçamentos) |
 | Ambiente de orçamento | Grupos de itens (fase 5 do plano de orçamentos) |
-| Informação complementar | Biblioteca de textos e cláusulas (v2.5) |
+| Informação complementar | Biblioteca de textos e cláusulas (v2.6) |
 | Grupos do item | Categoria no cadastro de produtos e serviços (campo novo) |
 | Tabelas de preço de venda | Tabelas de preço (backlog) |
 | Indicações | Parceiro de indicação (backlog) |

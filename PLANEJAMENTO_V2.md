@@ -543,10 +543,11 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 | **v2.1** | Cadastro único de pessoas com papéis, CPF/CNPJ validados, endereço estruturado e busca de CNPJ/CEP (seção 8) | **Concluída em 02/11** |
 | **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | **Concluída em 03/11** |
 | **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | **Concluída em 05/11** |
-| **v2.4** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
-| **v2.5** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, campos de entrega, espelhos (impressão, PDF, DOCX) | Planejada |
-| **v2.6** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
-| **v2.7** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
+| **v2.4** | Espelho do cliente em A4 com dados da empresa e cópia guardada no envio, frete e outras despesas, reabrir orçamento, Sentry ligado e novo nome, Arandu Gestão | **Concluída em 05/11** |
+| **v2.5** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
+| **v2.6** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, grupos de itens, biblioteca de textos, espelho interno e DOCX. Espelho do cliente, campos de entrega e observação interna já entraram na v2.4 | Planejada |
+| **v2.7** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
+| **v2.8** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
 | **v3.0** | Assistente de IA: chat de ajuda e bot do Telegram (seção 10) | Planejada |
 
 ### Notas por versão (referência: telas de ERPs de mercado analisadas em 02/11)
@@ -567,7 +568,7 @@ Observações para detalhar no início de cada ciclo. As notas de versões concl
 - Menu da oportunidade em grupos: Visualizar (anexos, imprimir), Ações (copiar, criar/ver orçamento e pedido), Situação, Histórico.
 - **Ficou para depois:** indicação separada da origem, anexos e impressão da oportunidade.
 
-**v2.5 — Documentos**
+**v2.6 — Documentos**
 - **Grupos de itens** com subtotal (ambiente, etapa, kit), duplicar grupo, modelos de grupo pesquisáveis.
 - **Item avulso**: descrição e preço livres, fora do catálogo.
 - **Unidade e medidas** (un, m, m²; largura × comprimento calcula a quantidade).
@@ -578,7 +579,7 @@ Observações para detalhar no início de cada ciclo. As notas de versões concl
 - Observação externa e **observação interna** (não sai no espelho).
 - **Biblioteca de textos e cláusulas padrão** por empresa, incluída no espelho.
 
-**v2.6 — Gestão**
+**v2.7 — Gestão**
 - **Margem estimada** no resumo do documento (custo × preço), só para quem pode ver custos; impostos não entram (MEI paga o DAS fixo).
 
 **Backlog**
@@ -698,5 +699,6 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ## 14. Próximos passos imediatos
 
-1. Detalhar a v2.3 (publicação): deploy no Supabase e na Vercel, Sentry e Playwright nos fluxos principais.
-2. Atualizar a demonstração do portfólio com a v2.2 quando a publicação estiver no ar.
+1. Fase 4 do [plano de orçamentos](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md): custo gravado no item, margem e espelho interno, com a permissão `costs.read`.
+2. Fase 5 do mesmo plano: parcelas, grupos de itens e medidas opcionais.
+3. Depois, a v2.5 (navegação e produtividade), conforme o roadmap da seção 11.

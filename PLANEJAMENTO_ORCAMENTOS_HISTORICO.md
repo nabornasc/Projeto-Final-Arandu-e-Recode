@@ -94,7 +94,7 @@ Os dois PDFs são gerados a partir do mesmo orçamento, e os números batem entr
 
 | Ideia | Versão geral | Por que depois |
 |---|---|---|
-| Item composto de material, acabamento e serviço | Grupos de itens com subtotal, como ambiente, peça ou kit | Muda o formulário e o modelo de dados, e já está previsto na v2.5 |
+| Item composto de material, acabamento e serviço | Grupos de itens com subtotal, como ambiente, peça ou kit | Muda o formulário e o modelo de dados, e já está previsto na v2.6 |
 | Comprimento × largura = m² | Medidas opcionais, ativadas por empresa | Útil para alguns ofícios e confuso para os demais |
 | Perda de produção | Percentual opcional sobre o custo | Depende do custo por item |
 | Comissão do vendedor e RT | Comissão e parceiro de indicação | Já está no backlog |
@@ -103,9 +103,9 @@ Os dois PDFs são gerados a partir do mesmo orçamento, e os números batem entr
 
 | Item | Motivo |
 |---|---|
-| Imposto por venda | O MEI paga o DAS fixo, como já decidido na v2.6. Se precisar, usar uma linha opcional de "outros custos" |
+| Imposto por venda | O MEI paga o DAS fixo, como já decidido na v2.7. Se precisar, usar uma linha opcional de "outros custos" |
 | IPI e ICMS ST | Só fazem sentido junto com nota fiscal, ainda no backlog |
-| Seguro, custo de estocagem e outros custos fixos por venda | Detalhe demais para o MEI. O rateio de custos fixos fica no assistente de precificação da v2.6 |
+| Seguro, custo de estocagem e outros custos fixos por venda | Detalhe demais para o MEI. O rateio de custos fixos fica no assistente de precificação da v2.7 |
 | VMMO (total ÷ m²) | Indicador do setor de pedras |
 
 ### Problemas dos exemplos a não repetir
@@ -140,9 +140,9 @@ Os PDFs seguem a decisão da seção 7.7 do plano principal: modelo HTML e impre
 | Feita | "x" de abas e janelas à esquerda | Na v2.3 |
 | 1 (feita) | Histórico em orçamentos e pedidos: registro, aba e detalhe; cancelamento de orçamento e motivos | Na v2.3 |
 | 2 (feita) | Histórico nos demais módulos e tela geral | Na v2.3 |
-| 3 (feita) | Dados da empresa, campos novos e espelho do cliente | Antecipa parte da v2.5. O vendedor é quem criou o orçamento, sem campo próprio |
-| 4 | Custo no item, margem e espelho interno | Antecipa a margem da v2.6 |
-| 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.5 |
+| 3 (feita) | Dados da empresa, campos novos e espelho do cliente | Na v2.4, antecipando parte da v2.6. O vendedor é quem criou o orçamento, sem campo próprio |
+| 4 | Custo no item, margem e espelho interno | Antecipa a margem da v2.7 |
+| 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.6 |
 
 ## 5. Decisões
 

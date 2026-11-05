@@ -89,7 +89,15 @@ O plano completo está em [PLANEJAMENTO_ORCAMENTOS_HISTORICO.md](PLANEJAMENTO_OR
 
 - **Publicada** na Vercel e no Supabase, em São Paulo, como demonstração que volta aos dados padrão a cada 12 horas ([guia](DEPLOY.md)).
 
-**Próxima versão:** v2.4, navegação e produtividade. O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
+**v2.4 — Espelho do cliente e reabertura de orçamento:**
+
+- **Espelho do cliente** em A4, pronto para imprimir ou salvar em PDF, sem custos nem observação interna. Ao enviar, o orçamento guarda uma cópia dos dados da empresa, do cliente e dos itens.
+- **Dados da empresa no documento:** razão social, endereço, telefone, e-mail, logo e condições padrão.
+- **Frete e outras despesas** entram no total e seguem para o pedido; local de entrega ou serviço e observação interna.
+- **Reabrir orçamento** enviado, aprovado ou recusado, com motivo. Depois de reaberto, só o Proprietário pode excluí-lo.
+- **Monitoramento** com Sentry, sem dados pessoais, e novo nome: **Arandu Gestão**.
+
+**Próxima versão:** v2.5, navegação e produtividade. Antes dela, ficam as fases 4 e 5 do [plano de orçamentos](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md). O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
 
 ## Tecnologias
 
@@ -222,9 +230,9 @@ Os campos usam camelCase e as datas vêm no formato `AAAA-MM-DD`. Os erros retor
 npm run db:up && npm test
 ```
 
-Os 101 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), histórico (o que mudou, motivo obrigatório, documento excluído, escopo e isolamento), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
+Os 118 testes cobrem autenticação (sessão, logout, senha, e-mail duplicado), **isolamento entre empresas**, **permissões e grupos de acesso** (escopo "só os próprios", escalada de privilégio, travas do Proprietário, mudança imediata), estoque (incluindo pedidos simultâneos), sincronização do caixa, numeração por empresa, configurações da empresa, o fluxo **orçamento → pedido → estoque → caixa**, gestão de usuários, duplicar e copiar documentos, oportunidades (funil configurável, situação, ganho → cliente sem duplicar, escopo pelo responsável), rastreio (ciclo completo, vínculo em cadeia, visibilidade), histórico (o que mudou, motivo obrigatório, documento excluído, escopo e isolamento), cadastro de pessoas (CPF/CNPJ, papéis, carteira, arquivamento) e consulta de CNPJ/CEP com o serviço externo simulado, além da validação de entrada. O CI roda lint, typecheck, testes, build e `npm audit` a cada push.
 
-Os 20 testes ponta a ponta (Playwright) usam a interface de verdade: histórico, auditoria, motivo obrigatório, cancelamento, conversão em pedido, estoque, permissões, isolamento entre empresas e abas. Na primeira vez, baixe o navegador com `npx playwright install chromium`.
+Os 24 testes ponta a ponta (Playwright) usam a interface de verdade: histórico, auditoria, motivo obrigatório, cancelamento, conversão em pedido, estoque, permissões, isolamento entre empresas e abas. Na primeira vez, baixe o navegador com `npx playwright install chromium`.
 
 ```bash
 npm run test:e2e

@@ -2,7 +2,7 @@
 
 Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das próximas versões está no [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md) (seção 11).
 
-## [Não lançado]
+## [2.4.0] — 2026-11-05
 
 ### Adicionado
 
