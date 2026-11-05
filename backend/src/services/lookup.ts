@@ -15,7 +15,7 @@ async function fetchJson(url: string): Promise<{ status: number; body: unknown }
       // A BrasilAPI recusa (403) o User-Agent padrão do fetch do Node; identificamos o sistema.
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'Arandue/2.1 (+https://github.com/nabornasc/Projeto-Final-Arandu-e-Recode)',
+        'User-Agent': 'AranduGestao/2.3 (+https://github.com/nabornasc/arandu-gestao)',
       },
     });
     return { status: response.status, body: response.ok ? await response.json() : null };
