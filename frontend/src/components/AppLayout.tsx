@@ -5,6 +5,7 @@ import { navigation, SETTINGS_PATH } from '../config/navigation.ts';
 import { can, ProfileContext, useMe } from '../lib/auth.ts';
 import { resolvePage } from '../workspace/pages.ts';
 import { Workspace } from '../workspace/Workspace.tsx';
+import { DemoNotice } from './DemoNotice.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
 
@@ -46,6 +47,7 @@ export function AppLayout() {
               onMenu={() => setMenuOpen((open) => !open)}
             />
             <div className="content">
+              <DemoNotice />
               {limitMissing && !canConfigure && (
                 <p className="notice" role="status">
                   O limite anual do MEI ainda não foi configurado. Peça ao proprietário para informá-lo em

@@ -796,6 +796,14 @@ td strong {
   padding: 24px 16px;
   background: linear-gradient(160deg, #211a35, #3d2d66);
 }
+.demo-notice code {
+  font-weight: 700;
+  word-break: break-all;
+}
+.auth-card .demo-notice {
+  margin: 0 0 16px;
+  font-size: 12px;
+}
 .auth-card {
   background: #fff;
   width: min(420px, 100%);

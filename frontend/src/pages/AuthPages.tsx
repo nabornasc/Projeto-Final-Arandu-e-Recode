@@ -1,6 +1,7 @@
 import { loginSchema, registerSchema } from '@arandue/shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
+import { DemoNotice } from '../components/DemoNotice.tsx';
 import { useLogin, useMe, useRegister } from '../lib/auth.ts';
 
 function Brand() {
@@ -43,6 +44,7 @@ export function LoginPage() {
     <main className="auth-page">
       <form className="auth-card" onSubmit={submit} noValidate>
         <Brand />
+        <DemoNotice credentials />
         <h1>Entrar</h1>
         <p>Acesse a gestão do seu negócio.</p>
         <div className="form-grid">
@@ -101,6 +103,7 @@ export function RegisterPage() {
     <main className="auth-page">
       <form className="auth-card" onSubmit={submit} noValidate>
         <Brand />
+        <DemoNotice credentials />
         <h1>Cadastre sua empresa</h1>
         <p>Você será o proprietário da conta e poderá convidar sua equipe depois.</p>
         <div className="form-grid">

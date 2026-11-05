@@ -2,6 +2,22 @@
 
 Interface e API ficam na Vercel, em São Paulo (`gru1`). O banco fica no Supabase, também em São Paulo (`sa-east-1`).
 
+## Demonstração pública (caminho rápido)
+
+O script abaixo faz os passos 1 e 2 de uma vez e agenda a volta aos dados padrão às 00h e às 12h de Cuiabá, com `pg_cron` no próprio banco. **Ele apaga os dados do banco.**
+
+1. No Supabase, abra **Connect** e copie a conexão do **Session pooler**, trocando `[YOUR-PASSWORD]` pela senha do banco. Se não souber a senha, redefina em **Database > Settings**.
+2. No Prompt de Comando, na raiz do projeto:
+
+   ```bat
+   set SUPABASE_DB_URL=<conexão do session pooler>
+   npm run demo:setup
+   ```
+
+3. Cadastre na Vercel as variáveis que o script mostrar no final e siga para o passo 3.
+
+Depois de uma nova migração, rode `npm run demo:setup -- --recriar` e atualize a senha em `DATABASE_URL` na Vercel.
+
 ## 1. Banco no Supabase
 
 1. Crie ou reative um projeto em `sa-east-1` com PostgreSQL 17.
@@ -41,6 +57,7 @@ NODE_ENV=development DATABASE_URL="<conexão do postgres>?sslmode=require" node 
    | `NODE_ENV` | `production` |
    | `DATABASE_URL` | Conexão do *transaction pooler* (porta 6543) com o usuário `arandue_app.<ref-do-projeto>`, terminada em `?sslmode=require` |
    | `ALLOWED_ORIGINS` | Endereço público da aplicação, como `https://arandue.vercel.app` |
+   | `VITE_DEMO_MODE` | `true` para mostrar o aviso e o acesso de teste na demonstração |
    | `SENTRY_DSN` | Opcional: DSN do projeto Node no Sentry |
    | `VITE_SENTRY_DSN` | Opcional: DSN do projeto React no Sentry |
 
@@ -56,5 +73,6 @@ NODE_ENV=development DATABASE_URL="<conexão do postgres>?sslmode=require" node 
 
 ## Limites conhecidos
 
+- O Supabase gratuito pausa projetos sem uso por cerca de uma semana. A restauração agendada pode não evitar a pausa: nesse caso, reative pelo painel.
 - O limite de requisições fica na memória de cada instância da função, então é aproximado.
 - O plano Hobby da Vercel é só para uso não comercial. Para clientes reais, passe ao plano Pro.

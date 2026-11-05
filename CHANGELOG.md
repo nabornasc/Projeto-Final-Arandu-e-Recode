@@ -15,6 +15,7 @@ Todas as mudanças relevantes do Aranduê, por versão. O roadmap das próximas 
 - **Dados pessoais protegidos no registro:** CPF/CNPJ, e-mail, telefone, endereço e senha aparecem como "alterado", sem guardar o valor.
 - **Testes ponta a ponta** com Playwright, também no CI.
 - **Preparação da publicação:** pacote para a Vercel em `gru1`, usuário de banco sem poder de alterar a estrutura, RLS em todas as tabelas, cabeçalhos de segurança e monitoramento opcional com Sentry, sem dados pessoais.
+- **Modo demonstração:** aviso com o acesso de teste e dados que voltam ao padrão a cada 12 horas.
 
 ### Alterado
 
