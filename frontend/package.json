@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@arandue/shared": "*",
-    "@sentry/react": "11.10.0",
+    "@sentry/react": "10.78.0",
     "@tanstack/react-query": "5.105.1",
     "lucide-react": "1.66.0",
     "react": "19.3.1",
