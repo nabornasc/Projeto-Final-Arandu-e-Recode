@@ -24,12 +24,56 @@ export interface Quote {
   originKind: 'converted' | 'duplicated' | 'copied' | null;
   status: QuoteStatus;
   discount: number;
+  freight: number;
+  otherCharges: number;
   total: number;
   validUntil: string | null;
   notes: string | null;
+  internalNotes: string | null;
+  siteDescription: string | null;
+  siteContact: string | null;
+  siteAddress: string | null;
+  sellerName: string | null;
   orderId: number | null;
   orderNumber: number | null;
   items: DocumentItem[];
+}
+
+// Espelho do cliente: o que vai para o cliente, sem custos nem observação interna.
+export interface QuoteMirror {
+  number: number;
+  status: QuoteStatus;
+  createdAt: string;
+  sentAt: string | null;
+  validUntil: string | null;
+  discount: number;
+  freight: number;
+  otherCharges: number;
+  total: number;
+  notes: string | null;
+  siteDescription: string | null;
+  siteContact: string | null;
+  siteAddress: string | null;
+  sellerName: string | null;
+  issuer: {
+    name: string;
+    legalName: string | null;
+    cnpj: string | null;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    logo: string | null;
+    terms: string | null;
+  };
+  customer: {
+    name: string;
+    legalName: string | null;
+    document: string | null;
+    email: string | null;
+    phones: string | null;
+    address: string | null;
+  } | null;
+  items: { name: string; quantity: number; unitPrice: number; subtotal: number }[];
 }
 
 export interface Order {
@@ -46,6 +90,8 @@ export interface Order {
   orderDate: string;
   status: OrderStatus;
   discount: number;
+  freight: number;
+  otherCharges: number;
   total: number;
   notes: string | null;
   items: DocumentItem[];

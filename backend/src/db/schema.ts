@@ -42,6 +42,13 @@ export const companies = pgTable('companies', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 160 }).notNull(),
   cnpj: varchar({ length: 18 }),
+  // Dados impressos no cabeçalho dos documentos enviados ao cliente.
+  legalName: varchar({ length: 160 }),
+  address: varchar({ length: 255 }),
+  phone: varchar({ length: 30 }),
+  email: varchar({ length: 160 }),
+  logo: text(),
+  quoteTerms: varchar({ length: 2000 }),
   // Limite anual do MEI: cada empresa informa o valor vigente nas configurações (muda por lei).
   meiAnnualLimit: money(),
   // Contadores da numeração por empresa (#001, #002...), para o número não revelar o volume de outras.
@@ -354,9 +361,19 @@ export const quotes = pgTable(
     originKind: originKindEnum(),
     status: quoteStatusEnum().notNull().default('draft'),
     discount: money().notNull().default(0),
+    freight: money().notNull().default(0),
+    otherCharges: money().notNull().default(0),
     total: money().notNull().default(0),
     validUntil: date({ mode: 'string' }),
     notes: varchar({ length: 500 }),
+    // Fica só no sistema: nunca sai no espelho do cliente.
+    internalNotes: varchar({ length: 500 }),
+    // Local de entrega ou do serviço.
+    siteDescription: varchar({ length: 160 }),
+    siteContact: varchar({ length: 160 }),
+    siteAddress: varchar({ length: 255 }),
+    // Cópia feita ao enviar: reimprimir mostra o que o cliente recebeu, mesmo que o cadastro mude.
+    mirrorSnapshot: jsonb(),
     createdBy: integer().references(() => users.id, { onDelete: 'set null' }),
     sentAt: timestamp({ withTimezone: true }),
     decidedAt: timestamp({ withTimezone: true }),
@@ -405,6 +422,8 @@ export const orders = pgTable(
     orderDate: date({ mode: 'string' }).notNull(),
     status: orderStatusEnum().notNull().default('pending'),
     discount: money().notNull().default(0),
+    freight: money().notNull().default(0),
+    otherCharges: money().notNull().default(0),
     total: money().notNull().default(0),
     notes: varchar({ length: 500 }),
     createdBy: integer().references(() => users.id, { onDelete: 'set null' }),

@@ -44,7 +44,15 @@ async function seedCompany(companyName: string, prefix: string) {
     password: DEMO_PASSWORD,
   });
   // Valor só de demonstração: cada empresa informa o limite vigente em Configurações.
-  await updateCompanySettings(owner, { name: companyName, meiAnnualLimit: 81000 });
+  await updateCompanySettings(owner, {
+    name: companyName,
+    meiAnnualLimit: 81000,
+    legalName: `${companyName} MEI`,
+    address: 'Rua das Flores, 120 - Centro - Cuiabá/MT',
+    phone: '(65) 3000-0000',
+    email: `contato@${prefix}.test`,
+    quoteTerms: 'Prazo de entrega combinado na aprovação. Pagamento conforme negociado com o cliente.',
+  });
   await addUser(owner, `Vendedor ${companyName}`, `vendedor@${prefix}.test`, 'Vendedor');
   await addUser(owner, `Contador ${companyName}`, `contador@${prefix}.test`, 'Contador');
 

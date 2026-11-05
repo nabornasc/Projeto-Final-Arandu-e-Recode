@@ -24,6 +24,11 @@ const PROTECTED = new Set([
   'contacts',
   'addresses',
   'password',
+  'address',
+  'siteContact',
+  'siteAddress',
+  // Não é dado pessoal, mas ocuparia o registro com a imagem inteira.
+  'logo',
 ]);
 
 export interface ItemLine {

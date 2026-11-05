@@ -15,6 +15,7 @@ import {
   Link2Off,
   type LucideIcon,
   PackageCheck,
+  Printer,
   RotateCcw,
   Send,
   ThumbsDown,
@@ -118,6 +119,15 @@ const baseQuoteActions: RecordAction<Quote>[] = [
     icon: FileText,
     permissions: ['quotes.read'],
     run: (q, kit) => kit.open(`/orcamentos/${q.id}`),
+  },
+  {
+    id: 'quote.mirror',
+    group: 'open',
+    label: 'Espelho do cliente',
+    icon: Printer,
+    permissions: ['quotes.read'],
+    // Em outra guia, sem o menu do sistema, para imprimir ou salvar em PDF.
+    run: (q) => void window.open(`/espelho/orcamento/${q.id}`, '_blank'),
   },
   {
     id: 'quote.send',

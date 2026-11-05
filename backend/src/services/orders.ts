@@ -146,6 +146,8 @@ async function loadOrders(ctx: Ctx, where: SQL | undefined) {
       orderDate: orders.orderDate,
       status: orders.status,
       discount: orders.discount,
+      freight: orders.freight,
+      otherCharges: orders.otherCharges,
       total: orders.total,
       notes: orders.notes,
       createdAt: orders.createdAt,
@@ -206,7 +208,14 @@ type ItemInput = OrderData['items'][number];
 
 // Confere os produtos (ativos e da empresa) e calcula subtotais e total. Sem preço informado,
 // usa o preço de cadastro. Compartilhado por pedidos e orçamentos.
-export async function buildLines(tx: Transaction, ctx: Ctx, items: ItemInput[], discount: number) {
+// charges = frete e outras despesas, somados ao total.
+export async function buildLines(
+  tx: Transaction,
+  ctx: Ctx,
+  items: ItemInput[],
+  discount: number,
+  charges: number,
+) {
   const productIds = [...new Set(items.map((item) => item.productId))];
   const catalog = await tx
     .select({ id: products.id, price: products.price })
@@ -227,7 +236,7 @@ export async function buildLines(tx: Transaction, ctx: Ctx, items: ItemInput[], 
     };
   });
   const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
-  return { lines, total: Math.max(0, round2(subtotal - discount)) };
+  return { lines, total: Math.max(0, round2(subtotal - discount + charges)) };
 }
 
 // Cria o pedido dentro de uma transação já aberta. Usado na venda direta e na conversão de orçamento.
@@ -248,7 +257,13 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, li
     : data.customerId;
   const opportunityId = link.opportunityId ?? data.opportunityId ?? null;
   if (customerId) await assertCustomer(tx, ctx, customerId);
-  const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+  const { lines, total } = await buildLines(
+    tx,
+    ctx,
+    data.items,
+    data.discount,
+    data.freight + data.otherCharges,
+  );
 
   // Estoque antes da numeração: a ordem dos bloqueios (produtos, depois empresa) é sempre a mesma.
   await moveStock(tx, ctx, data.items, 1);
@@ -267,6 +282,8 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, li
       orderDate: data.orderDate,
       status: data.status,
       discount: data.discount,
+      freight: data.freight,
+      otherCharges: data.otherCharges,
       total,
       notes: data.notes,
       createdBy: ctx.userId,
@@ -284,6 +301,8 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, li
       customer: await personName(tx, customerId),
       orderDate: order.orderDate,
       discount: order.discount,
+      freight: order.freight,
+      otherCharges: order.otherCharges,
       total,
       notes: order.notes,
       bankAccount: await cashAccountName(tx, order.id),
@@ -382,7 +401,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
       .set({
         status,
         discount,
-        total: Math.max(0, round2(subtotal - discount)),
+        total: Math.max(0, round2(subtotal - discount + previous.freight + previous.otherCharges)),
         orderDate: data.orderDate ?? previous.orderDate,
         customerId: data.customerId === undefined ? previous.customerId : data.customerId,
         notes: data.notes === undefined ? previous.notes : data.notes,

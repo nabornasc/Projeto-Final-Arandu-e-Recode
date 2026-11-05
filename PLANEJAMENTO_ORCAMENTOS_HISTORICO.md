@@ -140,7 +140,7 @@ Os PDFs seguem a decisão da seção 7.7 do plano principal: modelo HTML e impre
 | Feita | "x" de abas e janelas à esquerda | Na v2.3 |
 | 1 (feita) | Histórico em orçamentos e pedidos: registro, aba e detalhe; cancelamento de orçamento e motivos | Na v2.3 |
 | 2 (feita) | Histórico nos demais módulos e tela geral | Na v2.3 |
-| 3 | Dados da empresa, campos novos e espelho do cliente | Antecipa parte da v2.5 |
+| 3 (feita) | Dados da empresa, campos novos e espelho do cliente | Antecipa parte da v2.5. O vendedor é quem criou o orçamento, sem campo próprio |
 | 4 | Custo no item, margem e espelho interno | Antecipa a margem da v2.6 |
 | 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.5 |
 

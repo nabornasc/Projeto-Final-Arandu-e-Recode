@@ -10,7 +10,7 @@ import {
 } from '@arandue/shared/schemas';
 import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { opportunities, orders, people, products, quoteItems, quotes } from '../db/schema.ts';
+import { opportunities, orders, people, products, quoteItems, quotes, users } from '../db/schema.ts';
 import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
 import { conflict, notFound } from '../lib/errors.ts';
@@ -26,9 +26,27 @@ import {
 } from './opportunities.ts';
 import { buildLines, type DocumentLink, getOrder, insertOrder } from './orders.ts';
 import { assertCustomer } from './ownership.ts';
+import { buildMirrorSnapshot, hideCustomerDetails, type MirrorSnapshot } from './quoteMirror.ts';
 
 const scoped = (ctx: Ctx, id: number) =>
   and(eq(quotes.id, id), eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy));
+
+// Campos do orçamento que o histórico acompanha além dos valores principais.
+const extraFields = (quote: {
+  freight: number;
+  otherCharges: number;
+  internalNotes: string | null;
+  siteDescription: string | null;
+  siteContact: string | null;
+  siteAddress: string | null;
+}) => ({
+  freight: quote.freight,
+  otherCharges: quote.otherCharges,
+  internalNotes: quote.internalNotes,
+  siteDescription: quote.siteDescription,
+  siteContact: quote.siteContact,
+  siteAddress: quote.siteAddress,
+});
 
 const STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: 'em rascunho',
@@ -52,9 +70,16 @@ async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
       originKind: quotes.originKind,
       status: quotes.status,
       discount: quotes.discount,
+      freight: quotes.freight,
+      otherCharges: quotes.otherCharges,
       total: quotes.total,
       validUntil: quotes.validUntil,
       notes: quotes.notes,
+      internalNotes: quotes.internalNotes,
+      siteDescription: quotes.siteDescription,
+      siteContact: quotes.siteContact,
+      siteAddress: quotes.siteAddress,
+      sellerName: users.name,
       sentAt: quotes.sentAt,
       decidedAt: quotes.decidedAt,
       createdAt: quotes.createdAt,
@@ -66,6 +91,7 @@ async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
     .leftJoin(people, eq(people.id, quotes.customerId))
     .leftJoin(orders, eq(orders.quoteId, quotes.id))
     .leftJoin(opportunities, eq(opportunities.id, quotes.opportunityId))
+    .leftJoin(users, eq(users.id, quotes.createdBy))
     .where(where)
     .orderBy(desc(quotes.createdAt), desc(quotes.id))
     .limit(500);
@@ -132,6 +158,44 @@ export async function getQuote(ctx: Ctx, id: number) {
   return row;
 }
 
+// Dados do espelho do cliente. Sem custos nem observação interna. CPF, contatos e endereço do
+// cliente só aparecem para quem pode ver o cadastro de clientes.
+export async function getQuoteMirror(ctx: Ctx, id: number) {
+  const quote = await getQuote(ctx, id);
+  const [row] = await db
+    .select({ snapshot: quotes.mirrorSnapshot, createdBy: quotes.createdBy })
+    .from(quotes)
+    .where(scoped(ctx, id));
+  if (!row) throw notFound('Orçamento não encontrado.');
+  // Rascunho e orçamentos enviados antes desta versão usam os dados atuais.
+  const snapshot =
+    (row.snapshot as MirrorSnapshot | null) ??
+    (await buildMirrorSnapshot(db, ctx.companyId, {
+      id,
+      customerId: quote.customerId,
+      createdBy: row.createdBy,
+    }));
+  return {
+    number: quote.number,
+    status: quote.status,
+    createdAt: quote.createdAt,
+    sentAt: quote.sentAt,
+    validUntil: quote.validUntil,
+    discount: quote.discount,
+    freight: quote.freight,
+    otherCharges: quote.otherCharges,
+    total: quote.total,
+    notes: quote.notes,
+    siteDescription: quote.siteDescription,
+    siteContact: quote.siteContact,
+    siteAddress: quote.siteAddress,
+    ...snapshot,
+    customer: can(ctx.permissions, 'customers.read')
+      ? snapshot.customer
+      : hideCustomerDetails(snapshot.customer),
+  };
+}
+
 // Orçamento não mexe em estoque nem no caixa: isso só acontece ao converter em pedido.
 type QuoteData = ReturnType<typeof quoteSchema.parse>;
 
@@ -144,7 +208,13 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
     : data.customerId;
   const opportunityId = link.opportunityId ?? data.opportunityId ?? null;
   if (customerId) await assertCustomer(tx, ctx, customerId);
-  const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+  const { lines, total } = await buildLines(
+    tx,
+    ctx,
+    data.items,
+    data.discount,
+    data.freight + data.otherCharges,
+  );
   const number = await nextNumber(tx, ctx, 'quote');
 
   const [quote] = await tx
@@ -161,6 +231,7 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
       discount: data.discount,
       total,
       notes: data.notes,
+      ...extraFields(data),
       createdBy: ctx.userId,
     })
     .returning({ id: quotes.id });
@@ -175,6 +246,7 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
       discount: data.discount,
       total,
       notes: data.notes,
+      ...extraFields(data),
     }),
     items: diffItems([], await namedLines(tx, lines)),
     total,
@@ -205,7 +277,13 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
     const quote = await lockQuote(tx, ctx, id);
     if (quote.status !== 'draft') throw conflict('Só orçamentos em rascunho podem ser editados.');
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
-    const { lines, total } = await buildLines(tx, ctx, data.items, data.discount);
+    const { lines, total } = await buildLines(
+      tx,
+      ctx,
+      data.items,
+      data.discount,
+      data.freight + data.otherCharges,
+    );
     const previousItems = await lineItems(tx, id);
 
     await tx.delete(quoteItems).where(eq(quoteItems.quoteId, id));
@@ -218,6 +296,7 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         discount: data.discount,
         total,
         notes: data.notes,
+        ...extraFields(data),
       })
       .where(scoped(ctx, id));
     const changes = diffFields(
@@ -227,6 +306,7 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         discount: quote.discount,
         total: quote.total,
         notes: quote.notes,
+        ...extraFields(quote),
       },
       {
         customer: await personName(tx, data.customerId),
@@ -234,6 +314,7 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         discount: data.discount,
         total,
         notes: data.notes,
+        ...extraFields(data),
       },
     );
     const items = diffItems(previousItems, await namedLines(tx, lines));
@@ -294,7 +375,12 @@ export async function transitionQuote(
     const now = new Date();
     await tx
       .update(quotes)
-      .set({ status: step.to, ...(name === 'send' ? { sentAt: now } : { decidedAt: now }) })
+      .set({
+        status: step.to,
+        ...(name === 'send'
+          ? { sentAt: now, mirrorSnapshot: await buildMirrorSnapshot(tx, ctx.companyId, quote) }
+          : { decidedAt: now }),
+      })
       .where(scoped(ctx, id));
     await audit(
       tx,
@@ -360,6 +446,8 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
         orderDate: data.orderDate,
         status: data.status,
         discount: quote.discount,
+        freight: quote.freight,
+        otherCharges: quote.otherCharges,
         notes: quote.notes,
         bankAccountId: data.bankAccountId,
         items,
@@ -400,6 +488,7 @@ export async function deleteQuote(ctx: Ctx, id: number) {
         discount: quote.discount,
         total: quote.total,
         notes: quote.notes,
+        ...extraFields(quote),
       }),
       items: diffItems(items, []),
     });

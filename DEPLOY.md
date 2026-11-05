@@ -16,7 +16,7 @@ O script abaixo faz os passos 1 e 2 de uma vez e agenda a volta aos dados padrã
 
 3. Cadastre na Vercel as variáveis que o script mostrar no final e siga para o passo 3.
 
-Depois de uma nova migração, rode `npm run demo:setup -- --recriar` e atualize a senha em `DATABASE_URL` na Vercel.
+Depois de uma nova migração, rode `npm run demo:setup -- --recriar` e atualize a senha em `DATABASE_URL` na Vercel. Sem isso, a cópia dos dados fica sem as colunas novas, e elas voltam vazias ou com o valor padrão a cada restauração.
 
 ## 1. Banco no Supabase
 

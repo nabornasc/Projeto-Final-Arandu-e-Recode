@@ -146,6 +146,9 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
         ),
       );
     }
+    protectedApp.get('/quotes/:id/mirror', (request) =>
+      quotes.getQuoteMirror(ctxOf(request), idParamSchema.parse(request.params).id),
+    );
     // Duplicar e copiar entre orçamento e pedido (menu de ações).
     protectedApp.post(
       '/quotes/:id/duplicate',

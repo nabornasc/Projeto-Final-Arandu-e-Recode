@@ -119,8 +119,18 @@ const FIELDS: Record<string, { label: string; kind: FieldKind }> = {
   validUntil: { label: 'Validade', kind: 'date' },
   orderDate: { label: 'Data da venda', kind: 'date' },
   discount: { label: 'Desconto', kind: 'money' },
+  freight: { label: 'Frete', kind: 'money' },
+  otherCharges: { label: 'Outras despesas', kind: 'money' },
   total: { label: 'Total', kind: 'money' },
   notes: { label: 'Observações', kind: 'text' },
+  internalNotes: { label: 'Observação interna', kind: 'text' },
+  siteDescription: { label: 'Local de entrega ou serviço', kind: 'text' },
+  siteContact: { label: 'Contato no local', kind: 'text' },
+  siteAddress: { label: 'Endereço do local', kind: 'text' },
+  // Empresa.
+  address: { label: 'Endereço', kind: 'text' },
+  logo: { label: 'Logo', kind: 'text' },
+  quoteTerms: { label: 'Condições do orçamento', kind: 'text' },
   status: { label: 'Status', kind: 'status' },
   bankAccount: { label: 'Conta', kind: 'text' },
   // Produtos.

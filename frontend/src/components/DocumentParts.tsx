@@ -68,7 +68,19 @@ export function ItemsTable({ items }: { items: DocumentItem[] }) {
   );
 }
 
-export function Totals({ subtotal, discount, label }: { subtotal: number; discount: number; label: string }) {
+export function Totals({
+  subtotal,
+  discount,
+  freight = 0,
+  otherCharges = 0,
+  label,
+}: {
+  subtotal: number;
+  discount: number;
+  freight?: number;
+  otherCharges?: number;
+  label: string;
+}) {
   return (
     <div className="order-summary-box">
       <div>
@@ -79,8 +91,19 @@ export function Totals({ subtotal, discount, label }: { subtotal: number; discou
           <span>Desconto:</span> <strong>− {formatMoney(discount)}</strong>
         </div>
       )}
+      {freight > 0 && (
+        <div>
+          <span>Frete:</span> <strong>{formatMoney(freight)}</strong>
+        </div>
+      )}
+      {otherCharges > 0 && (
+        <div>
+          <span>Outras despesas:</span> <strong>{formatMoney(otherCharges)}</strong>
+        </div>
+      )}
       <div className="order-total-highlight">
-        <span>{label}:</span> <strong>{formatMoney(Math.max(0, subtotal - discount))}</strong>
+        <span>{label}:</span>{' '}
+        <strong>{formatMoney(Math.max(0, subtotal - discount + freight + otherCharges))}</strong>
       </div>
     </div>
   );

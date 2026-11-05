@@ -88,9 +88,24 @@ export type AccessGroupInput = z.input<typeof accessGroupSchema>;
 
 // ---------- Empresa ----------
 
+// Só PNG, JPEG ou WebP em base64: SVG pode carregar script.
+export const LOGO_MAX_BYTES = 150 * 1024;
+const LOGO_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
 export const companySettingsSchema = z.object({
   name: requiredText(160, 'Informe o nome da empresa'),
   cnpj: optionalText(18),
+  legalName: optionalText(160),
+  address: optionalText(255),
+  phone: optionalText(30),
+  email: optionalEmail,
+  logo: z
+    .string()
+    .max(Math.ceil((LOGO_MAX_BYTES * 4) / 3) + 32, 'O logo deve ter no máximo 150 KB')
+    .regex(LOGO_PATTERN, 'Use um logo em PNG, JPEG ou WebP')
+    .nullish()
+    .transform((value) => value ?? null),
+  quoteTerms: optionalText(2000),
   // Obrigatório: é a referência do sistema para o acompanhamento do faturamento anual.
   meiAnnualLimit: z
     .number({ error: 'Informe o limite anual do MEI' })
@@ -257,6 +272,8 @@ export const orderCreateSchema = z.object({
   orderDate: isoDate,
   status: z.enum(['pending', 'paid']).default('pending'),
   discount: money.default(0),
+  freight: money.default(0),
+  otherCharges: money.default(0),
   notes: optionalText(500),
   bankAccountId: id.nullish(),
   items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
@@ -289,7 +306,13 @@ export const quoteSchema = z.object({
   customerId: id.nullish(),
   validUntil: isoDate.nullish(),
   discount: money.default(0),
+  freight: money.default(0),
+  otherCharges: money.default(0),
   notes: optionalText(500),
+  internalNotes: optionalText(500),
+  siteDescription: optionalText(160),
+  siteContact: optionalText(160),
+  siteAddress: optionalText(255),
   items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
 });
 export type QuoteInput = z.input<typeof quoteSchema>;

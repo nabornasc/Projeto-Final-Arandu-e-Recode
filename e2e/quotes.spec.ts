@@ -62,6 +62,83 @@ test('salvar sem mudar nada não cria linha no histórico', async ({ page }) => 
   );
 });
 
+test('espelho do cliente mostra o documento e esconde a observação interna', async ({ page }) => {
+  await createQuote(page);
+  await page.getByText('Entrega, frete e observação interna').click();
+  await page.getByLabel('Frete (R$)').fill('30');
+  await page.getByLabel('Local de entrega ou serviço').fill('Loja do centro');
+  await page.getByLabel('Observação interna').fill('Cliente pede desconto');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(toast(page, 'Orçamento salvo.')).toBeVisible();
+
+  const popup = page.waitForEvent('popup');
+  await openMenuItem(page, 'Espelho do cliente');
+  const mirror = await popup;
+
+  await expect(mirror.getByRole('heading', { name: /Orçamento #\d+/ })).toBeVisible();
+  await expect(mirror).toHaveTitle(/Orçamento #\d+ - Ateliê Arandu/);
+  await expect(mirror.getByText('Ateliê Arandu MEI')).toBeVisible();
+  await expect(mirror.getByText('Rascunho: ainda não enviado ao cliente.')).toBeVisible();
+  await expect(mirror.getByRole('cell', { name: SERVICE })).toBeVisible();
+  await expect(mirror.getByText('Loja do centro')).toBeVisible();
+  await expect(mirror.getByText(/^Frete/)).toBeVisible();
+  await expect(mirror.getByText('Cliente pede desconto')).toHaveCount(0);
+  await expect(mirror.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeVisible();
+  await capture(mirror, 'espelho-cliente');
+
+  // Na impressão, sai só a folha.
+  await mirror.emulateMedia({ media: 'print' });
+  await expect(mirror.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeHidden();
+  await mirror.close();
+});
+
+test('logo enviado em Configurações sai no espelho, e o botão abre a impressão', async ({ page }) => {
+  const saveSettings = async () => {
+    const saved = page.waitForResponse(
+      (response) => response.url().endsWith('/company') && response.request().method() === 'PUT',
+    );
+    await page.getByRole('button', { name: 'Salvar configurações' }).click();
+    expect((await saved).status()).toBe(200);
+  };
+
+  await page.goto('/configuracoes');
+  await page.locator('input[name="logo"]').setInputFiles({
+    name: 'logo.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  });
+  await expect(page.getByAltText('Logo atual da empresa')).toBeVisible();
+  await saveSettings();
+
+  await createQuote(page);
+  const popup = page.waitForEvent('popup');
+  await openMenuItem(page, 'Espelho do cliente');
+  const mirror = await popup;
+
+  const logo = mirror.getByRole('img', { name: /^Logo de / });
+  await expect(logo).toBeVisible();
+  // Largura natural zero indicaria imagem bloqueada pela CSP ou corrompida.
+  expect(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+
+  await mirror.evaluate(() => {
+    (window as unknown as { printed: boolean }).printed = false;
+    window.print = () => {
+      (window as unknown as { printed: boolean }).printed = true;
+    };
+  });
+  await mirror.getByRole('button', { name: 'Imprimir / Salvar PDF' }).click();
+  expect(await mirror.evaluate(() => (window as unknown as { printed: boolean }).printed)).toBe(true);
+  await mirror.close();
+
+  // Os outros testes não esperam logo na empresa.
+  await page.goto('/configuracoes');
+  await page.getByRole('button', { name: 'Remover logo' }).click();
+  await saveSettings();
+});
+
 test('recusar exige motivo, e o motivo fica no histórico', async ({ page }) => {
   await createQuote(page);
   await sendQuote(page);

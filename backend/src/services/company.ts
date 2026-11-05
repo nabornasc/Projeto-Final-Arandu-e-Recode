@@ -8,7 +8,17 @@ import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { audit } from './audit.ts';
 
-const columns = { name: companies.name, cnpj: companies.cnpj, meiAnnualLimit: companies.meiAnnualLimit };
+const columns = {
+  name: companies.name,
+  cnpj: companies.cnpj,
+  legalName: companies.legalName,
+  address: companies.address,
+  phone: companies.phone,
+  email: companies.email,
+  logo: companies.logo,
+  quoteTerms: companies.quoteTerms,
+  meiAnnualLimit: companies.meiAnnualLimit,
+};
 
 export async function getCompanySettings(ctx: Ctx) {
   authorize(ctx, 'settings.read');

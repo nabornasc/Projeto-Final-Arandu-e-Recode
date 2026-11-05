@@ -19,7 +19,14 @@ import { getQuote, insertQuote } from './quotes.ts';
 type Source = {
   customerId: number | null;
   discount: number;
+  freight: number;
+  otherCharges: number;
   notes: string | null;
+  // Só o orçamento tem estes campos.
+  internalNotes?: string | null;
+  siteDescription?: string | null;
+  siteContact?: string | null;
+  siteAddress?: string | null;
   items: { productId: number; quantity: number; unitPrice: number }[];
 };
 
@@ -30,7 +37,13 @@ const quoteFrom = (source: Source) => ({
   customerId: source.customerId,
   validUntil: null,
   discount: source.discount,
+  freight: source.freight,
+  otherCharges: source.otherCharges,
   notes: source.notes,
+  internalNotes: source.internalNotes ?? null,
+  siteDescription: source.siteDescription ?? null,
+  siteContact: source.siteContact ?? null,
+  siteAddress: source.siteAddress ?? null,
   items: itemsOf(source),
 });
 
@@ -39,6 +52,8 @@ const orderFrom = (source: Source, orderDate: string) => ({
   orderDate,
   status: 'pending' as const,
   discount: source.discount,
+  freight: source.freight,
+  otherCharges: source.otherCharges,
   notes: source.notes,
   bankAccountId: null,
   items: itemsOf(source),

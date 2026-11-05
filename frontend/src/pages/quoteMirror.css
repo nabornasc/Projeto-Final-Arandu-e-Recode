@@ -1,0 +1,179 @@
+/* Espelho do cliente: folha A4 na tela e na impressão. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+.mirror-page {
+  min-height: 100vh;
+  padding: 20px 16px;
+  background: #eeecf3;
+  color: #28233a;
+  overflow-wrap: anywhere;
+}
+.mirror-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  max-width: 794px;
+  margin: 0 auto 14px;
+}
+.mirror-sheet {
+  max-width: 794px;
+  margin: 0 auto;
+  padding: 32px;
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.mirror-sheet h1 {
+  margin: 0 0 8px;
+  font-size: 21px;
+}
+.mirror-sheet h2 {
+  margin: 0 0 8px;
+  color: #5c5368;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mirror-sheet p,
+.mirror-sheet dl,
+.mirror-sheet dd {
+  margin: 0;
+}
+.mirror-sheet section {
+  margin-top: 20px;
+}
+.mirror-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #28233a;
+}
+.mirror-issuer {
+  display: flex;
+  gap: 14px;
+}
+.mirror-issuer img {
+  max-width: 110px;
+  max-height: 80px;
+  object-fit: contain;
+}
+.mirror-issuer strong {
+  font-size: 16px;
+}
+.mirror-title {
+  flex-shrink: 0;
+  text-align: right;
+}
+.mirror-field {
+  display: flex;
+  gap: 6px;
+}
+.mirror-title .mirror-field {
+  justify-content: flex-end;
+}
+.mirror-field dt {
+  color: #5c5368;
+}
+.mirror-field dt::after {
+  content: ":";
+}
+.mirror-sheet .mirror-notice {
+  margin-top: 16px;
+  padding: 9px 12px;
+  border: 1px solid #b8434d;
+  border-radius: 6px;
+  color: #a12f39;
+  font-weight: 700;
+}
+.mirror-parties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 24px;
+}
+.mirror-items {
+  width: 100%;
+  border-collapse: collapse;
+}
+.mirror-items th,
+.mirror-items td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #d9d4e2;
+  text-align: right;
+}
+.mirror-items th:first-child,
+.mirror-items td:first-child {
+  text-align: left;
+}
+.mirror-items th {
+  color: #5c5368;
+  font-size: 12px;
+}
+.mirror-items td {
+  color: #28233a;
+}
+.mirror-items td:not(:first-child) {
+  white-space: nowrap;
+}
+.mirror-items tr {
+  break-inside: avoid;
+}
+.mirror-sheet .mirror-totals {
+  width: min(320px, 100%);
+  margin: 16px 0 0 auto;
+  break-inside: avoid;
+}
+.mirror-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 6px;
+}
+.mirror-totals > .mirror-total {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 2px solid #28233a;
+  font-size: 15px;
+  font-weight: 700;
+}
+.mirror-text {
+  break-inside: avoid;
+}
+.mirror-text p {
+  white-space: pre-line;
+}
+.mirror-footer {
+  margin-top: 28px;
+  color: #5c5368;
+  font-size: 11px;
+}
+@media (max-width: 560px) {
+  .mirror-sheet {
+    padding: 18px;
+  }
+  .mirror-header {
+    flex-direction: column;
+  }
+  .mirror-title {
+    text-align: left;
+  }
+  .mirror-title .mirror-field {
+    justify-content: flex-start;
+  }
+}
+@media print {
+  .mirror-page {
+    min-height: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .mirror-toolbar {
+    display: none;
+  }
+  .mirror-sheet {
+    max-width: none;
+    padding: 0;
+    font-size: 12px;
+  }
+}

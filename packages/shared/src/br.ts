@@ -37,6 +37,29 @@ export const formatZip = (value: string | null | undefined) => {
   return digits.length === 8 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : (value ?? '');
 };
 
+interface AddressParts {
+  zip?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  district?: string | null;
+  city?: string | null;
+  state?: string | null;
+}
+
+// Endereço em uma linha, sem separadores sobrando quando falta alguma parte.
+export function formatAddress(address: AddressParts): string {
+  return [
+    [address.street, address.number].filter(Boolean).join(', '),
+    address.complement,
+    address.district,
+    [address.city, address.state].filter(Boolean).join('/'),
+    address.zip ? `CEP ${formatZip(address.zip)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' - ');
+}
+
 export const STATES = [
   'AC',
   'AL',

@@ -42,7 +42,7 @@ describe('configurações da empresa e limite do MEI', () => {
 
     const saved = await owner.put('/company', { name: 'Empresa Nova', cnpj: '', meiAnnualLimit: 90000 });
     expect(saved.status).toBe(200);
-    expect(saved.body).toEqual({ name: 'Empresa Nova', cnpj: null, meiAnnualLimit: 90000 });
+    expect(saved.body).toMatchObject({ name: 'Empresa Nova', cnpj: null, meiAnnualLimit: 90000 });
     expect((await owner.get('/auth/me')).body.company.meiAnnualLimit).toBe(90000);
   });
 

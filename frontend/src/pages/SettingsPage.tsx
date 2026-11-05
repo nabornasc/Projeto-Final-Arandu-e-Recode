@@ -1,6 +1,6 @@
-import { companySettingsSchema } from '@arandue/shared/schemas';
+import { companySettingsSchema, LOGO_MAX_BYTES } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
@@ -9,6 +9,12 @@ import { can, useProfile } from '../lib/auth.ts';
 interface CompanySettings {
   name: string;
   cnpj: string | null;
+  legalName: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  logo: string | null;
+  quoteTerms: string | null;
   meiAnnualLimit: number | null;
 }
 
@@ -45,6 +51,12 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
   const client = useQueryClient();
   const [name, setName] = useState(initial.name);
   const [cnpj, setCnpj] = useState(initial.cnpj ?? '');
+  const [legalName, setLegalName] = useState(initial.legalName ?? '');
+  const [address, setAddress] = useState(initial.address ?? '');
+  const [phone, setPhone] = useState(initial.phone ?? '');
+  const [email, setEmail] = useState(initial.email ?? '');
+  const [logo, setLogo] = useState(initial.logo);
+  const [quoteTerms, setQuoteTerms] = useState(initial.quoteTerms ?? '');
   const [limit, setLimit] = useState(initial.meiAnnualLimit === null ? '' : String(initial.meiAnnualLimit));
   const [error, setError] = useState<string | null>(null);
 
@@ -58,9 +70,33 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
     onError: (err) => setError(err.message),
   });
 
+  function chooseLogo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > LOGO_MAX_BYTES) return setError('O logo deve ter no máximo 150 KB.');
+    const reader = new FileReader();
+    reader.onload = () => {
+      setError(null);
+      setLogo(String(reader.result));
+    };
+    reader.onerror = () => setError('Não foi possível ler o arquivo do logo.');
+    reader.readAsDataURL(file);
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    const payload = { name, cnpj, meiAnnualLimit: limit === '' ? undefined : Number(limit) };
+    const payload = {
+      name,
+      cnpj,
+      legalName,
+      address,
+      phone,
+      email,
+      logo,
+      quoteTerms,
+      meiAnnualLimit: limit === '' ? undefined : Number(limit),
+    };
     const parsed = companySettingsSchema.safeParse(payload);
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? 'Verifique os campos.');
     setError(null);
@@ -83,6 +119,68 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
         <label>
           CNPJ
           <input name="cnpj" value={cnpj} onChange={(event) => setCnpj(event.target.value)} />
+        </label>
+        <label>
+          Razão social
+          <input
+            name="legalName"
+            maxLength={160}
+            value={legalName}
+            onChange={(event) => setLegalName(event.target.value)}
+          />
+        </label>
+        <label>
+          Telefone
+          <input
+            name="phone"
+            maxLength={30}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+          />
+        </label>
+        <label>
+          E-mail
+          <input
+            name="email"
+            type="email"
+            maxLength={160}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </label>
+        <label>
+          Endereço
+          <input
+            name="address"
+            maxLength={255}
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+          />
+        </label>
+        <div className="full-row company-logo">
+          <label>
+            Logo (PNG, JPEG ou WebP, até 150 KB)
+            <input name="logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseLogo} />
+          </label>
+          {logo && (
+            <div className="company-logo-preview">
+              <img src={logo} alt="Logo atual da empresa" />
+              <button type="button" className="button" onClick={() => setLogo(null)}>
+                Remover logo
+              </button>
+            </div>
+          )}
+        </div>
+        <label className="full-row">
+          Condições do orçamento (saem no espelho do cliente)
+          <textarea
+            name="quoteTerms"
+            rows={4}
+            maxLength={2000}
+            placeholder="Ex.: prazo de entrega, forma de pagamento e garantia"
+            value={quoteTerms}
+            onChange={(event) => setQuoteTerms(event.target.value)}
+          />
         </label>
         <label>
           Limite anual do MEI (R$) *

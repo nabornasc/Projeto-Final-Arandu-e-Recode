@@ -254,7 +254,13 @@ function OrderEditor({ order }: { order: Order | null }) {
           </label>
         </div>
 
-        <Totals subtotal={linesSubtotal(lines)} discount={Number(discount || 0)} label="Total do pedido" />
+        <Totals
+          subtotal={linesSubtotal(lines)}
+          discount={Number(discount || 0)}
+          freight={order?.freight}
+          otherCharges={order?.otherCharges}
+          label="Total do pedido"
+        />
 
         {error && (
           <p className="form-error" role="alert">
