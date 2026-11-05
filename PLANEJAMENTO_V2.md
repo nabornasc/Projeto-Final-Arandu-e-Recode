@@ -542,7 +542,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 | **v2.0** | Fundação multiempresa, ERP (orçamentos, pedidos, financeiro), permissões e grupos de acesso, abas e menu de ações, CRM com funil | **Concluída em 02/11** |
 | **v2.1** | Cadastro único de pessoas com papéis, CPF/CNPJ validados, endereço estruturado e busca de CNPJ/CEP (seção 8) | **Concluída em 02/11** |
 | **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | **Concluída em 03/11** |
-| **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | Próxima |
+| **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | **Concluída em 05/11** |
 | **v2.4** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
 | **v2.5** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, campos de entrega, espelhos (impressão, PDF, DOCX) | Planejada |
 | **v2.6** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |

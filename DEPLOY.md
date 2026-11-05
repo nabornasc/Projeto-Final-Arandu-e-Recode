@@ -56,7 +56,7 @@ NODE_ENV=development DATABASE_URL="<conexão do postgres>?sslmode=require" node 
    |---|---|
    | `NODE_ENV` | `production` |
    | `DATABASE_URL` | Conexão do *transaction pooler* (porta 6543) com o usuário `arandue_app.<ref-do-projeto>`, terminada em `?sslmode=require` |
-   | `ALLOWED_ORIGINS` | Endereço público da aplicação, como `https://arandue.vercel.app` |
+   | `ALLOWED_ORIGINS` | Endereço público da aplicação, como `https://seu-projeto.vercel.app` |
    | `VITE_DEMO_MODE` | `true` para mostrar o aviso e o acesso de teste na demonstração |
    | `SENTRY_DSN` | Opcional: DSN do projeto Node no Sentry |
    | `VITE_SENTRY_DSN` | Opcional: DSN do projeto React no Sentry |

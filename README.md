@@ -4,7 +4,9 @@ SaaS de gestão para microempreendedores individuais (MEIs): vendas, estoque, cl
 
 Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco em organização financeira e apoio à decisão para quem empreende por conta própria.
 
-> **Versão 2 em desenvolvimento.** A v1 (monousuário, MySQL) está preservada na tag `v1.0.0`. O andamento da v2 segue o [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md).
+> **[Demonstração no ar](https://arandue-mu.vercel.app).** Entre com `dono@atelie.test` e a senha `senha-demo-123`. Os dados são fictícios e compartilhados, e voltam ao padrão às 00h e às 12h de Cuiabá.
+>
+> **Versão 2 em evolução.** A v1 (monousuário, MySQL) está preservada na tag `v1.0.0`. O andamento da v2 segue o [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md).
 
 ## Índice
 
@@ -75,7 +77,7 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 - **Busca de CNPJ** (Receita Federal, pela BrasilAPI) e **de CEP** (ViaCEP), feitas pelo servidor; se o serviço falhar, o cadastro segue manual.
 - Endereço estruturado, vários contatos, endereços de entrega e cobrança e aba Comercial (pagamento, frete e transportadora padrão, categoria, região, limite de crédito e **vendedor da carteira**, alterável só com a permissão `customers.assign`).
 
-**Em desenvolvimento — histórico de alterações:**
+**v2.3 — Publicação e histórico de alterações:**
 
 - Aba **Histórico** em orçamentos e pedidos: quem fez, o quê e quando. O clique abre o detalhe, com valores de antes e depois, campo a campo e item a item.
 - **Tela de auditoria** com todos os módulos, filtros por usuário, módulo, ação e período, e a permissão `audit.read`.
@@ -85,7 +87,9 @@ Desenvolvido em alinhamento ao **ODS 1 — Erradicação da Pobreza**, com foco 
 
 O plano completo está em [PLANEJAMENTO_ORCAMENTOS_HISTORICO.md](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md).
 
-**Próxima versão:** v2.3, publicação (deploy, monitoramento e testes ponta a ponta). O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
+- **Publicada** na Vercel e no Supabase, em São Paulo, como demonstração que volta aos dados padrão a cada 12 horas ([guia](DEPLOY.md)).
+
+**Próxima versão:** v2.4, navegação e produtividade. O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
 
 ## Tecnologias
 

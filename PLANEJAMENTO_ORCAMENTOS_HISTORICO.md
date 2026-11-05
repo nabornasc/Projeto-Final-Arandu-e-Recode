@@ -137,9 +137,9 @@ Os PDFs seguem a decisão da seção 7.7 do plano principal: modelo HTML e impre
 
 | Fase | Conteúdo | Observação |
 |---|---|---|
-| Feita | "x" de abas e janelas à esquerda | Aguardando commit |
-| 1 (feita) | Histórico em orçamentos e pedidos: registro, aba e detalhe; cancelamento de orçamento e motivos | Aguardando commit |
-| 2 (feita) | Histórico nos demais módulos e tela geral | Aguardando commit |
+| Feita | "x" de abas e janelas à esquerda | Na v2.3 |
+| 1 (feita) | Histórico em orçamentos e pedidos: registro, aba e detalhe; cancelamento de orçamento e motivos | Na v2.3 |
+| 2 (feita) | Histórico nos demais módulos e tela geral | Na v2.3 |
 | 3 | Dados da empresa, campos novos e espelho do cliente | Antecipa parte da v2.5 |
 | 4 | Custo no item, margem e espelho interno | Antecipa a margem da v2.6 |
 | 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.5 |
