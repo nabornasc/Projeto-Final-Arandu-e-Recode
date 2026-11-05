@@ -30,6 +30,31 @@ Abra <http://localhost:5173> e entre com `dono@atelie.test` / `senha-demo-123`. 
 - **Dados reais de clientes:** não versione espelhos ou PDFs reais no repositório. Eles trazem nome, CPF, endereço e telefone.
 - **`npm audit`:** não use `npm audit fix --force`. As 4 vulnerabilidades moderadas vêm do `esbuild` antigo dentro do `drizzle-kit`, só em desenvolvimento, e o comando rebaixaria o `drizzle-kit` para a 0.18.1.
 
-## Pendência conhecida
+## Trabalhar em duas estações
 
-Com `core.autocrlf=true`, os arquivos ficam com CRLF na máquina e o `npm run lint` acusa erros de formatação, embora o repositório guarde LF. Um `.gitattributes` com `* text=auto eol=lf` resolve; depois é preciso renormalizar a cópia local.
+O projeto roda em Windows (PostgreSQL nativo) e em Linux (Docker). O Git leva só o código. `backend/.env`, `node_modules` e os dados do banco ficam em cada máquina, então um registro criado em uma estação não aparece na outra.
+
+**Ao chegar em uma estação**, com a cópia local sem alterações:
+
+```bash
+git pull --ff-only
+npm install
+npm run db:migrate
+```
+
+No Linux, rode `npm run db:up` antes das migrações. `npm install` e `npm run db:migrate` só são necessários quando o `package-lock.json` ou `backend/drizzle` mudarem, mas repeti-los não causa problema.
+
+**Ao sair:** faça commit e push, mesmo em uma branch de trabalho. O que ficar só na máquina não chega à outra.
+
+## Fim de linha
+
+O `.gitattributes` mantém LF no repositório e nas cópias locais, com qualquer valor de `core.autocrlf`, e o `npm run lint` passa nas duas estações.
+
+Uma cópia do Windows criada antes desse arquivo ainda tem CRLF nos arquivos e precisa ser refeita uma vez. **Os comandos abaixo descartam alterações sem commit**, então faça commit ou guarde o que estiver em aberto antes:
+
+```bat
+git pull --ff-only
+git rm --cached -r -q .
+git reset --hard
+npm run lint
+```
