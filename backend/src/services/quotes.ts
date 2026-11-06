@@ -8,7 +8,7 @@ import {
   quoteConvertSchema,
   quoteSchema,
 } from '@arandue/shared/schemas';
-import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
 import { opportunities, orders, people, products, quoteItems, quotes, users } from '../db/schema.ts';
 import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
@@ -26,7 +26,13 @@ import {
 } from './opportunities.ts';
 import { buildLines, type DocumentLink, getOrder, insertOrder } from './orders.ts';
 import { assertCustomer } from './ownership.ts';
-import { buildMirrorSnapshot, hideCustomerDetails, type MirrorSnapshot } from './quoteMirror.ts';
+import {
+  buildMirrorSnapshot,
+  computeMargin,
+  hideCustomerDetails,
+  type MirrorSnapshot,
+  summarizeByType,
+} from './quoteMirror.ts';
 
 const scoped = (ctx: Ctx, id: number) =>
   and(eq(quotes.id, id), eq(quotes.companyId, ctx.companyId), ownScope(ctx, quotes.createdBy));
@@ -193,6 +199,43 @@ export async function getQuoteMirror(ctx: Ctx, id: number) {
     customer: can(ctx.permissions, 'customers.read')
       ? snapshot.customer
       : hideCustomerDetails(snapshot.customer),
+  };
+}
+
+// Espelho interno: o mesmo documento do cliente, mais observação interna, custos e margem.
+export async function getQuoteInternalMirror(ctx: Ctx, id: number) {
+  authorize(ctx, 'costs.read');
+  const mirror = await getQuoteMirror(ctx, id);
+  const [row] = await db.select({ internalNotes: quotes.internalNotes }).from(quotes).where(scoped(ctx, id));
+  if (!row) throw notFound('Orçamento não encontrado.');
+  const costs = await db
+    .select({
+      type: products.type,
+      quantity: quoteItems.quantity,
+      subtotal: quoteItems.subtotal,
+      sentCost: quoteItems.unitCost,
+      currentCost: products.cost,
+    })
+    .from(quoteItems)
+    .innerJoin(products, eq(products.id, quoteItems.productId))
+    .where(eq(quoteItems.quoteId, id))
+    .orderBy(asc(quoteItems.id));
+  // Depois do envio, o custo fica fixo: mudar o cadastro não muda a margem do que já foi enviado.
+  const lines = costs.map(({ sentCost, currentCost, ...line }) => ({
+    ...line,
+    unitCost: mirror.status === 'draft' ? currentCost : sentCost,
+  }));
+  return {
+    ...mirror,
+    internalNotes: row.internalNotes,
+    // Mesma ordem do espelho do cliente, que mantém o nome do produto na data do envio.
+    items: mirror.items.map((item, index) => ({
+      ...item,
+      type: lines[index]?.type ?? 'product',
+      unitCost: lines[index]?.unitCost ?? null,
+    })),
+    summary: summarizeByType(lines),
+    margin: computeMargin(lines, mirror.discount),
   };
 }
 
@@ -385,6 +428,14 @@ export async function transitionQuote(
       }
     }
     const now = new Date();
+    if (name === 'send') {
+      await tx
+        .update(quoteItems)
+        .set({
+          unitCost: sql`(SELECT ${products.cost} FROM ${products} WHERE ${products.id} = ${quoteItems.productId})`,
+        })
+        .where(eq(quoteItems.quoteId, id));
+    }
     await tx
       .update(quotes)
       .set({

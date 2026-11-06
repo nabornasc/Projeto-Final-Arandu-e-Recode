@@ -3,6 +3,7 @@ import { asc, eq } from 'drizzle-orm';
 import type { DbOrTx } from '../db/client.ts';
 import { companies, people, products, quoteItems, users } from '../db/schema.ts';
 import { notFound } from '../lib/errors.ts';
+import { round2 } from '../lib/money.ts';
 
 // Monta os dados do espelho do cliente que vêm de outros cadastros. A API decide o que cada um vê.
 export async function buildMirrorSnapshot(
@@ -71,3 +72,46 @@ export const hideCustomerDetails = (customer: MirrorSnapshot['customer']) =>
     phones: null,
     address: null,
   };
+
+interface CostedLine {
+  type: 'product' | 'service';
+  subtotal: number;
+  unitCost: number | null;
+  quantity: number;
+}
+
+const percentOf = (result: number, revenue: number) =>
+  revenue > 0 ? round2((result / revenue) * 100) : null;
+
+// Soma com custo desconhecido não é um número real: sem o custo de todos os itens, a resposta é "não sei".
+function sumCosts(lines: CostedLine[]) {
+  if (lines.some((line) => line.unitCost === null)) return null;
+  return round2(lines.reduce((sum, line) => sum + (line.unitCost ?? 0) * line.quantity, 0));
+}
+
+// Margem do orçamento. A base é o valor dos itens menos o desconto: frete e outras despesas são
+// repasses sem custo cadastrado, e contá-los como venda inflaria o resultado.
+export function computeMargin(lines: CostedLine[], discount: number) {
+  const revenue = round2(lines.reduce((sum, line) => sum + line.subtotal, 0) - discount);
+  const cost = sumCosts(lines);
+  const result = cost === null ? null : round2(revenue - cost);
+  return {
+    revenue,
+    cost,
+    result,
+    percent: result === null ? null : percentOf(result, revenue),
+    missingCost: lines.filter((line) => line.unitCost === null).length,
+  };
+}
+
+// Resumo por tipo, antes do desconto do documento.
+export function summarizeByType(lines: CostedLine[]) {
+  return (['product', 'service'] as const).flatMap((type) => {
+    const ofType = lines.filter((line) => line.type === type);
+    if (!ofType.length) return [];
+    const revenue = round2(ofType.reduce((sum, line) => sum + line.subtotal, 0));
+    const cost = sumCosts(ofType);
+    const result = cost === null ? null : round2(revenue - cost);
+    return [{ type, revenue, cost, result, percent: result === null ? null : percentOf(result, revenue) }];
+  });
+}

@@ -177,3 +177,15 @@
     font-size: 12px;
   }
 }
+
+/* Espelho interno: o aviso precisa sair também na impressão em preto e branco. */
+.mirror-sheet .mirror-internal-warning {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 2px solid #28233a;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}

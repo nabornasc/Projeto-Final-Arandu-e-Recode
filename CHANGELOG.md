@@ -4,7 +4,14 @@ Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das pró
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Espelho interno:** o orçamento ganha um documento só para a empresa, com custo por item, resumo por tipo, resultado e margem, e o aviso "Uso interno: não enviar ao cliente". Frete e outras despesas ficam fora da margem. Sem o custo de todos os itens, a margem não é calculada.
+- **Custo fixado no envio:** mudar o custo do produto depois não altera a margem de um orçamento já enviado.
+
 ### Alterado
+
+- **Permissão `costs.read`:** o custo dos produtos deixa de aparecer para quem só vê produtos. Na migração, a permissão vai para os grupos que já veem contas a pagar; os demais podem recebê-la em Grupos de acesso.
 
 - **Dados de demonstração:** a empresa padrão agora é uma mini conveniência de bebidas, com vendas, orçamentos em cada situação, oportunidades e financeiro de exemplo. O acesso de teste passa a ser `dono@conveniencia.test`.
 

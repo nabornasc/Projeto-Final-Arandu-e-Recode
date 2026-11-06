@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useId, useState } from 'react';
 import type { ResourceConfig } from '../config/resources.ts';
 import { api } from '../lib/api.ts';
+import { can, useProfile } from '../lib/auth.ts';
 import { todayIso } from '../lib/format.ts';
 import { Modal } from './Modal.tsx';
 
@@ -54,7 +55,12 @@ interface Props {
   onSubmit: (payload: Row) => void;
 }
 
-export function FormModal({ config, initial, saving, onClose, onSubmit }: Props) {
+export function FormModal({ config: fullConfig, initial, saving, onClose, onSubmit }: Props) {
+  const profile = useProfile();
+  const config = {
+    ...fullConfig,
+    fields: fullConfig.fields.filter((field) => !field.permission || can(profile, field.permission)),
+  };
   const [form, setForm] = useState(() => toFormState(config, initial));
   const [error, setError] = useState<string | null>(null);
   const formId = useId();

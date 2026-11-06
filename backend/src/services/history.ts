@@ -400,11 +400,13 @@ export async function getHistoryEntry(ctx: Ctx, entryId: number) {
     documentExists: exists,
     path: exists ? info.path(row.entityId, data) : null,
     openLabel: info.open,
-    changes: changes.map((change) => ({
-      ...change,
-      label: FIELDS[change.field]?.label ?? change.field,
-      kind: FIELDS[change.field]?.kind ?? 'text',
-    })),
+    changes: changes
+      .filter((change) => change.field !== 'cost' || can(ctx.permissions, 'costs.read'))
+      .map((change) => ({
+        ...change,
+        label: FIELDS[change.field]?.label ?? change.field,
+        kind: FIELDS[change.field]?.kind ?? 'text',
+      })),
     items: data.items ?? [],
   };
 }

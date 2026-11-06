@@ -46,6 +46,7 @@ export const AREAS = {
   customers: { label: 'Clientes', actions: [...CRUD, 'assign'] },
   suppliers: { label: 'Fornecedores, transportadoras e representantes', actions: CRUD },
   products: { label: 'Produtos e serviços', actions: CRUD },
+  costs: { label: 'Custos e margem', actions: ['read'] },
   analytics: { label: 'Visão geral (indicadores)', actions: ['read'] },
   users: { label: 'Usuários', actions: ['read', 'manage'] },
   access: { label: 'Grupos de acesso', actions: ['manage'] },
@@ -75,6 +76,7 @@ const EXTRA_REQUIREMENTS: Partial<Record<Permission, Permission[]>> = {
   'opportunities.create': PICK_ITEMS,
   'opportunities.update': PICK_ITEMS,
   'access.manage': ['users.read'],
+  'costs.read': ['products.read'],
 };
 
 export function requirementsOf(permission: Permission): Permission[] {
@@ -136,6 +138,7 @@ export const DEFAULT_GROUPS: { name: string; description: string; permissions: P
       'customers.read',
       'suppliers.read',
       'products.read',
+      'costs.read',
       'quotes.read',
       'orders.read',
       'receivables.read',

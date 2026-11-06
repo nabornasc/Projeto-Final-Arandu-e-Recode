@@ -699,6 +699,5 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ## 14. Próximos passos imediatos
 
-1. Fase 4 do [plano de orçamentos](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md): custo gravado no item, margem e espelho interno, com a permissão `costs.read`.
-2. Fase 5 do mesmo plano: parcelas, grupos de itens e medidas opcionais.
-3. Depois, a v2.5 (navegação e produtividade), conforme o roadmap da seção 11.
+1. Fase 5 do [plano de orçamentos](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md): parcelas, grupos de itens e medidas opcionais.
+2. Depois, a v2.5 (navegação e produtividade), conforme o roadmap da seção 11.

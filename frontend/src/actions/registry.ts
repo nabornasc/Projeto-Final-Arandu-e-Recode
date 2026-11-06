@@ -134,6 +134,14 @@ const baseQuoteActions: RecordAction<Quote>[] = [
     run: (q) => void window.open(`/espelho/orcamento/${q.id}`, '_blank'),
   },
   {
+    id: 'quote.internalMirror',
+    group: 'open',
+    label: 'Espelho interno',
+    icon: Printer,
+    permissions: ['quotes.read', 'costs.read'],
+    run: (q) => void window.open(`/espelho/orcamento/${q.id}/interno`, '_blank'),
+  },
+  {
     id: 'quote.send',
     label: 'Enviar ao cliente',
     icon: Send,

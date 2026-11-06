@@ -402,6 +402,8 @@ export const quoteItems = pgTable(
     quantity: quantity().notNull(),
     unitPrice: money().notNull(),
     subtotal: money().notNull(),
+    // Custo do produto no último envio. Rascunho usa o custo atual do cadastro.
+    unitCost: money(),
   },
   (t) => [index().on(t.quoteId)],
 );

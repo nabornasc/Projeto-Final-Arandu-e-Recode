@@ -30,6 +30,11 @@ const router = createBrowserRouter([
     HydrateFallback: Loading,
     lazy: async () => ({ Component: (await import('./pages/QuoteMirrorPage.tsx')).default }),
   },
+  {
+    path: '/espelho/orcamento/:id/interno',
+    HydrateFallback: Loading,
+    lazy: async () => ({ Component: (await import('./pages/QuoteInternalMirrorPage.tsx')).default }),
+  },
   // Área logada: as telas abrem em abas dentro do AppLayout (workspace/pages.ts), não como rotas filhas.
   { path: '/*', Component: AppLayout, HydrateFallback: Loading },
 ]);

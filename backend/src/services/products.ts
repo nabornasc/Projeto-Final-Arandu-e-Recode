@@ -1,3 +1,4 @@
+import { can } from '@arandue/shared/permissions';
 import { type ProductInput, productSchema } from '@arandue/shared/schemas';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
@@ -18,13 +19,18 @@ const normalize = (data: ReturnType<typeof productSchema.parse>) => ({
   stock: data.type === 'service' ? null : (data.stock ?? null),
 });
 
+// O custo só sai da API para quem pode vê-lo.
+const showCost = <T extends { cost: number | null }>(ctx: Ctx, row: T): T =>
+  can(ctx.permissions, 'costs.read') ? row : { ...row, cost: null };
+
 export async function listProducts(ctx: Ctx) {
   authorize(ctx, 'products.read');
-  return db
+  const rows = await db
     .select()
     .from(products)
     .where(and(eq(products.companyId, ctx.companyId), eq(products.active, true)))
     .orderBy(asc(products.name));
+  return rows.map((row) => showCost(ctx, row));
 }
 
 export async function getProduct(ctx: Ctx, id: number) {
@@ -34,23 +40,25 @@ export async function getProduct(ctx: Ctx, id: number) {
     .from(products)
     .where(and(scoped(ctx, id), eq(products.active, true)));
   if (!row) throw notFound();
-  return row;
+  return showCost(ctx, row);
 }
 
 export async function createProduct(ctx: Ctx, input: ProductInput) {
   authorize(ctx, 'products.create');
   const data = normalize(parse(productSchema, input));
+  // Quem não vê o custo também não o informa.
+  const cost = can(ctx.permissions, 'costs.read') ? data.cost : null;
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(products)
-      .values({ ...data, companyId: ctx.companyId })
+      .values({ ...data, cost, companyId: ctx.companyId })
       .returning();
     if (!row) throw new Error('Falha ao criar produto.');
     await audit(tx, ctx, 'create', 'product', row.id, {
       label: row.name,
       changes: initialFields(pick(row, TRACKED)),
     });
-    return row;
+    return showCost(ctx, row);
   });
 }
 
@@ -64,15 +72,17 @@ export async function updateProduct(ctx: Ctx, id: number, input: ProductInput) {
       .where(and(scoped(ctx, id), eq(products.active, true)))
       .for('update');
     if (!previous) throw notFound();
+    // Quem não vê o custo edita o resto do cadastro sem apagá-lo.
+    const cost = can(ctx.permissions, 'costs.read') ? data.cost : previous.cost;
     const [row] = await tx
       .update(products)
-      .set(data)
+      .set({ ...data, cost })
       .where(and(scoped(ctx, id), eq(products.active, true)))
       .returning();
     if (!row) throw notFound();
     const changes = diffFields(pick(previous, TRACKED), pick(row, TRACKED));
     if (changes.length) await audit(tx, ctx, 'update', 'product', id, { label: row.name, changes });
-    return row;
+    return showCost(ctx, row);
   });
 }
 

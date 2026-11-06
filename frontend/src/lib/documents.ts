@@ -82,6 +82,26 @@ export interface QuoteMirror {
   items: { name: string; quantity: number; unitPrice: number; subtotal: number }[];
 }
 
+// Espelho interno: acrescenta observação interna, custos e margem. Valor nulo é custo desconhecido.
+export interface QuoteInternalMirror extends QuoteMirror {
+  internalNotes: string | null;
+  items: (QuoteMirror['items'][number] & { type: 'product' | 'service'; unitCost: number | null })[];
+  summary: {
+    type: 'product' | 'service';
+    revenue: number;
+    cost: number | null;
+    result: number | null;
+    percent: number | null;
+  }[];
+  margin: {
+    revenue: number;
+    cost: number | null;
+    result: number | null;
+    percent: number | null;
+    missingCost: number;
+  };
+}
+
 export interface Order {
   id: number;
   number: number;

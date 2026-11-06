@@ -1,4 +1,4 @@
-import type { Area } from '@arandue/shared/permissions';
+import type { Area, Permission } from '@arandue/shared/permissions';
 import { bankAccountSchema, expenseSchema, productSchema, transactionSchema } from '@arandue/shared/schemas';
 import type { z } from 'zod';
 
@@ -10,6 +10,8 @@ export interface Field {
   type: FieldType;
   options?: [string, string][];
   required?: boolean;
+  // Campo que só aparece para quem tem esta permissão.
+  permission?: Permission;
 }
 
 export interface ResourceConfig {
@@ -43,7 +45,7 @@ export const resources = {
         required: true,
       },
       { key: 'price', label: 'Preço de venda (R$)', type: 'number', required: true },
-      { key: 'cost', label: 'Custo unitário (R$)', type: 'number' },
+      { key: 'cost', label: 'Custo unitário (R$)', type: 'number', permission: 'costs.read' },
       { key: 'stock', label: 'Estoque (vazio para serviço)', type: 'number' },
     ],
     columns: [

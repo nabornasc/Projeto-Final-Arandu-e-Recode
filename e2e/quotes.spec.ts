@@ -10,6 +10,7 @@ import {
   OWNER,
   openHistory,
   openMenuItem,
+  SELLER,
   SERVICE,
   STOCK_PRODUCT,
   sendQuote,
@@ -90,6 +91,36 @@ test('espelho do cliente mostra o documento e esconde a observação interna', a
   await mirror.emulateMedia({ media: 'print' });
   await expect(mirror.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeHidden();
   await mirror.close();
+});
+
+test('espelho interno mostra custo e margem, e o vendedor não tem acesso', async ({ page }) => {
+  const path = await createQuote(page);
+  const popup = page.waitForEvent('popup');
+  await openMenuItem(page, 'Espelho interno');
+  const mirror = await popup;
+
+  await expect(mirror.getByRole('note')).toHaveText('Uso interno: não enviar ao cliente');
+  await expect(mirror).toHaveTitle(/USO INTERNO - Orçamento #\d+/);
+  await expect(mirror.getByRole('cell', { name: SERVICE })).toBeVisible();
+  // Entrega em domicílio: preço R$ 8, custo R$ 3.
+  await expect(mirror.getByRole('cell', { name: 'R$ 3,00' }).first()).toBeVisible();
+  await expect(mirror.locator('.mirror-total')).toContainText('62,5%');
+  await capture(mirror, 'espelho-interno');
+  await mirror.close();
+
+  // Quem não tem a permissão não vê a opção, e a página não abre os dados.
+  const context = await page.context().browser()?.newContext();
+  if (!context) throw new Error('Sem navegador.');
+  const seller = await context.newPage();
+  await login(seller, SELLER);
+  await seller.goto(path);
+  await seller.getByRole('button', { name: /^Ações:/ }).click();
+  await expect(seller.getByRole('menuitem', { name: 'Espelho do cliente', exact: true })).toBeVisible();
+  await expect(seller.getByRole('menuitem', { name: 'Espelho interno', exact: true })).toHaveCount(0);
+  await seller.goto(`/espelho/orcamento/${path.split('/').pop()}/interno`);
+  await expect(seller.getByRole('alert')).toBeVisible();
+  await expect(seller.getByText('Uso interno')).toHaveCount(0);
+  await context.close();
 });
 
 test('logo enviado em Configurações sai no espelho, e o botão abre a impressão', async ({ page }) => {
