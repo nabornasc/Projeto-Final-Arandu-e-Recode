@@ -132,6 +132,16 @@ export interface QuoteInternalMirror extends QuoteMirror {
   };
 }
 
+export interface OrderReceivable {
+  id: number;
+  position: number;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  method: string | null;
+  status: 'open' | 'settled' | 'cancelled';
+}
+
 export interface Order {
   id: number;
   number: number;
@@ -144,6 +154,7 @@ export interface Order {
   originOrderId: number | null;
   originKind: 'converted' | 'duplicated' | 'copied' | null;
   orderDate: string;
+  receivables: OrderReceivable[];
   status: OrderStatus;
   discount: number;
   freight: number;

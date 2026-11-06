@@ -87,13 +87,13 @@ describe('grupos de acesso', () => {
     expect((await caixa.get('/orders')).status).toBe(403);
     expect((await caixa.get('/quotes')).status).toBe(403);
     const pending = (await caixa.get('/receivables')).body;
-    expect(pending.map((o: { id: number }) => o.id)).toContain(order.id);
+    expect(pending.map((o: { orderId: number }) => o.orderId)).toContain(order.id);
     expect((await ana.get('/receivables')).status).toBe(403);
 
-    const settled = await caixa.post(`/receivables/${order.id}/settle`, {});
+    const settled = await caixa.post(`/orders/${order.id}/settle`, {});
     expect(settled.status).toBe(200);
     expect(settled.body.status).toBe('paid');
-    expect((await caixa.post(`/receivables/${order.id}/settle`, {})).status).toBe(409);
+    expect((await caixa.post(`/orders/${order.id}/settle`, {})).status).toBe(409);
     const income = (await caixa.get('/transactions')).body.filter(
       (t: { orderId: number }) => t.orderId === order.id,
     );

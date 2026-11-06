@@ -77,6 +77,7 @@ const orderFrom = (source: Source, orderDate: string) => ({
   notes: source.notes,
   bankAccountId: null,
   items: itemsOf(source),
+  installments: [],
 });
 
 export async function duplicateQuote(ctx: Ctx, id: number, input?: DuplicateQuoteInput) {

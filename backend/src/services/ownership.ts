@@ -13,6 +13,14 @@ export async function assertCustomer(tx: DbOrTx, ctx: Ctx, customerId: number): 
   if (!row) throw badRequest('Cliente não encontrado.');
 }
 
+export async function assertSupplier(tx: DbOrTx, ctx: Ctx, supplierId: number): Promise<void> {
+  const [row] = await tx
+    .select({ id: people.id })
+    .from(people)
+    .where(and(eq(people.id, supplierId), eq(people.companyId, ctx.companyId), eq(people.isSupplier, true)));
+  if (!row) throw badRequest('Fornecedor não encontrado.');
+}
+
 export async function assertActiveAccount(tx: DbOrTx, ctx: Ctx, accountId: number): Promise<void> {
   const [row] = await tx
     .select({ id: bankAccounts.id })

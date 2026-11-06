@@ -500,9 +500,32 @@ export const expenses = pgTable(
     expenseDate: date({ mode: 'string' }).notNull(),
     status: expenseStatusEnum().notNull().default('pending'),
     bankAccountId: integer().references(() => bankAccounts.id, { onDelete: 'set null' }),
+    supplierId: integer().references(() => people.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.companyId, t.expenseDate), index().on(t.bankAccountId)],
+  (t) => [index().on(t.companyId, t.expenseDate), index().on(t.bankAccountId), index().on(t.supplierId)],
+);
+
+export const receivableStatusEnum = pgEnum('receivable_status', ['open', 'settled', 'cancelled']);
+
+// Contas a receber: cada pedido tem uma ou mais, e a baixa é feita em cada uma.
+export const receivables = pgTable(
+  'receivables',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    companyId: companyId(),
+    orderId: integer()
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    position: integer().notNull(),
+    dueDate: date({ mode: 'string' }).notNull(),
+    amount: money().notNull(),
+    paidAmount: money().notNull().default(0),
+    method: varchar({ length: 40 }),
+    status: receivableStatusEnum().notNull().default('open'),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.companyId, t.status, t.dueDate), uniqueIndex().on(t.orderId, t.position)],
 );
 
 export const cashTransactions = pgTable(
@@ -519,12 +542,14 @@ export const cashTransactions = pgTable(
     // Preenchidos quando a movimentação é gerada automaticamente (no máximo uma por pedido/despesa).
     orderId: integer().references(() => orders.id, { onDelete: 'cascade' }),
     expenseId: integer().references(() => expenses.id, { onDelete: 'cascade' }),
+    receivableId: integer().references(() => receivables.id, { onDelete: 'cascade' }),
     createdAt: createdAt(),
   },
   (t) => [
     index().on(t.companyId, t.transactionDate),
     index().on(t.bankAccountId),
-    uniqueIndex().on(t.orderId),
+    index().on(t.orderId),
+    uniqueIndex().on(t.receivableId),
     uniqueIndex().on(t.expenseId),
   ],
 );

@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { type Dispatch, type SetStateAction, useId, useState } from 'react';
+import type { OrderReceivable } from '../lib/documents.ts';
 import { formatDate, formatMoney, todayIso } from '../lib/format.ts';
 
 export interface InstallmentRow {
@@ -201,6 +202,46 @@ export function InstallmentsTable({
               <td>{formatDate(item.dueDate)}</td>
               <td>{item.method ?? '—'}</td>
               <td>{formatMoney(item.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const RECEIVABLE_STATUS: Record<OrderReceivable['status'], string> = {
+  open: 'Em aberto',
+  settled: 'Recebida',
+  cancelled: 'Cancelada',
+};
+
+// Contas a receber do pedido, com o que já foi pago.
+export function ReceivablesTable({ receivables }: { receivables: OrderReceivable[] }) {
+  return (
+    <div className="table-wrap full-row">
+      <table className="items-table" aria-label="Contas a receber do pedido">
+        <thead>
+          <tr>
+            <th>Parcela</th>
+            <th>Vencimento</th>
+            <th>Forma</th>
+            <th>Valor</th>
+            <th>Pago</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receivables.map((item) => (
+            <tr key={item.id}>
+              <td>
+                {item.position}/{receivables.length}
+              </td>
+              <td>{formatDate(item.dueDate)}</td>
+              <td>{item.method ?? '—'}</td>
+              <td>{formatMoney(item.amount)}</td>
+              <td>{formatMoney(item.paidAmount)}</td>
+              <td>{RECEIVABLE_STATUS[item.status]}</td>
             </tr>
           ))}
         </tbody>

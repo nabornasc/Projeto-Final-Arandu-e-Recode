@@ -1,13 +1,13 @@
 import { type ExpenseInput, expenseSchema } from '@arandue/shared/schemas';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns } from 'drizzle-orm';
 import { db, type Transaction } from '../db/client.ts';
-import { cashTransactions, expenses } from '../db/schema.ts';
+import { cashTransactions, expenses, people } from '../db/schema.ts';
 import { diffFields, initialFields, pick, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
 import { notFound } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
-import { accountName, audit } from './audit.ts';
-import { assertActiveAccount } from './ownership.ts';
+import { accountName, audit, personName } from './audit.ts';
+import { assertActiveAccount, assertSupplier } from './ownership.ts';
 
 const scoped = (ctx: Ctx, id: number) => and(eq(expenses.id, id), eq(expenses.companyId, ctx.companyId));
 
@@ -15,6 +15,7 @@ const TRACKED = ['description', 'category', 'amount', 'expenseDate', 'status'] a
 const tracked = async (tx: Transaction, row: typeof expenses.$inferSelect) => ({
   ...pick(row, TRACKED),
   bankAccount: await accountName(tx, row.bankAccountId),
+  supplier: await personName(tx, row.supplierId),
 });
 
 type Expense = typeof expenses.$inferSelect;
@@ -41,8 +42,9 @@ async function syncCash(tx: Transaction, ctx: Ctx, expense: Expense): Promise<vo
 export async function listExpenses(ctx: Ctx) {
   authorize(ctx, 'payables.read');
   return db
-    .select()
+    .select({ ...getTableColumns(expenses), supplierName: people.name })
     .from(expenses)
+    .leftJoin(people, eq(people.id, expenses.supplierId))
     .where(eq(expenses.companyId, ctx.companyId))
     .orderBy(desc(expenses.expenseDate), desc(expenses.id))
     .limit(500);
@@ -61,6 +63,7 @@ export async function createExpense(ctx: Ctx, input: ExpenseInput) {
   if (data.status === 'paid') authorize(ctx, 'payables.pay');
   return db.transaction(async (tx) => {
     if (data.bankAccountId) await assertActiveAccount(tx, ctx, data.bankAccountId);
+    if (data.supplierId) await assertSupplier(tx, ctx, data.supplierId);
     const [row] = await tx
       .insert(expenses)
       .values({ ...data, companyId: ctx.companyId })
@@ -84,6 +87,7 @@ export async function updateExpense(ctx: Ctx, id: number, input: ExpenseInput) {
     // Pagar (ou desfazer o pagamento) mexe no caixa e tem permissão própria.
     if (previous.status !== data.status) authorize(ctx, 'payables.pay');
     if (data.bankAccountId) await assertActiveAccount(tx, ctx, data.bankAccountId);
+    if (data.supplierId) await assertSupplier(tx, ctx, data.supplierId);
     const [row] = await tx.update(expenses).set(data).where(scoped(ctx, id)).returning();
     if (!row) throw notFound();
     await syncCash(tx, ctx, row);

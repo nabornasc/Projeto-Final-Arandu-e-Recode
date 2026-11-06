@@ -3,43 +3,53 @@ import { type FormEvent, useState } from 'react';
 import { useAccountOptions } from '../components/FormModal.tsx';
 import { Modal } from '../components/Modal.tsx';
 import { api } from '../lib/api.ts';
-import { formatCode, formatMoney } from '../lib/format.ts';
+import { formatMoney, todayIso } from '../lib/format.ts';
 
-// Baixa de um pedido pendente: vira "pago" e o valor entra no caixa.
+// Baixa de uma parcela ou de tudo o que falta em um pedido: o valor entra no caixa na data informada.
 interface Props {
-  receivable: { id: number; number: number; customerName: string | null; total: number };
+  title: string;
+  customerName: string | null;
+  amount: number;
+  endpoint: string;
   onClose: () => void;
   onSettled: () => void;
 }
 
-export function SettleModal({ receivable, onClose, onSettled }: Props) {
+export function SettleModal({ title, customerName, amount, endpoint, onClose, onSettled }: Props) {
   const accounts = useAccountOptions();
   const [bankAccountId, setBankAccountId] = useState('');
+  const [settledOn, setSettledOn] = useState(todayIso);
   const [error, setError] = useState<string | null>(null);
 
   const settle = useMutation({
-    mutationFn: (body: unknown) => api(`/receivables/${receivable.id}/settle`, { method: 'POST', body }),
+    mutationFn: (body: unknown) => api(endpoint, { method: 'POST', body }),
     onSuccess: onSettled,
     onError: (err) => setError(err.message),
   });
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    settle.mutate({ bankAccountId: bankAccountId ? Number(bankAccountId) : null });
+    settle.mutate({ bankAccountId: bankAccountId ? Number(bankAccountId) : null, settledOn });
   }
 
   return (
-    <Modal
-      eyebrow="FINANCEIRO"
-      title={`Dar baixa no pedido ${formatCode(receivable.number)}`}
-      onClose={onClose}
-    >
+    <Modal eyebrow="FINANCEIRO" title={title} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <p className="read-only-note">
-          {receivable.customerName ?? 'Cliente não informado'} · {formatMoney(receivable.total)}
+          {customerName ?? 'Cliente não informado'} · {formatMoney(amount)}
         </p>
         <div className="form-grid">
-          <label className="full-row">
+          <label>
+            Data do recebimento
+            <input
+              type="date"
+              name="settledOn"
+              required
+              value={settledOn}
+              onChange={(event) => setSettledOn(event.target.value)}
+            />
+          </label>
+          <label>
             Conta de recebimento
             <select
               name="bankAccountId"

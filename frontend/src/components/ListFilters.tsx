@@ -15,6 +15,14 @@ export function ListFilters({ control, dateLabel, textLabel, statuses }: Filters
   const { filters, setFilters, clear, active } = control;
   const update = (patch: Partial<typeof filters>) => setFilters((current) => ({ ...current, ...patch }));
   const statusName = statuses?.find(([value]) => value === filters.status)?.[1];
+  const summary = [
+    filters.from || filters.to
+      ? `${dateLabel}: ${filters.from ? formatDate(filters.from) : 'início'} a ${filters.to ? formatDate(filters.to) : 'hoje em diante'}`
+      : null,
+    filters.period !== 'custom' && filters.period !== 'all' ? periodLabel(filters.period) : null,
+    statusName ? `Status: ${statusName}` : null,
+    filters.text ? `${textLabel}: ${filters.text}` : null,
+  ].filter(Boolean);
 
   return (
     <>
@@ -91,20 +99,7 @@ export function ListFilters({ control, dateLabel, textLabel, statuses }: Filters
         </div>
       </details>
       {/* Na impressão, o formulário some e fica só o resumo do que foi aplicado. */}
-      {active && (
-        <p className="list-print-summary">
-          {[
-            filters.from || filters.to
-              ? `${dateLabel}: ${filters.from ? formatDate(filters.from) : 'início'} a ${filters.to ? formatDate(filters.to) : 'hoje em diante'}`
-              : null,
-            filters.period !== 'custom' && filters.period !== 'all' ? periodLabel(filters.period) : null,
-            statusName ? `Status: ${statusName}` : null,
-            filters.text ? `${textLabel}: ${filters.text}` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-      )}
+      {summary.length > 0 && <p className="list-print-summary">{summary.join(' · ')}</p>}
     </>
   );
 }

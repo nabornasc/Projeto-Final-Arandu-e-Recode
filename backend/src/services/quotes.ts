@@ -587,6 +587,7 @@ export async function convertQuote(ctx: Ctx, id: number, input: QuoteConvertInpu
         notes: quote.notes,
         bankAccountId: data.bankAccountId,
         items,
+        installments: data.status === 'pending' ? quote.installments : [],
       },
       { quoteId: id, opportunityId: quote.opportunityId, originQuoteId: id, originKind: 'converted' },
     );

@@ -2,7 +2,7 @@ import type { Area, Permission } from '@arandue/shared/permissions';
 import { bankAccountSchema, expenseSchema, productSchema, transactionSchema } from '@arandue/shared/schemas';
 import type { z } from 'zod';
 
-export type FieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'account';
+export type FieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'account' | 'supplier';
 
 export interface Field {
   key: string;
@@ -91,9 +91,11 @@ export const resources = {
         required: true,
       },
       { key: 'bankAccountId', label: 'Conta de débito', type: 'account' },
+      { key: 'supplierId', label: 'Fornecedor', type: 'supplier', permission: 'suppliers.read' },
     ],
     columns: [
       ['description', 'Descrição'],
+      ['supplierName', 'Fornecedor'],
       ['category', 'Categoria'],
       ['amount', 'Valor'],
       ['expenseDate', 'Data'],
@@ -102,8 +104,8 @@ export const resources = {
     list: {
       dateKey: 'expenseDate',
       dateLabel: 'Vencimento ou pagamento',
-      textKeys: ['description', 'category'],
-      textLabel: 'Descrição ou categoria',
+      textKeys: ['description', 'category', 'supplierName'],
+      textLabel: 'Descrição, categoria ou fornecedor',
       statusKey: 'status',
       statuses: [
         ['pending', 'Pendente'],

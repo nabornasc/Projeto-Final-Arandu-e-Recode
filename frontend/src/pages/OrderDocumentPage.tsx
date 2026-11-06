@@ -9,6 +9,12 @@ import { EmptyState } from '../components/EmptyState.tsx';
 import { useAccountOptions } from '../components/FormModal.tsx';
 import { HistoryPanel } from '../components/HistoryPanel.tsx';
 import {
+  type InstallmentRow,
+  InstallmentsEditor,
+  ReceivablesTable,
+  rowsToInstallments,
+} from '../components/InstallmentsEditor.tsx';
+import {
   ItemLines,
   type Line,
   linesSubtotal,
@@ -63,8 +69,10 @@ function OrderEditor({ order }: { order: Order | null }) {
   const [lines, setLines] = useState<Line[]>(() =>
     order ? order.items.map((item) => newLine(item)) : [newLine()],
   );
+  const [installments, setInstallments] = useState<InstallmentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const newTotal = Math.max(0, Math.round((linesSubtotal(lines) - Number(discount || 0)) * 100) / 100);
 
   const header = {
     customerId: customerId ? Number(customerId) : null,
@@ -79,6 +87,7 @@ function OrderEditor({ order }: { order: Order | null }) {
         status,
         bankAccountId: status === 'paid' && bankAccountId ? Number(bankAccountId) : null,
         items: linesToItems(lines),
+        installments: status === 'pending' ? rowsToInstallments(installments) : [],
       };
   const [baseline, setBaseline] = useState(() => JSON.stringify(payload));
   useTabDirty(editable && JSON.stringify(payload) !== baseline);
@@ -240,6 +249,15 @@ function OrderEditor({ order }: { order: Order | null }) {
               </select>
             </label>
           )}
+          {!order && status === 'pending' && (
+            <details className="full-row document-more">
+              <summary>Parcelas</summary>
+              <div className="form-grid">
+                <InstallmentsEditor rows={installments} setRows={setInstallments} total={newTotal} />
+              </div>
+            </details>
+          )}
+          {order && <ReceivablesTable receivables={order.receivables} />}
           <label className="full-row">
             Observações
             <input

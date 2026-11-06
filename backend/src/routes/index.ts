@@ -180,6 +180,9 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     });
 
     protectedApp.get('/receivables', (request) => orders.listReceivables(ctxOf(request)));
+    protectedApp.post('/orders/:id/settle', (request) =>
+      orders.settleOrder(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
+    );
     protectedApp.post('/receivables/:id/settle', (request) =>
       orders.settleReceivable(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
     );

@@ -137,6 +137,8 @@ const FIELDS: Record<string, { label: string; kind: FieldKind }> = {
   measureUnit: { label: 'Unidade das medidas', kind: 'text' },
   status: { label: 'Status', kind: 'status' },
   bankAccount: { label: 'Conta', kind: 'text' },
+  receivable: { label: 'Baixa de parcela', kind: 'text' },
+  supplier: { label: 'Fornecedor', kind: 'text' },
   // Produtos.
   name: { label: 'Nome', kind: 'text' },
   type: { label: 'Tipo', kind: 'status' },

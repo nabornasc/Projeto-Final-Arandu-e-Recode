@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { capture, login, OWNER } from './helpers.ts';
+import { CUSTOMER, capture, chooseOption, itemSelect, login, OWNER, SERVICE, toast } from './helpers.ts';
 
 const totalOf = (page: Page, name: string) =>
   page.locator('.list-totals dl > div').filter({ hasText: name }).locator('dd');
@@ -92,7 +92,7 @@ test('orçamentos filtram por número e por status', async ({ page }) => {
 
 test('contas a pagar filtram por status e descrição, com total pago e em aberto', async ({ page }) => {
   await page.goto('/despesas');
-  await page.getByLabel('Descrição ou categoria').fill('aluguel');
+  await page.getByLabel('Descrição, categoria ou fornecedor').fill('aluguel');
   await expect(page.locator('tbody tr')).toHaveCount(2);
   await expect(totalOf(page, 'Valor total')).toHaveText(/R\$\s700,00/);
   await expect(totalOf(page, 'Pago')).toHaveText(/R\$\s350,00/);
@@ -109,6 +109,62 @@ test('contas a receber filtram por cliente', async ({ page }) => {
   await expect(page.getByRole('cell', { name: 'Bar do Zé' }).first()).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(1);
   await expect(totalOf(page, 'Valor total')).toHaveText(/R\$\s206,00/);
+});
+
+test('pedido parcelado gera contas, baixa por parcela e fica pago só na última', async ({ page }) => {
+  await page.goto('/pedidos/novo');
+  await chooseOption(page.getByLabel('Cliente'), CUSTOMER);
+  await chooseOption(itemSelect(page, 0), SERVICE);
+  await page.locator('input[name="items.0.quantity"]:visible').fill('2');
+  await page.getByText('Parcelas', { exact: true }).click();
+  await page.getByLabel('Número de parcelas').fill('2');
+  await page.getByLabel('Forma de pagamento').fill('Boleto');
+  await page.getByRole('button', { name: 'Gerar parcelas' }).click();
+  await page.getByRole('button', { name: 'Criar pedido' }).click();
+  await expect(page).toHaveURL(/\/pedidos\/\d+$/);
+
+  const table = page.getByRole('table', { name: 'Contas a receber do pedido' });
+  await expect(table.getByRole('row')).toHaveCount(3);
+  await expect(table.getByRole('cell', { name: '1/2', exact: true })).toBeVisible();
+  const heading = await page.getByRole('heading', { name: /Pedido #\d+/ }).innerText();
+  const code = heading.match(/#\d+/)?.[0] ?? '';
+
+  await page.goto('/contas-a-receber');
+  await page.getByLabel('Cliente ou número').fill(code);
+  await expect(page.locator('tbody tr')).toHaveCount(2);
+  await capture(page, 'contas-a-receber');
+  await page.getByRole('button', { name: `Dar baixa: pedido ${code}, parcela 1/2` }).click();
+  await page.getByLabel('Data do recebimento').fill('2026-11-01');
+  await page.getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect(toast(page, 'registrada no caixa')).toBeVisible();
+  // A parcela paga sai da visão padrão, de contas em aberto.
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await page.getByLabel('Status').selectOption({ label: 'Todos' });
+  await expect(page.getByRole('cell', { name: 'Recebida' })).toBeVisible();
+
+  await page.goto('/pedidos');
+  await page.getByLabel('Cliente ou número').fill(code);
+  await expect(page.getByText('· parcial')).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`Ações: pedido ${code}`) }).click();
+  await page.getByRole('menuitem', { name: 'Dar baixa (recebido)' }).click();
+  await page.getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect(toast(page, 'registrada no caixa')).toBeVisible();
+  await expect(page.locator('tbody tr').getByText('Pago', { exact: true })).toBeVisible();
+  await expect(page.getByText('· parcial')).toHaveCount(0);
+});
+
+test('despesa com fornecedor aparece na lista e na busca', async ({ page }) => {
+  await page.goto('/despesas');
+  await page.getByRole('button', { name: 'Novo registro' }).click();
+  await page.getByLabel('Descrição', { exact: true }).fill('Compra de carvão');
+  await page.getByLabel('Categoria (ex.: Aluguel)').fill('Mercadorias');
+  await page.getByLabel('Valor (R$)').fill('80');
+  await page.locator('select[name="supplierId"]').selectOption({ label: 'Gelo Polar' });
+  await page.getByRole('button', { name: /Salvar|Criar/ }).click();
+  await expect(toast(page, 'Registro criado')).toBeVisible();
+  await page.getByLabel('Descrição, categoria ou fornecedor').fill('gelo polar');
+  await expect(page.getByRole('cell', { name: 'Compra de carvão' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Gelo Polar' }).first()).toBeVisible();
 });
 
 test('imprimir lista abre a impressão e sai só a lista, com o resumo dos filtros', async ({ page }) => {

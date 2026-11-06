@@ -76,13 +76,15 @@ export interface ListFilterState {
 
 const EMPTY: ListFilterState = { period: 'all', from: '', to: '', status: '', text: '' };
 
-export function useListFilters() {
-  const [filters, setFilters] = useState(EMPTY);
+// "initial" define o que a tela mostra ao abrir e ao limpar os filtros.
+export function useListFilters(initial: Partial<ListFilterState> = {}) {
+  const start = { ...EMPTY, ...initial };
+  const [filters, setFilters] = useState(start);
   return {
     filters,
     setFilters,
-    clear: () => setFilters(EMPTY),
-    active: JSON.stringify(filters) !== JSON.stringify(EMPTY),
+    clear: () => setFilters(start),
+    active: JSON.stringify(filters) !== JSON.stringify(start),
   };
 }
 

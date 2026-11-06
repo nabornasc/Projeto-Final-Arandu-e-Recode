@@ -65,7 +65,7 @@ describe('o ciclo oportunidade → orçamento → pedido → recebimento', () =>
     expect(order).toMatchObject({ opportunityId: opp.id, originQuoteId: quote.id, originKind: 'converted' });
 
     // Quem dá baixa não tem permissão no CRM nem em clientes: o efeito é do sistema.
-    expect((await finance.post(`/receivables/${order.id}/settle`, {})).status).toBe(200);
+    expect((await finance.post(`/orders/${order.id}/settle`, {})).status).toBe(200);
     const won = await opportunityOf(opp.id);
     expect(won).toMatchObject({ status: 'won', stageName: 'Negociação', customerId });
     expect(won.values).toMatchObject({ estimated: 40, inQuotes: 0, inOrders: 40, received: 40 });

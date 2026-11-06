@@ -40,7 +40,7 @@ function toPayload(config: ResourceConfig, form: FormState): Row {
   return Object.fromEntries(
     config.fields.map((field) => {
       const raw = form[field.key] ?? '';
-      if (field.type === 'number' || field.type === 'account')
+      if (field.type === 'number' || field.type === 'account' || field.type === 'supplier')
         return [field.key, raw === '' ? null : Number(raw)];
       return [field.key, raw];
     }),
@@ -65,6 +65,11 @@ export function FormModal({ config: fullConfig, initial, saving, onClose, onSubm
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
   const accounts = useAccountOptions(config.fields.some((field) => field.type === 'account'));
+  const suppliers = useQuery({
+    queryKey: ['/people', 'supplier', ''],
+    queryFn: () => api<{ id: number; name: string }[]>('/people?role=supplier'),
+    enabled: config.fields.some((field) => field.type === 'supplier'),
+  });
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -99,6 +104,20 @@ export function FormModal({ config: fullConfig, initial, saving, onClose, onSubm
                   {accounts.data?.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.bankName} — {account.accountName}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === 'supplier' ? (
+                <select
+                  id={`${formId}-${field.key}`}
+                  name={field.key}
+                  value={form[field.key]}
+                  onChange={(event) => set(field.key, event.target.value)}
+                >
+                  <option value="">Não informado</option>
+                  {suppliers.data?.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
                     </option>
                   ))}
                 </select>

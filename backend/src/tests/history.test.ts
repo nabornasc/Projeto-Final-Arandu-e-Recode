@@ -133,7 +133,7 @@ describe('histórico do documento', () => {
       })
     ).body;
 
-    await owner.post(`/receivables/${order.id}/settle`);
+    await owner.post(`/orders/${order.id}/settle`);
     const settled = await latestEntry('order', order.id);
     expect(settled.summary).toBe('Deu baixa no recebimento');
     expect(settled.changes).toEqual(

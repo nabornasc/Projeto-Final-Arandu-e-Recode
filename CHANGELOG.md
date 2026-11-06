@@ -7,6 +7,8 @@ Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das pró
 ### Adicionado
 
 - **Espelho interno:** o orçamento ganha um documento só para a empresa, com custo por item, resumo por tipo, resultado e margem, e o aviso "Uso interno: não enviar ao cliente". Frete e outras despesas ficam fora da margem. Sem o custo de todos os itens, a margem não é calculada.
+- **Contas a receber por parcela:** cada pedido tem as suas contas, com vencimento, valor pago e saldo. A baixa é por parcela, com data e conta, e o pedido fica pago na última. Parcelas do orçamento viram contas ao converter.
+- **Fornecedor na despesa:** contas a pagar passam a indicar o fornecedor, com busca na lista.
 - **Filtros nas listas:** orçamentos, pedidos, contas a receber, contas a pagar e movimentações ganham filtro de período com atalhos, status e busca, totais no rodapé e "Imprimir lista".
 - **Parcelas no orçamento:** vencimento, valor e forma, com geração automática e soma conferida com o total. Saem nos espelhos. Ainda não geram contas a receber por parcela.
 - **Grupos de itens:** cada item pode ter um grupo, como ambiente, etapa ou kit, com subtotal nos espelhos.

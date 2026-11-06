@@ -18,13 +18,14 @@ import {
   orders,
   people,
   products,
+  receivables,
 } from '../db/schema.ts';
-import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
+import { diffFields, diffItems, type FieldChange, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, authorizeAny, type Ctx, ownScope } from '../lib/context.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
-import { audit, namedLines, personName } from './audit.ts';
+import { accountName, audit, namedLines, personName } from './audit.ts';
 import { formatCode, nextNumber } from './numbering.ts';
 import {
   advanceToMilestone,
@@ -91,33 +92,153 @@ async function defaultAccountId(tx: Transaction, ctx: Ctx): Promise<number | nul
   return row?.id ?? null;
 }
 
-// Pedido recebido com total > 0 tem exatamente uma entrada no caixa; nos demais casos, nenhuma.
-async function syncCash(tx: Transaction, ctx: Ctx, order: Order, requestedAccountId?: number | null) {
-  if (!isReceived(order.status) || order.total <= 0) {
-    await tx.delete(cashTransactions).where(eq(cashTransactions.orderId, order.id));
-    return;
-  }
+// Data de hoje no Brasil, para a baixa sem data informada: o servidor roda em UTC.
+const todayInBrazil = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
+type Installment = { dueDate: string; amount: number; method: string | null };
+
+// Cada pedido nasce com as suas contas a receber. Sem parcelas, é uma só, com vencimento na data da venda.
+async function createReceivables(tx: Transaction, ctx: Ctx, order: Order, installments: Installment[]) {
+  if (installments.length) {
+    if (order.status !== 'pending') throw badRequest('Pedido já pago não tem parcelas.');
+    const sum = round2(installments.reduce((value, item) => value + item.amount, 0));
+    if (sum !== order.total) {
+      throw badRequest(
+        `A soma das parcelas (${sum.toFixed(2)}) precisa ser igual ao total do pedido (${order.total.toFixed(2)}).`,
+      );
+    }
+  }
+  const list = installments.length
+    ? installments
+    : [{ dueDate: order.orderDate, amount: order.total, method: null }];
+  await tx.insert(receivables).values(
+    list.map((item, index) => ({
+      companyId: ctx.companyId,
+      orderId: order.id,
+      position: index + 1,
+      dueDate: item.dueDate,
+      amount: item.amount,
+      method: item.method,
+    })),
+  );
+}
+
+// Baixa de uma conta: valor pago e, se houver valor, uma entrada no caixa com a data informada.
+async function settleTitle(
+  tx: Transaction,
+  ctx: Ctx,
+  order: Order,
+  title: typeof receivables.$inferSelect,
+  titleCount: number,
+  accountId: number | null,
+  settledOn: string,
+) {
+  await tx
+    .update(receivables)
+    .set({ status: 'settled', paidAmount: title.amount })
+    .where(eq(receivables.id, title.id));
+  if (title.amount <= 0) return;
+  if (!accountId) throw badRequest('Cadastre uma conta bancária para registrar o recebimento.');
+  const part = titleCount > 1 ? ` (parcela ${title.position}/${titleCount})` : '';
+  await tx.insert(cashTransactions).values({
+    companyId: ctx.companyId,
+    type: 'income',
+    category: 'Vendas',
+    orderId: order.id,
+    receivableId: title.id,
+    bankAccountId: accountId,
+    amount: title.amount,
+    transactionDate: settledOn,
+    description: `Recebimento do pedido ${formatCode(order.number)}${part}`,
+  });
+}
+
+async function resolveAccount(tx: Transaction, ctx: Ctx, orderId: number, requested?: number | null) {
+  if (requested) {
+    await assertActiveAccount(tx, ctx, requested);
+    return requested;
+  }
   const [existing] = await tx
     .select({ bankAccountId: cashTransactions.bankAccountId })
     .from(cashTransactions)
-    .where(eq(cashTransactions.orderId, order.id));
+    .where(eq(cashTransactions.orderId, orderId));
+  return existing?.bankAccountId ?? (await defaultAccountId(tx, ctx));
+}
 
-  let accountId = requestedAccountId ?? existing?.bankAccountId ?? null;
-  if (requestedAccountId) await assertActiveAccount(tx, ctx, requestedAccountId);
-  accountId ??= await defaultAccountId(tx, ctx);
-  if (!accountId) throw badRequest('Cadastre uma conta bancária para registrar o recebimento.');
+// Mantém contas a receber e caixa de acordo com o pedido. Cancelado não tem entrada no caixa; voltar
+// de recebido ou de cancelado reabre as contas; pedido recebido tem todas as contas quitadas.
+async function syncReceivables(
+  tx: Transaction,
+  ctx: Ctx,
+  order: Order,
+  options: { previous?: Order; accountId?: number | null; settledOn?: string } = {},
+) {
+  const { previous, accountId: requested, settledOn = order.orderDate } = options;
+  const whereOrder = eq(receivables.orderId, order.id);
+  const cashOfOrder = eq(cashTransactions.orderId, order.id);
 
-  const values = {
-    bankAccountId: accountId,
-    amount: order.total,
-    transactionDate: order.orderDate,
-    description: `Recebimento do pedido ${formatCode(order.number)}`,
-  };
-  await tx
-    .insert(cashTransactions)
-    .values({ ...values, companyId: ctx.companyId, type: 'income', category: 'Vendas', orderId: order.id })
-    .onConflictDoUpdate({ target: cashTransactions.orderId, set: values });
+  if (order.status === 'cancelled') {
+    await tx.delete(cashTransactions).where(cashOfOrder);
+    await tx.update(receivables).set({ status: 'cancelled', paidAmount: 0 }).where(whereOrder);
+    return;
+  }
+  const reopen =
+    previous &&
+    (previous.status === 'cancelled' || (isReceived(previous.status) && !isReceived(order.status)));
+  if (reopen) {
+    await tx.delete(cashTransactions).where(cashOfOrder);
+    await tx.update(receivables).set({ status: 'open', paidAmount: 0 }).where(whereOrder);
+  }
+
+  let titles = await tx
+    .select()
+    .from(receivables)
+    .where(whereOrder)
+    .orderBy(asc(receivables.position))
+    .for('update');
+  const sum = round2(titles.reduce((value, title) => value + title.amount, 0));
+  if (sum !== order.total) {
+    const [only] = titles;
+    if (titles.length !== 1 || !only) {
+      throw conflict('Este pedido tem parcelas: o total não pode mudar depois de criado.');
+    }
+    await tx
+      .update(receivables)
+      .set({ amount: order.total, paidAmount: only.status === 'settled' ? order.total : 0 })
+      .where(eq(receivables.id, only.id));
+    if (only.status === 'settled') {
+      if (order.total > 0) {
+        await tx
+          .update(cashTransactions)
+          .set({ amount: order.total })
+          .where(eq(cashTransactions.receivableId, only.id));
+      } else {
+        await tx.delete(cashTransactions).where(eq(cashTransactions.receivableId, only.id));
+      }
+    }
+    titles = [{ ...only, amount: order.total }];
+  }
+
+  if (previous && previous.orderDate !== order.orderDate) {
+    // Só acompanha a venda a entrada lançada na própria data da venda.
+    await tx
+      .update(cashTransactions)
+      .set({ transactionDate: order.orderDate })
+      .where(and(cashOfOrder, eq(cashTransactions.transactionDate, previous.orderDate)));
+  }
+
+  if (!isReceived(order.status)) return;
+  const accountId = await resolveAccount(tx, ctx, order.id, requested);
+  for (const title of titles) {
+    if (title.status === 'open') {
+      await settleTitle(tx, ctx, order, title, titles.length, accountId, settledOn);
+    }
+  }
+  // Trocar a conta só em pedido já recebido: dar baixa no restante não move o que entrou em outra conta.
+  if (requested && previous && isReceived(previous.status)) {
+    await tx.update(cashTransactions).set({ bankAccountId: requested }).where(cashOfOrder);
+  }
 }
 
 // Conta em que o pedido entrou no caixa, para o histórico.
@@ -181,6 +302,27 @@ async function loadOrders(ctx: Ctx, where: SQL | undefined) {
     )
     .orderBy(asc(orderItems.id));
 
+  const titles = await db
+    .select({
+      id: receivables.id,
+      orderId: receivables.orderId,
+      position: receivables.position,
+      dueDate: receivables.dueDate,
+      amount: receivables.amount,
+      paidAmount: receivables.paidAmount,
+      method: receivables.method,
+      status: receivables.status,
+    })
+    .from(receivables)
+    .where(
+      inArray(
+        receivables.orderId,
+        rows.map((row) => row.id),
+      ),
+    )
+    .orderBy(asc(receivables.position));
+  const titlesByOrder = Map.groupBy(titles, (title) => title.orderId);
+
   const byOrder = Map.groupBy(items, (item) => item.orderId);
   // O título da oportunidade só aparece para quem pode ver o CRM.
   const showOpportunity = can(ctx.permissions, 'opportunities.read');
@@ -188,6 +330,7 @@ async function loadOrders(ctx: Ctx, where: SQL | undefined) {
     ...row,
     opportunityTitle: showOpportunity ? row.opportunityTitle : null,
     items: byOrder.get(row.id) ?? [],
+    receivables: titlesByOrder.get(row.id) ?? [],
   }));
 }
 
@@ -292,7 +435,8 @@ export async function insertOrder(tx: Transaction, ctx: Ctx, data: OrderData, li
   if (!order) throw new Error('Falha ao criar pedido.');
 
   await tx.insert(orderItems).values(lines.map((line) => ({ ...line, orderId: order.id })));
-  await syncCash(tx, ctx, order, data.bankAccountId);
+  await createReceivables(tx, ctx, order, data.installments);
+  await syncReceivables(tx, ctx, order, { accountId: data.bankAccountId });
   await audit(tx, ctx, 'create', 'order', order.id, {
     number: order.number,
     originKind: link.originKind,
@@ -410,7 +554,7 @@ export async function updateOrder(ctx: Ctx, id: number, input: OrderUpdateInput)
       .returning();
     if (!order) throw notFound('Pedido não encontrado.');
 
-    await syncCash(tx, ctx, order, data.bankAccountId);
+    await syncReceivables(tx, ctx, order, { previous, accountId: data.bankAccountId });
     const changes = diffFields(
       {
         status: previous.status,
@@ -514,45 +658,134 @@ export async function deleteOrder(ctx: Ctx, id: number) {
 
 // ---------- Contas a receber ----------
 
-// Pedidos pendentes de recebimento, de toda a empresa: quem cuida do financeiro dá baixa em todos.
+// Contas de pedidos não cancelados, de toda a empresa: quem cuida do financeiro dá baixa em todas.
 export async function listReceivables(ctx: Ctx) {
   authorize(ctx, 'receivables.read');
-  return loadOrders(ctx, and(eq(orders.companyId, ctx.companyId), eq(orders.status, 'pending')));
+  return db
+    .select({
+      id: receivables.id,
+      orderId: receivables.orderId,
+      number: orders.number,
+      customerName: people.name,
+      orderDate: orders.orderDate,
+      position: receivables.position,
+      titleCount: sql<number>`(count(*) OVER (PARTITION BY ${receivables.orderId}))::int`,
+      dueDate: receivables.dueDate,
+      amount: receivables.amount,
+      paidAmount: receivables.paidAmount,
+      method: receivables.method,
+      status: receivables.status,
+    })
+    .from(receivables)
+    .innerJoin(orders, eq(orders.id, receivables.orderId))
+    .leftJoin(people, eq(people.id, orders.customerId))
+    .where(and(eq(receivables.companyId, ctx.companyId), inArray(receivables.status, ['open', 'settled'])))
+    .orderBy(asc(receivables.dueDate), asc(receivables.id))
+    .limit(500);
 }
 
-export async function settleReceivable(ctx: Ctx, id: number, input: ReceivableSettleInput) {
+// Com a última conta paga, o pedido vira "pago" e pode ganhar a oportunidade.
+async function markOrderPaid(tx: Transaction, ctx: Ctx, previous: Order, changes: FieldChange[]) {
+  const companyOrder = and(eq(orders.id, previous.id), eq(orders.companyId, ctx.companyId));
+  const [order] = await tx.update(orders).set({ status: 'paid' }).where(companyOrder).returning();
+  if (!order) throw notFound('Pedido não encontrado.');
+  await audit(tx, ctx, 'status', 'order', order.id, {
+    number: order.number,
+    from: 'pending',
+    to: 'paid',
+    via: 'receivables',
+    changes,
+  });
+  if (order.opportunityId) {
+    await winFromDocument(
+      tx,
+      ctx,
+      order.opportunityId,
+      order.customerId,
+      `Pedido ${formatCode(order.number)} recebido`,
+    );
+  }
+  return order;
+}
+
+// Baixa de todas as contas em aberto do pedido.
+export async function settleOrder(ctx: Ctx, id: number, input?: ReceivableSettleInput) {
   authorize(ctx, 'receivables.settle');
-  const data = parse(receivableSettleSchema, input);
+  const data = parse(receivableSettleSchema, input ?? {});
   const companyOrder = and(eq(orders.id, id), eq(orders.companyId, ctx.companyId));
 
   await db.transaction(async (tx) => {
     const [previous] = await tx.select().from(orders).where(companyOrder).for('update');
     if (!previous) throw notFound('Pedido não encontrado.');
     if (previous.status !== 'pending') throw conflict('Só pedidos pendentes podem receber baixa.');
-    const [order] = await tx.update(orders).set({ status: 'paid' }).where(companyOrder).returning();
-    if (!order) throw notFound('Pedido não encontrado.');
-    await syncCash(tx, ctx, order, data.bankAccountId);
-    await audit(tx, ctx, 'status', 'order', id, {
-      number: order.number,
-      from: 'pending',
-      to: 'paid',
-      via: 'receivables',
-      changes: diffFields(
+    const settledOn = data.settledOn ?? todayInBrazil();
+    await syncReceivables(
+      tx,
+      ctx,
+      { ...previous, status: 'paid' },
+      { accountId: data.bankAccountId, settledOn },
+    );
+    await markOrderPaid(
+      tx,
+      ctx,
+      previous,
+      diffFields(
         { status: 'pending', bankAccount: null },
         { status: 'paid', bankAccount: await cashAccountName(tx, id) },
       ),
-    });
-    if (order.opportunityId) {
-      await winFromDocument(
-        tx,
-        ctx,
-        order.opportunityId,
-        order.customerId,
-        `Pedido ${formatCode(order.number)} recebido`,
-      );
-    }
+    );
   });
 
   const [row] = await loadOrders(ctx, companyOrder);
+  return row;
+}
+
+// Baixa de uma conta. Trava o pedido primeiro, na mesma ordem das demais operações.
+export async function settleReceivable(ctx: Ctx, id: number, input?: ReceivableSettleInput) {
+  authorize(ctx, 'receivables.settle');
+  const data = parse(receivableSettleSchema, input ?? {});
+  const companyTitle = and(eq(receivables.id, id), eq(receivables.companyId, ctx.companyId));
+
+  await db.transaction(async (tx) => {
+    const [found] = await tx.select({ orderId: receivables.orderId }).from(receivables).where(companyTitle);
+    if (!found) throw notFound('Conta a receber não encontrada.');
+    const [order] = await tx.select().from(orders).where(eq(orders.id, found.orderId)).for('update');
+    if (!order) throw notFound('Pedido não encontrado.');
+    const titles = await tx
+      .select()
+      .from(receivables)
+      .where(eq(receivables.orderId, order.id))
+      .orderBy(asc(receivables.position))
+      .for('update');
+    const title = titles.find((item) => item.id === id);
+    if (!title) throw notFound('Conta a receber não encontrada.');
+    if (order.status !== 'pending' || title.status !== 'open') {
+      throw conflict('Só contas em aberto de pedidos pendentes podem receber baixa.');
+    }
+
+    const accountId = await resolveAccount(tx, ctx, order.id, data.bankAccountId);
+    const settledOn = data.settledOn ?? todayInBrazil();
+    await settleTitle(tx, ctx, order, title, titles.length, accountId, settledOn);
+    const changes = diffFields(
+      { receivable: null, bankAccount: null },
+      {
+        receivable: `Parcela ${title.position}/${titles.length}: ${title.amount.toFixed(2)} em ${settledOn}`,
+        bankAccount: await accountName(tx, accountId),
+      },
+    );
+    if (titles.every((item) => item.id === id || item.status === 'settled')) {
+      await markOrderPaid(tx, ctx, order, [
+        ...diffFields({ status: 'pending' }, { status: 'paid' }),
+        ...changes,
+      ]);
+    } else {
+      await audit(tx, ctx, 'update', 'order', order.id, { number: order.number, changes });
+    }
+  });
+
+  const [row] = await db
+    .select({ status: receivables.status, paidAmount: receivables.paidAmount, orderId: receivables.orderId })
+    .from(receivables)
+    .where(companyTitle);
   return row;
 }

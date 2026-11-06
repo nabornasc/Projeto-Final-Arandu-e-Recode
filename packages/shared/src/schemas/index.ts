@@ -250,6 +250,7 @@ export const expenseSchema = z.object({
   expenseDate: isoDate,
   status: z.enum(EXPENSE_STATUSES),
   bankAccountId: id.nullish(),
+  supplierId: id.nullish(),
 });
 export type ExpenseInput = z.input<typeof expenseSchema>;
 
@@ -270,6 +271,21 @@ export type TransactionInput = z.input<typeof transactionSchema>;
 export const ORDER_STATUSES = ['pending', 'paid', 'completed', 'cancelled'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+// Parcela combinada no orçamento ou no pedido. No pedido, cada uma vira uma conta a receber.
+export const quoteInstallmentSchema = z.object({
+  dueDate: isoDate,
+  amount: z
+    .number()
+    .positive('O valor da parcela deve ser maior que zero')
+    .max(1e10)
+    // Fica em JSON, sem o arredondamento da coluna numérica do banco.
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, {
+      message: 'O valor da parcela deve ter no máximo duas casas decimais',
+    }),
+  method: optionalText(40),
+});
+export type QuoteInstallment = z.output<typeof quoteInstallmentSchema>;
+
 export const orderItemSchema = z.object({
   productId: id,
   quantity: z.number().positive('A quantidade deve ser maior que zero').max(1e6),
@@ -287,6 +303,8 @@ export const orderCreateSchema = z.object({
   notes: optionalText(500),
   bankAccountId: id.nullish(),
   items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
+  // Só em pedido pendente. Sem parcelas, o pedido tem uma única conta, com vencimento na data da venda.
+  installments: z.array(quoteInstallmentSchema).max(60).default([]),
 });
 export type OrderCreateInput = z.input<typeof orderCreateSchema>;
 
@@ -303,7 +321,10 @@ export const orderUpdateSchema = z.object({
 export type OrderUpdateInput = z.input<typeof orderUpdateSchema>;
 
 // Baixa de um pedido pendente pelo contas a receber (vira "pago" e entra no caixa).
-export const receivableSettleSchema = z.object({ bankAccountId: id.nullish() });
+export const receivableSettleSchema = z.object({
+  bankAccountId: id.nullish(),
+  settledOn: isoDate.optional(),
+});
 export type ReceivableSettleInput = z.input<typeof receivableSettleSchema>;
 
 export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected', 'cancelled'] as const;
@@ -332,20 +353,6 @@ export const quoteItemSchema = orderItemSchema
       message: 'As medidas resultam em uma área pequena demais',
     },
   );
-
-export const quoteInstallmentSchema = z.object({
-  dueDate: isoDate,
-  amount: z
-    .number()
-    .positive('O valor da parcela deve ser maior que zero')
-    .max(1e10)
-    // Fica em JSON, sem o arredondamento da coluna numérica do banco.
-    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, {
-      message: 'O valor da parcela deve ter no máximo duas casas decimais',
-    }),
-  method: optionalText(40),
-});
-export type QuoteInstallment = z.output<typeof quoteInstallmentSchema>;
 
 // Criação e edição (só em rascunho) usam o mesmo formato; o status muda por ações próprias.
 export const quoteSchema = z.object({

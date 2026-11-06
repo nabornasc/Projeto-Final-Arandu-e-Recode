@@ -10,7 +10,7 @@ import { updateCompanySettings } from '../services/company.ts';
 import { createCustomer } from '../services/customers.ts';
 import { createExpense } from '../services/expenses.ts';
 import { addInteraction, createOpportunity, setStatus } from '../services/opportunities.ts';
-import { createOrder } from '../services/orders.ts';
+import { createOrder, settleReceivable } from '../services/orders.ts';
 import { createProduct } from '../services/products.ts';
 import { convertQuote, createQuote, transitionQuote } from '../services/quotes.ts';
 import { createSupplier } from '../services/suppliers.ts';
@@ -26,7 +26,7 @@ const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISO
 async function truncateAll() {
   await db.execute(rawSql`
     TRUNCATE companies, users, sessions, people, person_contacts, person_addresses, products, opportunities, opportunity_items, pipeline_stages, interactions,
-             quotes, quote_items, orders, order_items, bank_accounts, expenses, cash_transactions,
+             quotes, quote_items, orders, order_items, receivables, bank_accounts, expenses, cash_transactions,
              audit_logs, events, access_groups, access_group_permissions RESTART IDENTITY CASCADE`);
 }
 
@@ -371,6 +371,22 @@ async function seedConvenience() {
   await transitionQuote(owner, birthdayQuote.id, 'send');
   await transitionQuote(owner, birthdayQuote.id, 'reject', { reason: 'Achou o preço alto' });
   await setStatus(owner, birthday.id, { status: 'lost', lostReason: 'Preço' });
+
+  // Pedido parcelado: uma parcela paga, uma vencida e uma a vencer.
+  const parceled = await createOrder(owner, {
+    customerId: joao.id,
+    orderDate: daysAgo(35),
+    items: [{ productId: bar.id, quantity: 1 }],
+    installments: [
+      { dueDate: daysAgo(30), amount: 100, method: 'Pix' },
+      { dueDate: daysAgo(5), amount: 75, method: 'Pix' },
+      { dueDate: daysAgo(-25), amount: 75, method: 'Pix' },
+    ],
+  });
+  const [paidPart] = parceled.receivables;
+  if (paidPart) {
+    await settleReceivable(owner, paidPart.id, { bankAccountId: main.id, settledOn: daysAgo(30) });
+  }
 
   // Rascunho avulso, sem oportunidade.
   await createQuote(owner, {

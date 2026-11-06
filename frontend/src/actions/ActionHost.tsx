@@ -118,7 +118,12 @@ export function ActionHost({ children }: { children: ReactNode }) {
         )}
         {settling && (
           <SettleModal
-            receivable={settling}
+            title={`Dar baixa no pedido ${formatCode(settling.number)}`}
+            customerName={settling.customerName}
+            amount={settling.receivables
+              .filter((item) => item.status === 'open')
+              .reduce((sum, item) => sum + item.amount, 0)}
+            endpoint={`/orders/${settling.id}/settle`}
             onClose={() => setSettling(null)}
             onSettled={() => {
               setSettling(null);
