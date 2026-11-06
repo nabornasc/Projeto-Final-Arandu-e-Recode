@@ -1,4 +1,4 @@
-import { companySettingsSchema, LOGO_MAX_BYTES } from '@arandue/shared/schemas';
+import { companySettingsSchema, LOGO_MAX_BYTES, type MeasureUnit } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { EmptyState } from '../components/EmptyState.tsx';
@@ -16,6 +16,8 @@ interface CompanySettings {
   logo: string | null;
   quoteTerms: string | null;
   meiAnnualLimit: number | null;
+  useMeasures: boolean;
+  measureUnit: MeasureUnit;
 }
 
 export default function SettingsPage() {
@@ -58,6 +60,8 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
   const [logo, setLogo] = useState(initial.logo);
   const [quoteTerms, setQuoteTerms] = useState(initial.quoteTerms ?? '');
   const [limit, setLimit] = useState(initial.meiAnnualLimit === null ? '' : String(initial.meiAnnualLimit));
+  const [useMeasures, setUseMeasures] = useState(initial.useMeasures);
+  const [measureUnit, setMeasureUnit] = useState(initial.measureUnit);
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
@@ -96,6 +100,8 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
       logo,
       quoteTerms,
       meiAnnualLimit: limit === '' ? undefined : Number(limit),
+      useMeasures,
+      measureUnit,
     };
     const parsed = companySettingsSchema.safeParse(payload);
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? 'Verifique os campos.');
@@ -182,6 +188,29 @@ function SettingsForm({ initial, readOnly }: { initial: CompanySettings; readOnl
             onChange={(event) => setQuoteTerms(event.target.value)}
           />
         </label>
+        <label className="full-row checkbox">
+          <input
+            name="useMeasures"
+            type="checkbox"
+            checked={useMeasures}
+            onChange={(event) => setUseMeasures(event.target.checked)}
+          />
+          Usar largura e comprimento nos itens do orçamento (a quantidade vira m²)
+        </label>
+        {useMeasures && (
+          <label>
+            Digitar as medidas em
+            <select
+              name="measureUnit"
+              value={measureUnit}
+              onChange={(event) => setMeasureUnit(event.target.value as MeasureUnit)}
+            >
+              <option value="mm">Milímetros (mm)</option>
+              <option value="cm">Centímetros (cm)</option>
+              <option value="m">Metros (m)</option>
+            </select>
+          </label>
+        )}
         <label>
           Limite anual do MEI (R$) *
           <input

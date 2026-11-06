@@ -92,6 +92,14 @@ export type AccessGroupInput = z.input<typeof accessGroupSchema>;
 export const LOGO_MAX_BYTES = 150 * 1024;
 const LOGO_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
+// Unidade em que a empresa digita largura e comprimento. A quantidade é sempre a área em m².
+export const MEASURE_UNITS = ['mm', 'cm', 'm'] as const;
+export type MeasureUnit = (typeof MEASURE_UNITS)[number];
+const METERS_PER_UNIT: Record<MeasureUnit, number> = { mm: 0.001, cm: 0.01, m: 1 };
+
+export const areaInSquareMeters = (width: number, length: number, unit: MeasureUnit) =>
+  Math.round((width * METERS_PER_UNIT[unit] * length * METERS_PER_UNIT[unit] + Number.EPSILON) * 100) / 100;
+
 export const companySettingsSchema = z.object({
   name: requiredText(160, 'Informe o nome da empresa'),
   cnpj: optionalText(18),
@@ -106,6 +114,8 @@ export const companySettingsSchema = z.object({
     .nullish()
     .transform((value) => value ?? null),
   quoteTerms: optionalText(2000),
+  useMeasures: z.boolean().default(false),
+  measureUnit: z.enum(MEASURE_UNITS).default('m'),
   // Obrigatório: é a referência do sistema para o acompanhamento do faturamento anual.
   meiAnnualLimit: z
     .number({ error: 'Informe o limite anual do MEI' })
@@ -299,6 +309,37 @@ export type ReceivableSettleInput = z.input<typeof receivableSettleSchema>;
 export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected', 'cancelled'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
+const measure = z.number().positive('A medida deve ser maior que zero').max(1e5).nullish();
+
+// Item de orçamento: pode ter grupo (ambiente, etapa, kit) e medidas. Com medidas, a quantidade é a
+// área em m², calculada no servidor.
+export const quoteItemSchema = orderItemSchema
+  .extend({
+    groupName: optionalText(80),
+    width: measure,
+    length: measure,
+    measureUnit: z.enum(MEASURE_UNITS).nullish(),
+  })
+  .refine((item) => !item.width === !item.length, {
+    message: 'Informe a largura e o comprimento, ou deixe os dois em branco',
+  })
+  .refine(
+    (item) =>
+      !item.width ||
+      !item.length ||
+      areaInSquareMeters(item.width, item.length, item.measureUnit ?? 'm') >= 0.01,
+    {
+      message: 'As medidas resultam em uma área pequena demais',
+    },
+  );
+
+export const quoteInstallmentSchema = z.object({
+  dueDate: isoDate,
+  amount: z.number().positive('O valor da parcela deve ser maior que zero').max(1e10),
+  method: optionalText(40),
+});
+export type QuoteInstallment = z.output<typeof quoteInstallmentSchema>;
+
 // Criação e edição (só em rascunho) usam o mesmo formato; o status muda por ações próprias.
 export const quoteSchema = z.object({
   // Só no cadastro; depois, o vínculo muda pelas rotas de vincular e desvincular.
@@ -313,7 +354,9 @@ export const quoteSchema = z.object({
   siteDescription: optionalText(160),
   siteContact: optionalText(160),
   siteAddress: optionalText(255),
-  items: z.array(orderItemSchema).min(1, 'Inclua ao menos um item').max(100),
+  items: z.array(quoteItemSchema).min(1, 'Inclua ao menos um item').max(100),
+  // A soma é conferida no servidor, que calcula o total.
+  installments: z.array(quoteInstallmentSchema).max(60).default([]),
 });
 export type QuoteInput = z.input<typeof quoteSchema>;
 

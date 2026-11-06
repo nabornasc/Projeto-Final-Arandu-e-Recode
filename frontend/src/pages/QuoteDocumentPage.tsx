@@ -9,10 +9,17 @@ import { CustomerSelect, ItemsTable, Totals } from '../components/DocumentParts.
 import { EmptyState } from '../components/EmptyState.tsx';
 import { HistoryPanel } from '../components/HistoryPanel.tsx';
 import {
+  type InstallmentRow,
+  InstallmentsEditor,
+  InstallmentsTable,
+  newInstallment,
+  rowsToInstallments,
+} from '../components/InstallmentsEditor.tsx';
+import {
   ItemLines,
   type Line,
   linesSubtotal,
-  linesToItems,
+  linesToQuoteItems,
   newLine,
   type Product,
 } from '../components/ItemLines.tsx';
@@ -88,8 +95,19 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
           )
         : [newLine()],
   );
+  const [installments, setInstallments] = useState<InstallmentRow[]>(() =>
+    (quote?.installments ?? []).map((item) => newInstallment(item)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  // Item que já tem medidas continua editável, mesmo se a empresa desligar a opção depois.
+  const showMeasures = profile.company.useMeasures || lines.some((line) => line.width || line.length);
+  const total = Math.max(
+    0,
+    Math.round(
+      (linesSubtotal(lines) - Number(discount || 0) + Number(freight || 0) + Number(otherCharges || 0)) * 100,
+    ) / 100,
+  );
 
   const payload = {
     opportunityId: quote ? undefined : (opportunity?.id ?? null),
@@ -103,7 +121,8 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
     siteDescription,
     siteContact,
     siteAddress,
-    items: linesToItems(lines),
+    items: linesToQuoteItems(lines, profile.company.measureUnit),
+    installments: rowsToInstallments(installments),
   };
   // Compara com o último estado salvo para marcar a aba com alterações pendentes.
   const [baseline, setBaseline] = useState(() => JSON.stringify(payload));
@@ -214,7 +233,14 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
           </label>
 
           {editable ? (
-            <ItemLines lines={lines} setLines={setLines} products={products.data} />
+            <ItemLines
+              lines={lines}
+              setLines={setLines}
+              products={products.data}
+              groups
+              measures={showMeasures}
+              measureUnit={profile.company.measureUnit}
+            />
           ) : (
             quote && <ItemsTable items={quote.items} />
           )}
@@ -244,6 +270,19 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
               onChange={(event) => setNotes(event.target.value)}
             />
           </label>
+
+          {(editable || Boolean(quote?.installments.length)) && (
+            <details className="full-row document-more" open={Boolean(quote?.installments.length)}>
+              <summary>Parcelas</summary>
+              <div className="form-grid">
+                {editable ? (
+                  <InstallmentsEditor rows={installments} setRows={setInstallments} total={total} />
+                ) : (
+                  <InstallmentsTable installments={quote?.installments ?? []} />
+                )}
+              </div>
+            </details>
+          )}
 
           <details
             className="full-row document-more"

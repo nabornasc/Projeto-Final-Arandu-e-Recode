@@ -182,6 +182,8 @@ export async function getProfile(ctx: Ctx) {
         name: companies.name,
         cnpj: companies.cnpj,
         meiAnnualLimit: companies.meiAnnualLimit,
+        useMeasures: companies.useMeasures,
+        measureUnit: companies.measureUnit,
       },
     })
     .from(users)

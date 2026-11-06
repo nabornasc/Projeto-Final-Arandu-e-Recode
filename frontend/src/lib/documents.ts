@@ -1,4 +1,10 @@
-import type { OpportunityStatus, OrderStatus, QuoteStatus, StageMilestone } from '@arandue/shared/schemas';
+import type {
+  MeasureUnit,
+  OpportunityStatus,
+  OrderStatus,
+  QuoteStatus,
+  StageMilestone,
+} from '@arandue/shared/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api.ts';
 
@@ -10,6 +16,17 @@ export interface DocumentItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  // Só o item de orçamento tem estes campos.
+  groupName?: string | null;
+  width?: number | null;
+  length?: number | null;
+  measureUnit?: MeasureUnit | null;
+}
+
+export interface Installment {
+  dueDate: string;
+  amount: number;
+  method: string | null;
 }
 
 export interface Quote {
@@ -33,6 +50,7 @@ export interface Quote {
   siteDescription: string | null;
   siteContact: string | null;
   siteAddress: string | null;
+  installments: Installment[];
   sellerName: string | null;
   // Último envio. Continua preenchido depois de reabrir: o documento já saiu da empresa.
   sentAt: string | null;
@@ -60,6 +78,7 @@ export interface QuoteMirror {
   siteDescription: string | null;
   siteContact: string | null;
   siteAddress: string | null;
+  installments: Installment[];
   sellerName: string | null;
   issuer: {
     name: string;
@@ -79,7 +98,17 @@ export interface QuoteMirror {
     phones: string | null;
     address: string | null;
   } | null;
-  items: { name: string; quantity: number; unitPrice: number; subtotal: number }[];
+  // Cópias gravadas antes dos grupos e das medidas não têm estes campos.
+  items: {
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    groupName?: string | null;
+    width?: number | null;
+    length?: number | null;
+    measureUnit?: MeasureUnit | null;
+  }[];
 }
 
 // Espelho interno: acrescenta observação interna, custos e margem. Valor nulo é custo desconhecido.

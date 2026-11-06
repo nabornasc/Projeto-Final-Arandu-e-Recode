@@ -106,7 +106,18 @@ describe('espelho do cliente', () => {
         address: 'Rua do Cliente, 55 - Cuiabá/MT',
       },
     });
-    expect(body.items).toEqual([{ name: 'Serviço', quantity: 2, unitPrice: 100, subtotal: 200 }]);
+    expect(body.items).toEqual([
+      {
+        name: 'Serviço',
+        quantity: 2,
+        unitPrice: 100,
+        subtotal: 200,
+        groupName: null,
+        width: null,
+        length: null,
+        measureUnit: null,
+      },
+    ]);
     expect(JSON.stringify(body)).not.toContain('Margem apertada');
   });
 

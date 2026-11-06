@@ -123,6 +123,95 @@ test('espelho interno mostra custo e margem, e o vendedor não tem acesso', asyn
   await context.close();
 });
 
+test('grupo e parcelas saem no espelho, e a soma precisa fechar com o total', async ({ page }) => {
+  await createQuote(page);
+  await page.locator('input[name="items.0.quantity"]:visible').fill('3');
+  await page.locator('input[name="items.0.groupName"]:visible').fill('Cozinha');
+
+  await page.getByText('Parcelas', { exact: true }).click();
+  await page.getByLabel('Número de parcelas').fill('2');
+  await page.getByLabel('Forma de pagamento').fill('Pix');
+  await page.getByRole('button', { name: 'Gerar parcelas' }).click();
+  await expect(page.getByText(/Soma das parcelas: R\$\s24,00 de R\$\s24,00/)).toBeVisible();
+
+  // Valor diferente do total: o servidor recusa e o formulário mostra o motivo.
+  await page.locator('input[name="installments.1.amount"]').fill('1');
+  await expect(page.getByText('Ajuste os valores para salvar.')).toBeVisible();
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByRole('alert')).toContainText('A soma das parcelas');
+
+  await page.locator('input[name="installments.1.amount"]').fill('12');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(toast(page, 'Orçamento salvo.')).toBeVisible();
+
+  const popup = page.waitForEvent('popup');
+  await openMenuItem(page, 'Espelho do cliente');
+  const mirror = await popup;
+  await expect(mirror.getByRole('cell', { name: 'Cozinha', exact: true })).toBeVisible();
+  await expect(mirror.getByRole('cell', { name: 'Subtotal de Cozinha' })).toBeVisible();
+  await expect(mirror.getByRole('heading', { name: 'Condição de pagamento' })).toBeVisible();
+  await expect(mirror.getByRole('cell', { name: 'Pix' })).toHaveCount(2);
+  await capture(mirror, 'espelho-grupos-parcelas');
+  await mirror.close();
+});
+
+test('medidas: duas caixas na unidade escolhida em Configurações, e a quantidade vira m²', async ({
+  page,
+}) => {
+  const settings = async (enabled: boolean, unit?: string) => {
+    await page.goto('/configuracoes');
+    const box = page.getByLabel('Usar largura e comprimento nos itens do orçamento');
+    await box.setChecked(enabled);
+    if (unit) await page.getByLabel('Digitar as medidas em').selectOption(unit);
+    const saved = page.waitForResponse(
+      (response) => response.url().endsWith('/company') && response.request().method() === 'PUT',
+    );
+    await page.getByRole('button', { name: 'Salvar configurações' }).click();
+    expect((await saved).status()).toBe(200);
+  };
+
+  // Desligado: sem as caixas, e a unidade nem aparece em Configurações.
+  await page.goto('/orcamentos/novo');
+  await expect(page.getByLabel(/^Largura/)).toHaveCount(0);
+  await page.goto('/configuracoes');
+  await expect(page.getByLabel('Digitar as medidas em')).toHaveCount(0);
+
+  await settings(true, 'cm');
+  await createQuote(page);
+  const width = page.locator('input[name="items.0.width"]:visible');
+  const length = page.locator('input[name="items.0.length"]:visible');
+  await expect(page.getByLabel('Largura (cm)')).toBeVisible();
+  await expect(page.getByLabel('Comprimento (cm)')).toBeVisible();
+  await width.fill('250');
+  await length.fill('150');
+  const quantity = page.locator('input[name="items.0.quantity"]:visible');
+  await expect(quantity).toHaveValue('3.75');
+  await expect(quantity).toHaveJSProperty('readOnly', true);
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(toast(page, 'Orçamento salvo.')).toBeVisible();
+  const path = new URL(page.url()).pathname;
+
+  const popup = page.waitForEvent('popup');
+  await openMenuItem(page, 'Espelho do cliente');
+  const mirror = await popup;
+  await expect(mirror.getByText('250 × 150 cm')).toBeVisible();
+  await expect(mirror.getByRole('cell', { name: '3,75 m²' })).toBeVisible();
+  await capture(mirror, 'espelho-medidas');
+  await mirror.close();
+
+  // Mudar a unidade vale para itens novos: o item salvo continua como foi digitado.
+  await settings(true, 'mm');
+  await page.goto(path);
+  await expect(page.getByLabel('Largura (cm)')).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar item' }).click();
+  await expect(page.getByLabel('Largura (mm)')).toBeVisible();
+  await page.locator('input[name="items.1.width"]:visible').fill('2000');
+  await page.locator('input[name="items.1.length"]:visible').fill('500');
+  await expect(page.locator('input[name="items.1.quantity"]:visible')).toHaveValue('1');
+
+  await settings(false);
+});
+
 test('logo enviado em Configurações sai no espelho, e o botão abre a impressão', async ({ page }) => {
   const saveSettings = async () => {
     const saved = page.waitForResponse(

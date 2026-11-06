@@ -38,6 +38,10 @@ export async function buildMirrorSnapshot(
       quantity: quoteItems.quantity,
       unitPrice: quoteItems.unitPrice,
       subtotal: quoteItems.subtotal,
+      groupName: quoteItems.groupName,
+      width: quoteItems.width,
+      length: quoteItems.length,
+      measureUnit: quoteItems.measureUnit,
     })
     .from(quoteItems)
     .innerJoin(products, eq(products.id, quoteItems.productId))

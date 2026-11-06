@@ -1,6 +1,6 @@
 import { Printer } from 'lucide-react';
 import type { QuoteMirror } from '../lib/documents.ts';
-import { formatCode, formatDate } from '../lib/format.ts';
+import { formatCode, formatDate, formatMoney } from '../lib/format.ts';
 
 // Só enviado e aprovado estão em vigor: os demais saem com um aviso, para não circular por engano.
 const STATUS_NOTICE: Partial<Record<QuoteMirror['status'], string>> = {
@@ -101,5 +101,69 @@ export function MirrorParties({ quote }: { quote: QuoteMirror }) {
         </section>
       )}
     </div>
+  );
+}
+
+type MirrorItem = QuoteMirror['items'][number];
+
+// Agrupa pelo nome, na ordem em que cada grupo aparece, mesmo com itens intercalados.
+export function groupItems<T extends MirrorItem>(items: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = item.groupName ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups].map(([name, list]) => ({
+    name,
+    items: list,
+    subtotal: list.reduce((sum, item) => sum + item.subtotal, 0),
+  }));
+}
+
+export const quantityLabel = (item: MirrorItem) =>
+  `${item.quantity.toLocaleString('pt-BR')}${item.width ? ' m²' : ''}`;
+
+export function ItemName({ item }: { item: MirrorItem }) {
+  return (
+    <>
+      {item.name}
+      {item.width && item.length && (
+        <small className="mirror-measures">
+          {item.width.toLocaleString('pt-BR')} × {item.length.toLocaleString('pt-BR')}{' '}
+          {item.measureUnit ?? 'm'}
+        </small>
+      )}
+    </>
+  );
+}
+
+export function MirrorInstallments({ installments }: { installments: QuoteMirror['installments'] }) {
+  if (!installments.length) return null;
+  const hasMethod = installments.some((item) => item.method);
+  return (
+    <section className="mirror-text">
+      <h2>Condição de pagamento</h2>
+      <table className="mirror-items">
+        <thead>
+          <tr>
+            <th>Parcela</th>
+            <th>Vencimento</th>
+            {hasMethod && <th>Forma</th>}
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {installments.map((item, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: lista fixa, e as parcelas podem ser iguais.
+            <tr key={index}>
+              <td>{index + 1}</td>
+              <td>{formatDate(item.dueDate)}</td>
+              {hasMethod && <td>{item.method}</td>}
+              <td>{formatMoney(item.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }

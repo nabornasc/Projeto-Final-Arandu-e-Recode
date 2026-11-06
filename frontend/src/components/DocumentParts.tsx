@@ -56,7 +56,19 @@ export function ItemsTable({ items }: { items: DocumentItem[] }) {
         <tbody>
           {items.map((item) => (
             <tr key={item.id}>
-              <td>{item.productName}</td>
+              <td>
+                {item.productName}
+                {(item.groupName || item.width) && (
+                  <small className="item-details">
+                    {[
+                      item.groupName,
+                      item.width ? `${item.width} × ${item.length} ${item.measureUnit ?? 'm'}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </small>
+                )}
+              </td>
               <td>{item.quantity}</td>
               <td>{formatMoney(item.unitPrice)}</td>
               <td>{formatMoney(item.subtotal)}</td>

@@ -189,3 +189,19 @@
   text-align: center;
   text-transform: uppercase;
 }
+
+/* Grupos de itens e medidas. */
+.mirror-items .mirror-group td {
+  padding-top: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+.mirror-items .mirror-group-total td {
+  font-weight: 600;
+  text-align: right;
+}
+.mirror-measures {
+  display: block;
+  color: #5c5368;
+  font-size: 11px;
+}

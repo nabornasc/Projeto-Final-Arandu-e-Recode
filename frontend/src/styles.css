@@ -1748,3 +1748,20 @@ fieldset.view-switch {
     grid-column: 1 / -1;
   }
 }
+
+/* Grupo e medidas do item de orçamento, e parcelas. */
+.order-line-details {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.installments-generate {
+  display: flex;
+  align-items: end;
+}
+.item-details {
+  display: block;
+  color: var(--muted, #5c5368);
+  font-size: 12px;
+}

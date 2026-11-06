@@ -1,5 +1,5 @@
 import { can as canWith, type Permission } from '@arandue/shared/permissions';
-import type { LoginInput, RegisterInput } from '@arandue/shared/schemas';
+import type { LoginInput, MeasureUnit, RegisterInput } from '@arandue/shared/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import { ApiError, api } from './api.ts';
@@ -12,7 +12,14 @@ export interface Profile {
   // Em orçamentos e pedidos, só vê os registros que criou.
   ownOnly: boolean;
   permissions: Permission[];
-  company: { id: number; name: string; cnpj: string | null; meiAnnualLimit: number | null };
+  company: {
+    id: number;
+    name: string;
+    cnpj: string | null;
+    meiAnnualLimit: number | null;
+    useMeasures: boolean;
+    measureUnit: MeasureUnit;
+  };
 }
 
 // Só para esconder menus e botões: quem decide é o backend.

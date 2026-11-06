@@ -1,9 +1,11 @@
 import { can, type Permission } from '@arandue/shared/permissions';
 import {
+  areaInSquareMeters,
   type DocumentReasonInput,
   documentReasonSchema,
   type QuoteConvertInput,
   type QuoteInput,
+  type QuoteInstallment,
   type QuoteStatus,
   quoteConvertSchema,
   quoteSchema,
@@ -13,7 +15,8 @@ import { db, type Transaction } from '../db/client.ts';
 import { opportunities, orders, people, products, quoteItems, quotes, users } from '../db/schema.ts';
 import { diffFields, diffItems, initialFields, removedFields } from '../lib/changes.ts';
 import { authorize, type Ctx, ownScope } from '../lib/context.ts';
-import { conflict, forbidden, notFound } from '../lib/errors.ts';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.ts';
+import { round2 } from '../lib/money.ts';
 import { parse } from '../lib/validate.ts';
 import { audit, namedLines, personName } from './audit.ts';
 import { formatCode, nextNumber } from './numbering.ts';
@@ -54,6 +57,32 @@ const extraFields = (quote: {
   siteAddress: quote.siteAddress,
 });
 
+const moneyText = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Texto para o histórico: parcelas e grupos não têm colunas próprias na comparação de campos.
+const installmentsText = (list: QuoteInstallment[]) =>
+  list
+    .map(({ dueDate, amount, method }) =>
+      [dueDate.split('-').reverse().join('/'), moneyText(amount), method].filter(Boolean).join(' - '),
+    )
+    .join('; ') || null;
+
+type Composed = {
+  name: string;
+  groupName?: string | null;
+  width?: number | null;
+  length?: number | null;
+  measureUnit?: string | null;
+};
+const compositionText = (lines: Composed[]) =>
+  lines
+    .filter((line) => line.groupName || line.width)
+    .map((line) => {
+      const measures = line.width ? ` (${line.width} × ${line.length} ${line.measureUnit ?? 'm'})` : '';
+      return `${line.groupName ? `${line.groupName}: ` : ''}${line.name}${measures}`;
+    })
+    .join('; ') || null;
+
 const STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: 'em rascunho',
   sent: 'enviado',
@@ -85,6 +114,7 @@ async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
       siteDescription: quotes.siteDescription,
       siteContact: quotes.siteContact,
       siteAddress: quotes.siteAddress,
+      installments: quotes.installments,
       sellerName: users.name,
       sentAt: quotes.sentAt,
       decidedAt: quotes.decidedAt,
@@ -112,6 +142,10 @@ async function loadQuotes(ctx: Ctx, where: SQL | undefined) {
       quantity: quoteItems.quantity,
       unitPrice: quoteItems.unitPrice,
       subtotal: quoteItems.subtotal,
+      groupName: quoteItems.groupName,
+      width: quoteItems.width,
+      length: quoteItems.length,
+      measureUnit: quoteItems.measureUnit,
     })
     .from(quoteItems)
     .innerJoin(products, eq(products.id, quoteItems.productId))
@@ -140,6 +174,10 @@ const lineItems = (tx: Transaction, id: number) =>
       name: products.name,
       quantity: quoteItems.quantity,
       unitPrice: quoteItems.unitPrice,
+      groupName: quoteItems.groupName,
+      width: quoteItems.width,
+      length: quoteItems.length,
+      measureUnit: quoteItems.measureUnit,
     })
     .from(quoteItems)
     .innerJoin(products, eq(products.id, quoteItems.productId))
@@ -195,6 +233,7 @@ export async function getQuoteMirror(ctx: Ctx, id: number) {
     siteDescription: quote.siteDescription,
     siteContact: quote.siteContact,
     siteAddress: quote.siteAddress,
+    installments: quote.installments,
     ...snapshot,
     customer: can(ctx.permissions, 'customers.read')
       ? snapshot.customer
@@ -242,6 +281,38 @@ export async function getQuoteInternalMirror(ctx: Ctx, id: number) {
 // Orçamento não mexe em estoque nem no caixa: isso só acontece ao converter em pedido.
 type QuoteData = ReturnType<typeof quoteSchema.parse>;
 
+// Linhas do orçamento: com medidas, a quantidade é a área, e as parcelas precisam fechar com o total.
+async function buildQuoteLines(tx: Transaction, ctx: Ctx, data: QuoteData) {
+  const items = data.items.map((item) =>
+    item.width && item.length
+      ? { ...item, quantity: areaInSquareMeters(item.width, item.length, item.measureUnit ?? 'm') }
+      : item,
+  );
+  const { lines, total } = await buildLines(tx, ctx, items, data.discount, data.freight + data.otherCharges);
+  if (data.installments.length) {
+    const sum = round2(data.installments.reduce((value, item) => value + item.amount, 0));
+    if (sum !== total) {
+      throw badRequest(
+        `A soma das parcelas (${moneyText(sum)}) precisa ser igual ao total do orçamento (${moneyText(total)}).`,
+      );
+    }
+  }
+  return {
+    total,
+    lines: lines.map((line, index) => ({
+      ...line,
+      groupName: items[index]?.groupName ?? null,
+      width: items[index]?.width ?? null,
+      length: items[index]?.length ?? null,
+      measureUnit: items[index]?.width ? (items[index]?.measureUnit ?? 'm') : null,
+    })),
+  };
+}
+
+// Junta o nome do produto às linhas novas, para o texto do histórico.
+const namedComposition = (lines: Omit<Composed, 'name'>[], named: { name: string }[]) =>
+  compositionText(lines.map((line, index) => ({ ...line, name: named[index]?.name ?? '' })));
+
 // Cria o rascunho dentro de uma transação já aberta (orçamento novo, duplicado ou copiado de pedido).
 export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, link: DocumentLink = {}) {
   await lockOpportunity(tx, link.opportunityId);
@@ -251,13 +322,8 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
     : data.customerId;
   const opportunityId = link.opportunityId ?? data.opportunityId ?? null;
   if (customerId) await assertCustomer(tx, ctx, customerId);
-  const { lines, total } = await buildLines(
-    tx,
-    ctx,
-    data.items,
-    data.discount,
-    data.freight + data.otherCharges,
-  );
+  const { lines, total } = await buildQuoteLines(tx, ctx, data);
+  const named = await namedLines(tx, lines);
   const number = await nextNumber(tx, ctx, 'quote');
 
   const [quote] = await tx
@@ -275,6 +341,7 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
       total,
       notes: data.notes,
       ...extraFields(data),
+      installments: data.installments,
       createdBy: ctx.userId,
     })
     .returning({ id: quotes.id });
@@ -290,8 +357,10 @@ export async function insertQuote(tx: Transaction, ctx: Ctx, data: QuoteData, li
       total,
       notes: data.notes,
       ...extraFields(data),
+      installments: installmentsText(data.installments),
+      composition: namedComposition(lines, named),
     }),
-    items: diffItems([], await namedLines(tx, lines)),
+    items: diffItems([], named),
     total,
     opportunityId,
     originQuoteId: link.originQuoteId,
@@ -320,13 +389,8 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
     const quote = await lockQuote(tx, ctx, id);
     if (quote.status !== 'draft') throw conflict('Só orçamentos em rascunho podem ser editados.');
     if (data.customerId) await assertCustomer(tx, ctx, data.customerId);
-    const { lines, total } = await buildLines(
-      tx,
-      ctx,
-      data.items,
-      data.discount,
-      data.freight + data.otherCharges,
-    );
+    const { lines, total } = await buildQuoteLines(tx, ctx, data);
+    const named = await namedLines(tx, lines);
     const previousItems = await lineItems(tx, id);
 
     await tx.delete(quoteItems).where(eq(quoteItems.quoteId, id));
@@ -340,6 +404,7 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         total,
         notes: data.notes,
         ...extraFields(data),
+        installments: data.installments,
       })
       .where(scoped(ctx, id));
     const changes = diffFields(
@@ -350,6 +415,8 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         total: quote.total,
         notes: quote.notes,
         ...extraFields(quote),
+        installments: installmentsText(quote.installments),
+        composition: compositionText(previousItems),
       },
       {
         customer: await personName(tx, data.customerId),
@@ -358,9 +425,11 @@ export async function updateQuote(ctx: Ctx, id: number, input: QuoteInput) {
         total,
         notes: data.notes,
         ...extraFields(data),
+        installments: installmentsText(data.installments),
+        composition: namedComposition(lines, named),
       },
     );
-    const items = diffItems(previousItems, await namedLines(tx, lines));
+    const items = diffItems(previousItems, named);
     // Salvar sem mudar nada não vira registro.
     if (changes.length || items.length) {
       await audit(tx, ctx, 'update', 'quote', id, { number: quote.number, total, changes, items });
@@ -561,6 +630,8 @@ export async function deleteQuote(ctx: Ctx, id: number) {
         total: quote.total,
         notes: quote.notes,
         ...extraFields(quote),
+        installments: installmentsText(quote.installments),
+        composition: compositionText(items),
       }),
       items: diffItems(items, []),
     });

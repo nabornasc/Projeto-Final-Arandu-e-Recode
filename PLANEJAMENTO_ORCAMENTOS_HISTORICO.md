@@ -142,7 +142,7 @@ Os PDFs seguem a decisão da seção 7.7 do plano principal: modelo HTML e impre
 | 2 (feita) | Histórico nos demais módulos e tela geral | Na v2.3 |
 | 3 (feita) | Dados da empresa, campos novos e espelho do cliente | Na v2.4, antecipando parte da v2.6. O vendedor é quem criou o orçamento, sem campo próprio |
 | 4 (feita) | Custo no item, margem e espelho interno | Antecipa a margem da v2.7. O custo fica gravado no envio; o rascunho acompanha o cadastro. O resumo é por tipo (produto ou serviço), porque produtos ainda não têm categoria |
-| 5 | Parcelas, grupos de itens e medidas opcionais | Restante da v2.6 |
+| 5 (feita) | Parcelas, grupos de itens e medidas opcionais | Parcelas descrevem a condição no documento e ainda não geram contas a receber. Grupos com subtotal; medidas ativadas por empresa, digitadas em mm, cm ou m, com a quantidade em m². Ficam na v2.6: baixa por parcela, modelos e duplicação de grupo, e unidades além de m² |
 
 ## 5. Decisões
 

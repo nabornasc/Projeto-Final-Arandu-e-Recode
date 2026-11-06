@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { useParams } from 'react-router';
 import {
+  groupItems,
+  ItemName,
   MirrorHeader,
+  MirrorInstallments,
   MirrorParties,
   MirrorStatusNotice,
   MirrorToolbar,
+  quantityLabel,
 } from '../components/MirrorParts.tsx';
 import { api } from '../lib/api.ts';
 import type { QuoteInternalMirror } from '../lib/documents.ts';
@@ -71,15 +75,32 @@ export default function QuoteInternalMirrorPage() {
               </tr>
             </thead>
             <tbody>
-              {quote.items.map((item, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: lista fixa, e o mesmo produto pode se repetir.
-                <tr key={index}>
-                  <td>{item.name}</td>
-                  <td>{item.quantity.toLocaleString('pt-BR')}</td>
-                  <td>{formatMoney(item.unitPrice)}</td>
-                  <td>{moneyOrDash(item.unitCost)}</td>
-                  <td>{formatMoney(item.subtotal)}</td>
-                </tr>
+              {groupItems(quote.items).map((group) => (
+                <Fragment key={group.name}>
+                  {group.name && (
+                    <tr className="mirror-group">
+                      <td colSpan={5}>{group.name}</td>
+                    </tr>
+                  )}
+                  {group.items.map((item, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: lista fixa, e o mesmo produto pode se repetir.
+                    <tr key={index}>
+                      <td>
+                        <ItemName item={item} />
+                      </td>
+                      <td>{quantityLabel(item)}</td>
+                      <td>{formatMoney(item.unitPrice)}</td>
+                      <td>{moneyOrDash(item.unitCost)}</td>
+                      <td>{formatMoney(item.subtotal)}</td>
+                    </tr>
+                  ))}
+                  {group.name && (
+                    <tr className="mirror-group-total">
+                      <td colSpan={4}>Subtotal de {group.name}</td>
+                      <td>{formatMoney(group.subtotal)}</td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -149,6 +170,8 @@ export default function QuoteInternalMirrorPage() {
             <dd>{formatMoney(quote.total)}</dd>
           </div>
         </dl>
+
+        <MirrorInstallments installments={quote.installments} />
 
         {quote.internalNotes && (
           <section className="mirror-text">

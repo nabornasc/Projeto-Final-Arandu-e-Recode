@@ -51,6 +51,9 @@ export const companies = pgTable('companies', {
   quoteTerms: varchar({ length: 2000 }),
   // Limite anual do MEI: cada empresa informa o valor vigente nas configurações (muda por lei).
   meiAnnualLimit: money(),
+  // Mostra largura e comprimento nos itens do orçamento.
+  useMeasures: boolean().notNull().default(false),
+  measureUnit: varchar({ length: 2 }).notNull().default('m'),
   // Contadores da numeração por empresa (#001, #002...), para o número não revelar o volume de outras.
   orderSeq: integer().notNull().default(0),
   quoteSeq: integer().notNull().default(0),
@@ -374,6 +377,11 @@ export const quotes = pgTable(
     siteAddress: varchar({ length: 255 }),
     // Cópia feita ao enviar: reimprimir mostra o que o cliente recebeu, mesmo que o cadastro mude.
     mirrorSnapshot: jsonb(),
+    // Condição combinada com o cliente. Ainda não gera contas a receber por parcela.
+    installments: jsonb()
+      .$type<{ dueDate: string; amount: number; method: string | null }[]>()
+      .notNull()
+      .default([]),
     createdBy: integer().references(() => users.id, { onDelete: 'set null' }),
     sentAt: timestamp({ withTimezone: true }),
     decidedAt: timestamp({ withTimezone: true }),
@@ -404,6 +412,11 @@ export const quoteItems = pgTable(
     subtotal: money().notNull(),
     // Custo do produto no último envio. Rascunho usa o custo atual do cadastro.
     unitCost: money(),
+    groupName: varchar({ length: 80 }),
+    // Como foram digitadas, na unidade do item. Com medidas, a quantidade é a área em m².
+    width: quantity(),
+    length: quantity(),
+    measureUnit: varchar({ length: 2 }),
   },
   (t) => [index().on(t.quoteId)],
 );

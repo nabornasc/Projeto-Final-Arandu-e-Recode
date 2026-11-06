@@ -127,10 +127,14 @@ const FIELDS: Record<string, { label: string; kind: FieldKind }> = {
   siteDescription: { label: 'Local de entrega ou serviço', kind: 'text' },
   siteContact: { label: 'Contato no local', kind: 'text' },
   siteAddress: { label: 'Endereço do local', kind: 'text' },
+  installments: { label: 'Parcelas', kind: 'text' },
+  composition: { label: 'Grupos e medidas', kind: 'text' },
   // Empresa.
   address: { label: 'Endereço', kind: 'text' },
   logo: { label: 'Logo', kind: 'text' },
   quoteTerms: { label: 'Condições do orçamento', kind: 'text' },
+  useMeasures: { label: 'Usar medidas nos orçamentos', kind: 'boolean' },
+  measureUnit: { label: 'Unidade das medidas', kind: 'text' },
   status: { label: 'Status', kind: 'status' },
   bankAccount: { label: 'Conta', kind: 'text' },
   // Produtos.

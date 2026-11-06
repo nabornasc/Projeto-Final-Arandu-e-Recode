@@ -3,6 +3,7 @@ import {
   copyToOrderSchema,
   type DuplicateQuoteInput,
   duplicateQuoteSchema,
+  type MeasureUnit,
 } from '@arandue/shared/schemas';
 import { db } from '../db/client.ts';
 import { authorize, type Ctx } from '../lib/context.ts';
@@ -27,7 +28,16 @@ type Source = {
   siteDescription?: string | null;
   siteContact?: string | null;
   siteAddress?: string | null;
-  items: { productId: number; quantity: number; unitPrice: number }[];
+  items: {
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    // Só o item de orçamento tem estes campos.
+    groupName?: string | null;
+    width?: number | null;
+    length?: number | null;
+    measureUnit?: string | null;
+  }[];
 };
 
 const itemsOf = (doc: Source) =>
@@ -44,7 +54,17 @@ const quoteFrom = (source: Source) => ({
   siteDescription: source.siteDescription ?? null,
   siteContact: source.siteContact ?? null,
   siteAddress: source.siteAddress ?? null,
-  items: itemsOf(source),
+  items: source.items.map(({ productId, quantity, unitPrice, groupName, width, length, measureUnit }) => ({
+    productId,
+    quantity,
+    unitPrice,
+    groupName: groupName ?? null,
+    width,
+    length,
+    measureUnit: measureUnit as MeasureUnit | null | undefined,
+  })),
+  // As datas valiam para o documento de origem: a cópia nasce sem parcelas.
+  installments: [],
 });
 
 const orderFrom = (source: Source, orderDate: string) => ({

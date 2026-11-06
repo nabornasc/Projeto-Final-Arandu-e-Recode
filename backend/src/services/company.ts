@@ -18,6 +18,8 @@ const columns = {
   logo: companies.logo,
   quoteTerms: companies.quoteTerms,
   meiAnnualLimit: companies.meiAnnualLimit,
+  useMeasures: companies.useMeasures,
+  measureUnit: companies.measureUnit,
 };
 
 export async function getCompanySettings(ctx: Ctx) {
