@@ -1765,3 +1765,99 @@ fieldset.view-switch {
   color: var(--muted, #5c5368);
   font-size: 12px;
 }
+
+/* Filtros e totais das listas. */
+.list-filters {
+  margin-bottom: 14px;
+  padding: 12px 19px;
+}
+.list-filters summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.list-filters-grid {
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 12px;
+}
+.list-filters-clear {
+  display: flex;
+  align-items: end;
+}
+.list-totals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-top: 14px;
+}
+.list-totals dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+.list-totals dt {
+  color: #665d7a;
+  font-size: 12px;
+}
+.list-totals dd {
+  margin: 0;
+  font-weight: 700;
+}
+.list-limit {
+  flex-basis: 100%;
+  margin: 0;
+  color: #665d7a;
+  font-size: 12px;
+}
+.list-print-summary {
+  display: none;
+}
+
+/* Imprimir lista: sai só o título, o resumo dos filtros, a tabela e os totais. */
+@media print {
+  .sidebar,
+  .topbar,
+  .tabbar,
+  .notice,
+  .mobile-backdrop,
+  .list-filters,
+  .list-print,
+  .page-heading .button,
+  td.actions,
+  th[aria-label="Ações"] {
+    display: none;
+  }
+  .app-shell,
+  .main-content,
+  .content,
+  .workspace,
+  .panes,
+  .pane {
+    display: block;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .table-wrap {
+    overflow: visible;
+  }
+  .table-panel {
+    min-height: 0;
+    border: 0;
+    box-shadow: none;
+  }
+  .list-print-summary {
+    display: block;
+    margin: 0 0 10px;
+    font-size: 12px;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}

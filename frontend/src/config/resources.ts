@@ -24,7 +24,22 @@ export interface ResourceConfig {
   columns: [string, string][];
   // Registros gerados automaticamente não podem ser editados nesta tela.
   isLocked?: (row: Record<string, unknown>) => boolean;
+  // Filtros e totais da lista, nas telas com lançamentos por data.
+  list?: {
+    dateKey: string;
+    dateLabel: string;
+    textKeys: string[];
+    textLabel: string;
+    statusKey?: string;
+    statuses?: readonly (readonly [string, string])[];
+    totals: (rows: Record<string, unknown>[]) => { label: string; value: number }[];
+  };
 }
+
+const sumAmount = (
+  rows: Record<string, unknown>[],
+  keep: (row: Record<string, unknown>) => boolean = () => true,
+) => rows.filter(keep).reduce((sum, row) => sum + Number(row.amount), 0);
 
 export const resources = {
   products: {
@@ -84,6 +99,22 @@ export const resources = {
       ['expenseDate', 'Data'],
       ['status', 'Status'],
     ],
+    list: {
+      dateKey: 'expenseDate',
+      dateLabel: 'Vencimento ou pagamento',
+      textKeys: ['description', 'category'],
+      textLabel: 'Descrição ou categoria',
+      statusKey: 'status',
+      statuses: [
+        ['pending', 'Pendente'],
+        ['paid', 'Pago'],
+      ],
+      totals: (rows) => [
+        { label: 'Valor total', value: sumAmount(rows) },
+        { label: 'Pago', value: sumAmount(rows, (row) => row.status === 'paid') },
+        { label: 'Em aberto', value: sumAmount(rows, (row) => row.status === 'pending') },
+      ],
+    },
   },
   accounts: {
     title: 'Contas bancárias',
@@ -141,6 +172,26 @@ export const resources = {
       ['amount', 'Valor'],
       ['transactionDate', 'Data'],
     ],
+    list: {
+      dateKey: 'transactionDate',
+      dateLabel: 'Data da movimentação',
+      textKeys: ['description', 'category'],
+      textLabel: 'Descrição ou categoria',
+      statusKey: 'type',
+      statuses: [
+        ['income', 'Entrada'],
+        ['outcome', 'Saída'],
+      ],
+      totals: (rows) => {
+        const income = sumAmount(rows, (row) => row.type === 'income');
+        const outcome = sumAmount(rows, (row) => row.type === 'outcome');
+        return [
+          { label: 'Entradas', value: income },
+          { label: 'Saídas', value: outcome },
+          { label: 'Saldo', value: income - outcome },
+        ];
+      },
+    },
     isLocked: (row) => Boolean(row.orderId || row.expenseId),
   },
 } satisfies Record<string, ResourceConfig>;

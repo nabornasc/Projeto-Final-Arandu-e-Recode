@@ -2,10 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { SettleModal } from '../actions/SettleModal.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { ListFilters, ListTotals } from '../components/ListFilters.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
 import { formatCode, formatDate, formatMoney } from '../lib/format.ts';
+import { applyListFilters, useListFilters } from '../lib/listFilters.ts';
 
 interface Receivable {
   id: number;
@@ -25,6 +27,12 @@ export default function ReceivablesPage() {
   const canSettle = can(profile, 'receivables.settle');
   const list = useQuery({ queryKey: ['/receivables'], queryFn: () => api<Receivable[]>('/receivables') });
   const total = (list.data ?? []).reduce((sum, item) => sum + item.total, 0);
+  const control = useListFilters();
+  const loaded = list.data?.length ?? 0;
+  const visible = applyListFilters(list.data ?? [], control.filters, {
+    date: (item) => item.orderDate,
+    text: (item) => [item.customerName, formatCode(item.number), item.number],
+  });
 
   return (
     <section>
@@ -41,12 +49,16 @@ export default function ReceivablesPage() {
         ) : null}
       </div>
 
+      {loaded > 0 && (
+        <ListFilters control={control} dateLabel="Data do pedido" textLabel="Cliente ou número" />
+      )}
+
       <div className="panel table-panel">
         {list.isPending ? (
           <div className="loading">Carregando...</div>
         ) : list.isError ? (
           <EmptyState text={list.error.message} />
-        ) : list.data.length ? (
+        ) : visible.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -60,7 +72,7 @@ export default function ReceivablesPage() {
                 </tr>
               </thead>
               <tbody>
-                {list.data.map((item) => {
+                {visible.map((item) => {
                   const summary = item.items
                     .map((line) => `${line.quantity}x ${line.productName}`)
                     .join(', ');
@@ -91,9 +103,19 @@ export default function ReceivablesPage() {
             </table>
           </div>
         ) : (
-          <EmptyState text="Nenhum valor a receber. Tudo em dia!" />
+          <EmptyState
+            text={loaded ? 'Nenhum registro com esses filtros.' : 'Nenhum valor a receber. Tudo em dia!'}
+          />
         )}
       </div>
+
+      {loaded > 0 && (
+        <ListTotals
+          count={visible.length}
+          loaded={loaded}
+          totals={[{ label: 'Valor total', value: visible.reduce((sum, item) => sum + item.total, 0) }]}
+        />
+      )}
 
       {settling && (
         <SettleModal

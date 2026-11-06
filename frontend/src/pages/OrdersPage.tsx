@@ -1,19 +1,33 @@
+import { ORDER_STATUSES } from '@arandue/shared/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { ActionMenu } from '../actions/ActionMenu.tsx';
 import { orderActions } from '../actions/registry.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { ListFilters, ListTotals } from '../components/ListFilters.tsx';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
 import type { Order } from '../lib/documents.ts';
 import { formatCode, formatDate, formatMoney, label } from '../lib/format.ts';
+import { applyListFilters, useListFilters } from '../lib/listFilters.ts';
+
+const STATUSES = ORDER_STATUSES.map((status) => [status, label(status)] as const);
 
 export default function OrdersPage() {
   const profile = useProfile();
   const navigate = useNavigate();
   const canCreate = can(profile, 'orders.create');
   const orders = useQuery({ queryKey: ['/orders'], queryFn: () => api<Order[]>('/orders') });
+  const control = useListFilters();
+  const loaded = orders.data?.length ?? 0;
+  const visible = applyListFilters(orders.data ?? [], control.filters, {
+    date: (order) => order.orderDate,
+    status: (order) => order.status,
+    text: (order) => [order.customerName, formatCode(order.number), order.number],
+  });
+  // Pedido cancelado não é venda.
+  const sold = visible.filter((order) => order.status !== 'cancelled');
 
   return (
     <section>
@@ -30,12 +44,21 @@ export default function OrdersPage() {
         )}
       </div>
 
+      {loaded > 0 && (
+        <ListFilters
+          control={control}
+          dateLabel="Data do pedido"
+          textLabel="Cliente ou número"
+          statuses={STATUSES}
+        />
+      )}
+
       <div className="panel table-panel">
         {orders.isPending ? (
           <div className="loading">Carregando pedidos...</div>
         ) : orders.isError ? (
           <EmptyState text={orders.error.message} />
-        ) : orders.data.length ? (
+        ) : visible.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -50,7 +73,7 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.data.map((order) => {
+                {visible.map((order) => {
                   const code = formatCode(order.number);
                   const summary = order.items
                     .map((item) => `${item.quantity}x ${item.productName}`)
@@ -88,12 +111,28 @@ export default function OrdersPage() {
           </div>
         ) : (
           <EmptyState
-            text="Nenhum pedido cadastrado ainda."
-            action={canCreate ? 'Criar primeiro pedido' : undefined}
+            text={loaded ? 'Nenhum registro com esses filtros.' : 'Nenhum pedido cadastrado ainda.'}
+            action={canCreate && !loaded ? 'Criar primeiro pedido' : undefined}
             onClick={() => navigate('/pedidos/novo')}
           />
         )}
       </div>
+
+      {loaded > 0 && (
+        <ListTotals
+          count={visible.length}
+          loaded={loaded}
+          totals={[
+            { label: 'Valor total', value: sold.reduce((sum, order) => sum + order.total, 0) },
+            {
+              label: 'Em aberto',
+              value: sold
+                .filter((order) => order.status === 'pending')
+                .reduce((sum, order) => sum + order.total, 0),
+            },
+          ]}
+        />
+      )}
     </section>
   );
 }

@@ -7,6 +7,7 @@ Todas as mudanças relevantes do Arandu Gestão, por versão. O roadmap das pró
 ### Adicionado
 
 - **Espelho interno:** o orçamento ganha um documento só para a empresa, com custo por item, resumo por tipo, resultado e margem, e o aviso "Uso interno: não enviar ao cliente". Frete e outras despesas ficam fora da margem. Sem o custo de todos os itens, a margem não é calculada.
+- **Filtros nas listas:** orçamentos, pedidos, contas a receber, contas a pagar e movimentações ganham filtro de período com atalhos, status e busca, totais no rodapé e "Imprimir lista".
 - **Parcelas no orçamento:** vencimento, valor e forma, com geração automática e soma conferida com o total. Saem nos espelhos. Ainda não geram contas a receber por parcela.
 - **Grupos de itens:** cada item pode ter um grupo, como ambiente, etapa ou kit, com subtotal nos espelhos.
 - **Medidas opcionais:** ativadas em Configurações, com largura e comprimento em caixas separadas, digitados em mm, cm ou m. A quantidade é calculada em m².

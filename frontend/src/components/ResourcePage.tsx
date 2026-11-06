@@ -5,8 +5,10 @@ import { MONEY_COLUMNS, type ResourceConfig } from '../config/resources.ts';
 import { api } from '../lib/api.ts';
 import { can, useProfile } from '../lib/auth.ts';
 import { formatDate, formatMoney, label } from '../lib/format.ts';
+import { applyListFilters, useListFilters } from '../lib/listFilters.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { FormModal } from './FormModal.tsx';
+import { ListFilters, ListTotals } from './ListFilters.tsx';
 import { useToast } from './Toast.tsx';
 
 type Row = Record<string, unknown> & { id: number };
@@ -32,6 +34,16 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   };
 
   const list = useQuery({ queryKey: [config.endpoint], queryFn: () => api<Row[]>(config.endpoint) });
+  const control = useListFilters();
+  const listConfig = config.list;
+  const loaded = list.data?.length ?? 0;
+  const visible = listConfig
+    ? applyListFilters(list.data ?? [], control.filters, {
+        date: (row) => row[listConfig.dateKey] as string | null,
+        status: (row) => String(row[listConfig.statusKey ?? ''] ?? ''),
+        text: (row) => listConfig.textKeys.map((key) => row[key] as string | null),
+      })
+    : (list.data ?? []);
 
   // Alterar um registro pode mexer em outras telas (ex.: despesa paga cria movimentação),
   // então invalidamos tudo; só a tela visível é buscada de novo.
@@ -80,12 +92,21 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         )}
       </div>
 
+      {listConfig && loaded > 0 && (
+        <ListFilters
+          control={control}
+          dateLabel={listConfig.dateLabel}
+          textLabel={listConfig.textLabel}
+          statuses={listConfig.statuses}
+        />
+      )}
+
       <div className="panel table-panel">
         {list.isPending ? (
           <div className="loading">Carregando dados...</div>
         ) : list.isError ? (
           <EmptyState text={list.error.message} />
-        ) : list.data.length ? (
+        ) : visible.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -97,7 +118,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                 </tr>
               </thead>
               <tbody>
-                {list.data.map((row) => {
+                {visible.map((row) => {
                   const locked = config.isLocked?.(row) ?? false;
                   return (
                     <tr key={row.id}>
@@ -141,12 +162,20 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           </div>
         ) : (
           <EmptyState
-            text="Ainda não há registros cadastrados nesta seção."
-            action={allowed.create ? 'Adicionar primeiro' : undefined}
+            text={
+              loaded
+                ? 'Nenhum registro com esses filtros.'
+                : 'Ainda não há registros cadastrados nesta seção.'
+            }
+            action={allowed.create && !loaded ? 'Adicionar primeiro' : undefined}
             onClick={() => openForm(null)}
           />
         )}
       </div>
+
+      {listConfig && loaded > 0 && (
+        <ListTotals count={visible.length} loaded={loaded} totals={listConfig.totals(visible)} />
+      )}
 
       {modalOpen && (
         <FormModal

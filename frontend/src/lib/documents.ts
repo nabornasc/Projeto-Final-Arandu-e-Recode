@@ -51,6 +51,7 @@ export interface Quote {
   siteContact: string | null;
   siteAddress: string | null;
   installments: Installment[];
+  createdAt: string;
   sellerName: string | null;
   // Último envio. Continua preenchido depois de reabrir: o documento já saiu da empresa.
   sentAt: string | null;
