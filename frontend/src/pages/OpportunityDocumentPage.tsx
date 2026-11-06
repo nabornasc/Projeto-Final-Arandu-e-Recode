@@ -74,7 +74,9 @@ function OpportunityEditor({
     nextAction: opportunity?.nextAction ?? '',
     nextActionAt: opportunity?.nextActionAt ?? '',
   });
-  const [customerId, setCustomerId] = useState(opportunity?.customerId ? String(opportunity.customerId) : '');
+  const [customerId, setCustomerId] = useState(
+    opportunity?.customerId ? String(opportunity.customerId) : (tab.params.customerId ?? ''),
+  );
   const [lines, setLines] = useState<Line[]>(() =>
     opportunity?.items.length
       ? opportunity.items.map((item) => newLine({ ...item, unitPrice: item.unitPrice ?? item.catalogPrice }))
@@ -274,6 +276,11 @@ function OpportunityEditor({
             disabled={!editable}
             emptyLabel="Ainda não é cliente"
           />
+          {opportunity?.customerId && can(profile, 'customers.read') && (
+            <p className="full-row file-link">
+              <Link to={`/clientes/${opportunity.customerId}/ficha`}>Ver ficha do cliente</Link>
+            </p>
+          )}
           <label>
             Origem
             <input

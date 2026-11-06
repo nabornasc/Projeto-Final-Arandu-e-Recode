@@ -75,7 +75,7 @@ function QuoteEditor({ quote, opportunity }: { quote: Quote | null; opportunity:
     ? quote.status === 'draft' && can(profile, 'quotes.update')
     : can(profile, 'quotes.create');
 
-  const seedCustomer = quote?.customerId ?? opportunity?.customerId;
+  const seedCustomer = quote?.customerId ?? opportunity?.customerId ?? tab.params.customerId;
   const [customerId, setCustomerId] = useState(seedCustomer ? String(seedCustomer) : '');
   const [validUntil, setValidUntil] = useState(quote?.validUntil ?? '');
   const [discount, setDiscount] = useState(String(quote?.discount ?? 0));

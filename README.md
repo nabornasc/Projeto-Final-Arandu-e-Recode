@@ -199,6 +199,7 @@ GET|POST        /pipeline-stages  PUT|DELETE /pipeline-stages/:id   PUT /pipelin
 GET             /trace/:tipo/:id  (cadeia do documento: quote ou order)
 GET             /history/:tipo/:id   GET /history/entry/:id  (histórico do documento e detalhe de um registro)
 GET             /history   GET /history/options  (tela de auditoria: filtros e paginação; exige audit.read)
+GET             /customers/:id/file  (ficha do cliente: CRM, documentos e financeiro, conforme as permissões)
 GET             /receivables      POST /receivables/:id/settle  (contas a receber)
 POST            /receivables/settle  POST /receivable-payments/:id/reverse  POST /orders/:id/undo-payments  (baixa em lote e estorno; os dois últimos pedem senha e motivo)
 GET|POST        /access-groups    GET|PUT|DELETE /access-groups/:id

@@ -435,11 +435,14 @@ export async function listHistory(ctx: Ctx, input: HistoryFilterInput) {
     eq(auditLogs.companyId, ctx.companyId),
     filter.userId ? eq(auditLogs.userId, filter.userId) : undefined,
     filter.action ? eq(auditLogs.action, filter.action) : undefined,
+    // Módulo que não existe não tem registros.
     entities
-      ? sql`${auditLogs.entity} IN (${sql.join(
-          entities.map((entity) => sql`${entity}`),
-          sql`, `,
-        )})`
+      ? entities.length
+        ? sql`${auditLogs.entity} IN (${sql.join(
+            entities.map((entity) => sql`${entity}`),
+            sql`, `,
+          )})`
+        : sql`false`
       : undefined,
     filter.from ? gte(auditLogs.createdAt, filter.from) : undefined,
     filter.to ? lte(auditLogs.createdAt, filter.to) : undefined,

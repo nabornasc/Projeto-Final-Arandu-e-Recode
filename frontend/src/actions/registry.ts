@@ -11,6 +11,7 @@ import {
   FileText,
   HandCoins,
   Handshake,
+  History,
   Link2,
   Link2Off,
   type LucideIcon,
@@ -546,6 +547,15 @@ export const personActions: RecordAction<PersonSummary>[] = [
         .slice(0, 1)
         .map((area) => `${area}.read` as const),
     run: (person, kit) => kit.open(`/pessoas/${person.id}`),
+  },
+  {
+    id: 'person.file',
+    group: 'open',
+    label: 'Ficha do cliente',
+    icon: History,
+    permissions: ['customers.read'],
+    when: (person) => person.isCustomer,
+    run: (person, kit) => kit.open(`/clientes/${person.id}/ficha`),
   },
   {
     id: 'person.delete',

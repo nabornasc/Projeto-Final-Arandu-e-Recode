@@ -8,6 +8,7 @@ import * as accessGroups from '../services/accessGroups.ts';
 import * as bankAccounts from '../services/bankAccounts.ts';
 import * as company from '../services/company.ts';
 import * as copies from '../services/copies.ts';
+import { getCustomerFile } from '../services/customerFile.ts';
 import * as customers from '../services/customers.ts';
 import { getDashboard } from '../services/dashboard.ts';
 import * as expenses from '../services/expenses.ts';
@@ -76,6 +77,9 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     );
     protectedApp.get('/lookup/cep/:cep', { config: lookupLimit }, (request) =>
       lookup.lookupZip(ctxOf(request), (request.params as { cep: string }).cep),
+    );
+    protectedApp.get('/customers/:id/file', (request) =>
+      getCustomerFile(ctxOf(request), idParamSchema.parse(request.params).id),
     );
     crudRoutes(protectedApp, '/customers', {
       list: customers.listCustomers,

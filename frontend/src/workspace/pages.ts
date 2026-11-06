@@ -25,6 +25,7 @@ const PAGES: PageDefinition[] = [
   { pattern: '/crm', title: titleOf('/crm'), Component: lazy(() => import('../pages/CrmPage.tsx')) },
   { pattern: '/crm/novo', title: 'Nova oportunidade', Component: OpportunityDocument },
   { pattern: '/crm/novo/:stageId', title: 'Nova oportunidade', Component: OpportunityDocument },
+  { pattern: '/crm/novo/cliente/:customerId', title: 'Nova oportunidade', Component: OpportunityDocument },
   { pattern: '/crm/:opportunityId/orcamento', title: 'Novo orçamento', Component: QuoteDocument },
   { pattern: '/crm/:id', title: 'Oportunidade', Component: OpportunityDocument },
   {
@@ -33,6 +34,7 @@ const PAGES: PageDefinition[] = [
     Component: lazy(() => import('../pages/QuotesPage.tsx')),
   },
   { pattern: '/orcamentos/novo', title: 'Novo orçamento', Component: QuoteDocument },
+  { pattern: '/orcamentos/novo/cliente/:customerId', title: 'Novo orçamento', Component: QuoteDocument },
   { pattern: '/orcamentos/:id', title: 'Orçamento', Component: QuoteDocument },
   {
     pattern: '/pedidos',
@@ -40,6 +42,7 @@ const PAGES: PageDefinition[] = [
     Component: lazy(() => import('../pages/OrdersPage.tsx')),
   },
   { pattern: '/pedidos/novo', title: 'Novo pedido', Component: OrderDocument },
+  { pattern: '/pedidos/novo/cliente/:customerId', title: 'Novo pedido', Component: OrderDocument },
   { pattern: '/pedidos/:id', title: 'Pedido', Component: OrderDocument },
   {
     pattern: '/auditoria',
@@ -67,6 +70,11 @@ const PAGES: PageDefinition[] = [
   { pattern: '/transportadoras/novo', title: 'Nova transportadora', Component: PersonDocument },
   { pattern: '/representantes/novo', title: 'Novo representante', Component: PersonDocument },
   { pattern: '/pessoas/:id', title: 'Cadastro', Component: PersonDocument },
+  {
+    pattern: '/clientes/:id/ficha',
+    title: 'Ficha do cliente',
+    Component: lazy(() => import('../pages/CustomerFilePage.tsx')),
+  },
   { pattern: '/despesas', title: titleOf('/despesas'), Component: resourcePage('ExpensesPage') },
   { pattern: '/contas', title: titleOf('/contas'), Component: resourcePage('AccountsPage') },
   {

@@ -99,7 +99,7 @@ async function defaultAccountId(tx: Transaction, ctx: Ctx): Promise<number | nul
 }
 
 // Data de hoje no Brasil, para a baixa sem data informada: o servidor roda em UTC.
-const todayInBrazil = () =>
+export const todayInBrazil = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
 type Installment = { dueDate: string; amount: number; method: string | null };

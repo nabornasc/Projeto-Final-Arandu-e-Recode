@@ -61,7 +61,9 @@ function OrderEditor({ order }: { order: Order | null }) {
     ? order.status !== 'cancelled' && can(profile, 'orders.update')
     : can(profile, 'orders.create');
 
-  const [customerId, setCustomerId] = useState(order?.customerId ? String(order.customerId) : '');
+  const [customerId, setCustomerId] = useState(
+    order?.customerId ? String(order.customerId) : (tab.params.customerId ?? ''),
+  );
   const [orderDate, setOrderDate] = useState(order?.orderDate ?? todayIso());
   const [discount, setDiscount] = useState(String(order?.discount ?? 0));
   const [notes, setNotes] = useState(order?.notes ?? '');

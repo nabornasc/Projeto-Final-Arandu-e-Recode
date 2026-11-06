@@ -220,6 +220,52 @@ test('baixa parcial com juros, baixa em lote e estorno com motivo', async ({ pag
   await expect(payments.getByText('Estornada: Pagamento não compensado')).toBeVisible();
 });
 
+test('ficha do cliente reúne CRM e documentos, e o atendimento vai para o CRM', async ({ page }) => {
+  await page.goto('/clientes');
+  await page.getByRole('button', { name: 'Ações: João Pedro Martins' }).click();
+  await page.getByRole('menuitem', { name: 'Ficha do cliente' }).click();
+  await expect(page).toHaveURL(/\/clientes\/\d+\/ficha$/);
+  await expect(page.getByRole('heading', { name: 'João Pedro Martins' })).toBeVisible();
+  await capture(page, 'ficha-historico');
+
+  const description = `Atendimento da ficha ${Date.now()}`;
+  await page.getByLabel('Tipo de atividade').selectOption({ label: 'Ligação' });
+  await page.getByLabel('O que aconteceu').fill(description);
+  await page.getByRole('button', { name: 'Registrar' }).click();
+  await expect(toast(page, 'registrado no CRM')).toBeVisible();
+  await expect(page.locator('.timeline').getByText(description)).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Resumo' }).click();
+  await expect(page.getByRole('table', { name: 'O que o cliente compra' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Orçamentos' }).click();
+  await expect(page.getByRole('heading', { name: /Finalizados/ })).toBeVisible();
+  await page.getByRole('tab', { name: 'Pedidos' }).click();
+  await expect(page.getByRole('table', { name: 'Pedidos em aberto' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Financeiro' }).click();
+  await expect(page.getByRole('table', { name: 'Contas em aberto do cliente' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Vencida' }).first()).toBeVisible();
+  await capture(page, 'ficha-financeiro');
+
+  // O mesmo atendimento está na oportunidade do CRM, que volta para a ficha.
+  await page.getByRole('tab', { name: 'Oportunidades' }).click();
+  const row = page.getByRole('table', { name: 'Oportunidades do cliente' }).getByRole('row');
+  await expect(row.nth(1)).toBeVisible();
+  await page.getByRole('tab', { name: 'Histórico' }).click();
+  await page.locator('.timeline li').filter({ hasText: description }).getByRole('link').click();
+  await expect(page).toHaveURL(/\/crm\/\d+$/);
+  await expect(page.locator('.timeline').getByText(description)).toBeVisible();
+  await page.getByRole('link', { name: 'Ver ficha do cliente' }).click();
+  await expect(page).toHaveURL(/\/clientes\/\d+\/ficha$/);
+
+  // Documento novo a partir da ficha já vem com o cliente.
+  await page.getByRole('tab', { name: 'Pedidos' }).click();
+  await page.getByRole('link', { name: 'Novo pedido' }).click();
+  await expect(page).toHaveURL(/\/pedidos\/novo\/cliente\/\d+$/);
+  await expect(page.locator('select[name="customerId"]:visible').locator('option:checked')).toHaveText(
+    /João Pedro Martins/,
+  );
+});
+
 test('despesa com fornecedor aparece na lista e na busca', async ({ page }) => {
   await page.goto('/despesas');
   await page.getByRole('button', { name: 'Novo registro' }).click();

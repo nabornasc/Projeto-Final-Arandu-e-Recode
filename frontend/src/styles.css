@@ -1378,6 +1378,88 @@ dialog.modal::backdrop {
   background: #fff;
   color: #33284e;
 }
+.customer-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  align-items: start;
+  gap: 16px;
+}
+.customer-file a:not(.button):not(.link-cell),
+.file-link a {
+  color: #6444c0;
+}
+.customer-file a.button,
+.document-actions a.button {
+  text-decoration: none;
+}
+.customer-file-main {
+  min-width: 0;
+}
+.customer-file-side h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.customer-file-main .section-tabs {
+  flex-wrap: wrap;
+}
+.file-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.file-heading h3 {
+  margin: 0;
+}
+.file-subtitle {
+  margin: 18px 0 8px;
+  color: #392e52;
+  font-size: 13px;
+}
+.file-facts {
+  margin: 0;
+}
+.file-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1eef6;
+  font-size: 12px;
+}
+.file-facts dt {
+  color: #6b6280;
+}
+.file-facts dd {
+  margin: 0;
+  color: #392e52;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.file-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+.file-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.file-link {
+  margin: 0;
+  font-size: 12px;
+}
+@media (max-width: 860px) {
+  .customer-file {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .history-list {
   margin: 0;
   padding: 0;
