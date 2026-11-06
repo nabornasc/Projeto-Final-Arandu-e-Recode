@@ -13,7 +13,7 @@ LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
     'companies', 'access_groups', 'access_group_permissions', 'users', 'people', 'person_contacts',
     'person_addresses', 'products', 'pipeline_stages', 'opportunities', 'opportunity_items',
     'interactions', 'bank_accounts', 'expenses', 'quotes', 'quote_items', 'orders', 'order_items',
-    'receivables', 'cash_transactions', 'audit_logs', 'events'
+    'receivables', 'receivable_payments', 'cash_transactions', 'audit_logs', 'events'
   ]
 $$;
 

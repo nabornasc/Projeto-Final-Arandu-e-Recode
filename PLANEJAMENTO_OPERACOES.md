@@ -1,6 +1,6 @@
 # Planejamento: pedidos, notas fiscais, títulos, baixas, agenda, compras e estoque
 
-Análise de 06/11/2026, feita a partir de 26 prints de um ERP de mercado voltado a marmorarias. **As etapas 1 e 2 foram feitas em 06/11/2026. As demais continuam guardadas, sem versão definida.**
+Análise de 06/11/2026, feita a partir de 26 prints de um ERP de mercado voltado a marmorarias. **As etapas 1, 2 e 3 foram feitas em 06/11/2026. As demais continuam guardadas, sem versão definida.**
 
 Os prints têm dados reais de empresas e pessoas. Eles não entram no repositório, e este arquivo só registra a estrutura das telas.
 
@@ -149,7 +149,7 @@ Segundo grupo de prints, também de 06/11/2026.
 |---|---|---|
 | 1 (feita) | Filtros de período e avançados, totais no rodapé, imprimir lista | Melhora várias telas, sem mudar o banco. Filtra na tela, sobre os 500 registros mais recentes que a API devolve |
 | 2 (feita) | Contas a receber por parcela, com valor pago e saldo, baixa por parcela e fornecedor na despesa | Base das demais etapas e item F da v2.6. A despesa continua como lançamento único. Valor parcial dentro de uma parcela fica na etapa 3 |
-| 3 | Baixa em vários títulos, parcial, com juros e desconto, e estorno | Depende da etapa 2 |
+| 3 (feita) | Baixa em vários títulos, parcial, com juros e desconto, e estorno, nas contas a receber | Cada baixa é um registro, e o estorno exige permissão própria, senha de login e motivo, assim como cancelar, excluir ou voltar para pendente um pedido com baixa. Juros e desconto ajustam o faturamento dos pedidos quitados. A despesa segue como lançamento único |
 | 4 | Unidade e grupo no produto, estoque mínimo, histórico do cliente | Independentes, podem ser antecipados |
 | 5 | Agenda e ajuste de estoque | A agenda ganha mais conteúdo depois dos títulos |
 | 6 | Compras simples, entrega no pedido, renegociação, adiantamentos | Só se ainda houver interesse |

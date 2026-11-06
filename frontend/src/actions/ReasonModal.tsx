@@ -8,7 +8,9 @@ export interface ReasonRequest {
   description?: string;
   confirmLabel: string;
   suggestions: string[];
-  submit: (reason: string) => Promise<unknown>;
+  // Operação sensível: também pede a senha de quem está logado.
+  withPassword?: boolean;
+  submit: (reason: string, password: string) => Promise<unknown>;
   message: string;
 }
 
@@ -22,9 +24,10 @@ interface Props {
 export function ReasonModal({ request, onClose, onDone }: Props) {
   const listId = useId();
   const [reason, setReason] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
-    mutationFn: () => request.submit(reason.trim()),
+    mutationFn: () => request.submit(reason.trim(), password),
     onSuccess: onDone,
     onError: (err) => setError(err.message),
   });
@@ -32,6 +35,7 @@ export function ReasonModal({ request, onClose, onDone }: Props) {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!reason.trim()) return setError('Informe o motivo.');
+    if (request.withPassword && !password) return setError('Informe a sua senha.');
     setError(null);
     save.mutate();
   }
@@ -57,6 +61,20 @@ export function ReasonModal({ request, onClose, onDone }: Props) {
               ))}
             </datalist>
           </label>
+          {request.withPassword && (
+            <label className="full-row">
+              Sua senha de login
+              <input
+                type="password"
+                name="confirmPassword"
+                autoComplete="current-password"
+                maxLength={128}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+          )}
         </div>
         {error && (
           <p className="form-error" role="alert">

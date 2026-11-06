@@ -25,7 +25,14 @@ export const newInstallment = (initial?: {
 export const rowsToInstallments = (rows: InstallmentRow[]) =>
   rows.map((row) => ({ dueDate: row.dueDate, amount: Number(row.amount), method: row.method }));
 
-const METHODS = ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito', 'Boleto', 'Transferência'];
+export const METHODS = [
+  'Pix',
+  'Dinheiro',
+  'Cartão de crédito',
+  'Cartão de débito',
+  'Boleto',
+  'Transferência',
+];
 
 // Mesmo dia nos meses seguintes. Dia 31 em mês mais curto cai no último dia do mês.
 function addMonths(iso: string, months: number) {
@@ -241,7 +248,9 @@ export function ReceivablesTable({ receivables }: { receivables: OrderReceivable
               <td>{item.method ?? '—'}</td>
               <td>{formatMoney(item.amount)}</td>
               <td>{formatMoney(item.paidAmount)}</td>
-              <td>{RECEIVABLE_STATUS[item.status]}</td>
+              <td>
+                {item.status === 'open' && item.paidAmount > 0 ? 'Parcial' : RECEIVABLE_STATUS[item.status]}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { SettleModal } from '../actions/SettleModal.tsx';
+import { Link } from 'react-router';
+import { ReceivablesSettleModal, type SettleTarget } from '../actions/ReceivablesSettleModal.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { ListFilters, ListTotals } from '../components/ListFilters.tsx';
 import { useToast } from '../components/Toast.tsx';
@@ -19,6 +20,7 @@ interface Receivable {
   dueDate: string;
   amount: number;
   paidAmount: number;
+  received: number;
   method: string | null;
   status: 'open' | 'settled';
 }
@@ -32,6 +34,7 @@ const partLabel = (item: Receivable) =>
   item.titleCount > 1 ? `${item.position}/${item.titleCount}` : 'Única';
 const titleOf = (item: Receivable) =>
   `pedido ${formatCode(item.number)}${item.titleCount > 1 ? `, parcela ${partLabel(item)}` : ''}`;
+const balanceOf = (row: Receivable) => Math.round((row.amount - row.paidAmount) * 100) / 100;
 const sum = (rows: Receivable[], value: (row: Receivable) => number) =>
   rows.reduce((total, row) => total + value(row), 0);
 
@@ -40,7 +43,8 @@ export default function ReceivablesPage() {
   const profile = useProfile();
   const notify = useToast();
   const client = useQueryClient();
-  const [settling, setSettling] = useState<Receivable | null>(null);
+  const [settling, setSettling] = useState<Receivable[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const canSettle = can(profile, 'receivables.settle');
   const list = useQuery({ queryKey: ['/receivables'], queryFn: () => api<Receivable[]>('/receivables') });
   const control = useListFilters({ status: 'open' });
@@ -53,6 +57,22 @@ export default function ReceivablesPage() {
   const today = todayIso();
   const isOverdue = (item: Receivable) => item.status === 'open' && item.dueDate < today;
   const open = visible.filter((item) => item.status === 'open');
+  const selected = open.filter((item) => selectedIds.has(item.id));
+  const toggle = (ids: number[], on: boolean) =>
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  const targets: SettleTarget[] = (settling ?? []).map((item) => ({
+    id: item.id,
+    label: titleOf(item),
+    customerName: item.customerName,
+    balance: balanceOf(item),
+  }));
 
   return (
     <section>
@@ -73,6 +93,18 @@ export default function ReceivablesPage() {
         />
       )}
 
+      {canSettle && selected.length > 0 && (
+        <div className="list-selection">
+          <span>
+            {selected.length} selecionada{selected.length > 1 ? 's' : ''} ·{' '}
+            <strong>{formatMoney(sum(selected, balanceOf))}</strong>
+          </span>
+          <button type="button" className="button primary" onClick={() => setSettling(selected)}>
+            Dar baixa nas selecionadas
+          </button>
+        </div>
+      )}
+
       <div className="panel table-panel">
         {list.isPending ? (
           <div className="loading">Carregando...</div>
@@ -83,6 +115,22 @@ export default function ReceivablesPage() {
             <table>
               <thead>
                 <tr>
+                  {canSettle && (
+                    <th className="select-cell">
+                      <input
+                        type="checkbox"
+                        aria-label="Selecionar todas as contas em aberto"
+                        disabled={!open.length}
+                        checked={open.length > 0 && selected.length === open.length}
+                        onChange={(event) =>
+                          toggle(
+                            open.map((item) => item.id),
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </th>
+                  )}
                   <th>Pedido</th>
                   <th>Parcela</th>
                   <th>Cliente</th>
@@ -97,8 +145,22 @@ export default function ReceivablesPage() {
               <tbody>
                 {visible.map((item) => (
                   <tr key={item.id}>
+                    {canSettle && (
+                      <td className="select-cell">
+                        {item.status === 'open' && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${titleOf(item)}`}
+                            checked={selectedIds.has(item.id)}
+                            onChange={(event) => toggle([item.id], event.target.checked)}
+                          />
+                        )}
+                      </td>
+                    )}
                     <td>
-                      <strong>{formatCode(item.number)}</strong>
+                      <Link className="link-cell" to={`/pedidos/${item.orderId}`}>
+                        <strong>{formatCode(item.number)}</strong>
+                      </Link>
                     </td>
                     <td>{partLabel(item)}</td>
                     <td>{item.customerName ?? 'Cliente não informado'}</td>
@@ -106,7 +168,7 @@ export default function ReceivablesPage() {
                     <td>{item.method ?? '—'}</td>
                     <td>{formatMoney(item.amount)}</td>
                     <td>
-                      <strong>{formatMoney(item.amount - item.paidAmount)}</strong>
+                      <strong>{formatMoney(balanceOf(item))}</strong>
                     </td>
                     <td>
                       {item.status === 'settled' ? (
@@ -114,15 +176,18 @@ export default function ReceivablesPage() {
                       ) : isOverdue(item) ? (
                         <span className="status cancelled">Vencida</span>
                       ) : (
-                        <span className="status pending">Em aberto</span>
+                        <span className="status pending">
+                          {item.paidAmount > 0 ? 'Parcial' : 'Em aberto'}
+                        </span>
                       )}
+                      {isOverdue(item) && item.paidAmount > 0 && <small className="muted"> · parcial</small>}
                     </td>
                     <td className="actions">
                       {canSettle && item.status === 'open' && (
                         <button
                           type="button"
                           aria-label={`Dar baixa: ${titleOf(item)}`}
-                          onClick={() => setSettling(item)}
+                          onClick={() => setSettling([item])}
                         >
                           Dar baixa
                         </button>
@@ -148,27 +213,30 @@ export default function ReceivablesPage() {
           loaded={loaded}
           totals={[
             { label: 'Valor total', value: sum(visible, (row) => row.amount) },
-            { label: 'Recebido', value: sum(visible, (row) => row.paidAmount) },
-            { label: 'Em aberto', value: sum(open, (row) => row.amount - row.paidAmount) },
-            {
-              label: 'Vencido',
-              value: sum(open.filter(isOverdue), (row) => row.amount - row.paidAmount),
-            },
+            { label: 'Recebido', value: sum(visible, (row) => row.received) },
+            { label: 'Em aberto', value: sum(open, balanceOf) },
+            { label: 'Vencido', value: sum(open.filter(isOverdue), balanceOf) },
           ]}
         />
       )}
 
       {settling && (
-        <SettleModal
-          title={`Dar baixa: ${titleOf(settling)}`}
-          customerName={settling.customerName}
-          amount={settling.amount - settling.paidAmount}
-          endpoint={`/receivables/${settling.id}/settle`}
+        <ReceivablesSettleModal
+          targets={targets}
           onClose={() => setSettling(null)}
           onSettled={() => {
+            const [first] = settling;
+            notify(
+              settling.length === 1 && first
+                ? `Baixa do ${titleOf(first)} registrada no caixa.`
+                : `Baixa de ${settling.length} contas registrada no caixa.`,
+            );
             setSettling(null);
+            toggle(
+              settling.map((item) => item.id),
+              false,
+            );
             void client.invalidateQueries();
-            notify(`Baixa do ${titleOf(settling)} registrada no caixa.`);
           }}
         />
       )}

@@ -948,6 +948,42 @@ dialog.modal {
   padding: 0;
   max-height: 90vh;
 }
+dialog.modal.wide {
+  width: min(900px, 100%);
+}
+.settle-table {
+  margin-top: 14px;
+}
+.settle-table input {
+  width: 100%;
+  min-width: 80px;
+  border: 1px solid #e2ddea;
+  border-radius: 7px;
+  padding: 8px;
+  color: #3b324c;
+  font-size: 12px;
+  background: #fff;
+}
+.settle-customer {
+  display: block;
+}
+.order-payments {
+  margin-top: 14px;
+}
+.list-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media print {
+  .list-selection,
+  .select-cell {
+    display: none;
+  }
+}
 dialog.modal::backdrop {
   background: #211a3575;
 }

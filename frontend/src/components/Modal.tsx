@@ -6,10 +6,11 @@ interface Props {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 }
 
 // <dialog> nativo: prende o foco dentro do modal, fecha com Esc e é anunciado por leitores de tela.
-export function Modal({ eyebrow, title, onClose, children }: Props) {
+export function Modal({ eyebrow, title, onClose, children, wide }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -23,7 +24,7 @@ export function Modal({ eyebrow, title, onClose, children }: Props) {
     // biome-ignore lint/a11y/useKeyWithClickEvents: o equivalente de teclado é o Esc nativo do <dialog> (onCancel).
     <dialog
       ref={ref}
-      className="modal"
+      className={wide ? 'modal wide' : 'modal'}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();

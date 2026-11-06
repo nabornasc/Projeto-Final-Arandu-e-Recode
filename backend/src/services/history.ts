@@ -138,6 +138,7 @@ const FIELDS: Record<string, { label: string; kind: FieldKind }> = {
   status: { label: 'Status', kind: 'status' },
   bankAccount: { label: 'Conta', kind: 'text' },
   receivable: { label: 'Baixa de parcela', kind: 'text' },
+  reversal: { label: 'Estorno de baixa', kind: 'text' },
   supplier: { label: 'Fornecedor', kind: 'text' },
   // Produtos.
   name: { label: 'Nome', kind: 'text' },
@@ -234,6 +235,7 @@ const OPPORTUNITY_STATUS_SUMMARY: Record<string, string> = {
 
 function orderStatusSummary({ from, to, via }: AuditData) {
   if (via === 'receivables') return 'Deu baixa no recebimento';
+  if (via === 'reversal') return 'Estornou a baixa';
   if (to === 'paid') return 'Marcou como pago';
   if (to === 'completed') return 'Concluiu';
   if (to === 'cancelled') return 'Cancelou';
@@ -259,6 +261,7 @@ function updateSummary(data: AuditData) {
   if (data.opportunity !== undefined) return 'Alterou o vínculo com a oportunidade';
   // O total é consequência das outras mudanças: só aparece se for a única.
   const fields = (data.changes ?? []).map((change) => change.field);
+  if (fields.includes('reversal')) return 'Estornou a baixa';
   const main = fields.filter((field) => field !== 'total');
   const names = (main.length ? main : fields).map((field) => FIELDS[field]?.label.toLowerCase() ?? field);
   if (data.items?.length) names.push('itens');

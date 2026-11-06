@@ -183,6 +183,17 @@ export async function apiRoutes(app: FastifyInstance): Promise<void> {
     protectedApp.post('/orders/:id/settle', (request) =>
       orders.settleOrder(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
     );
+    protectedApp.post('/receivables/settle', (request) =>
+      orders.settleReceivables(ctxOf(request), request.body as never),
+    );
+    // Rotas que conferem a senha: o mesmo limite do login, contra tentativa e erro.
+    const passwordLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } };
+    protectedApp.post('/receivable-payments/:id/reverse', { config: passwordLimit }, (request) =>
+      orders.reversePayment(ctxOf(request), idParamSchema.parse(request.params).id, request.body),
+    );
+    protectedApp.post('/orders/:id/undo-payments', { config: passwordLimit }, (request) =>
+      orders.undoOrderPayments(ctxOf(request), idParamSchema.parse(request.params).id, request.body),
+    );
     protectedApp.post('/receivables/:id/settle', (request) =>
       orders.settleReceivable(ctxOf(request), idParamSchema.parse(request.params).id, request.body as never),
     );

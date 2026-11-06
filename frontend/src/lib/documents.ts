@@ -142,6 +142,22 @@ export interface OrderReceivable {
   status: 'open' | 'settled' | 'cancelled';
 }
 
+export interface OrderPayment {
+  id: number;
+  receivableId: number;
+  paidOn: string;
+  principal: number;
+  interest: number;
+  discount: number;
+  received: number;
+  method: string | null;
+  notes: string | null;
+  bankName: string | null;
+  accountName: string | null;
+  reversedAt: string | null;
+  reversalReason: string | null;
+}
+
 export interface Order {
   id: number;
   number: number;
@@ -155,6 +171,7 @@ export interface Order {
   originKind: 'converted' | 'duplicated' | 'copied' | null;
   orderDate: string;
   receivables: OrderReceivable[];
+  payments: OrderPayment[];
   status: OrderStatus;
   discount: number;
   freight: number;

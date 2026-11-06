@@ -122,7 +122,7 @@ export function ActionHost({ children }: { children: ReactNode }) {
             customerName={settling.customerName}
             amount={settling.receivables
               .filter((item) => item.status === 'open')
-              .reduce((sum, item) => sum + item.amount, 0)}
+              .reduce((sum, item) => sum + item.amount - item.paidAmount, 0)}
             endpoint={`/orders/${settling.id}/settle`}
             onClose={() => setSettling(null)}
             onSettled={() => {

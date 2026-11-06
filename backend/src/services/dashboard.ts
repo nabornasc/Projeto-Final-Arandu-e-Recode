@@ -12,6 +12,14 @@ interface Summary extends Record<string, unknown> {
   mei_annual_limit: string | null;
 }
 
+// Juros e descontos dados na baixa mudam o valor faturado dos pedidos quitados.
+const settlementAdjustment = (companyId: number, period: 'month' | 'year') => sql`
+  COALESCE((SELECT SUM(p.interest - p.discount)
+            FROM receivable_payments p JOIN orders o ON o.id = p.order_id
+            WHERE p.company_id = ${companyId} AND p.reversed_at IS NULL
+              AND o.status IN ('paid', 'completed')
+              AND o.order_date >= date_trunc(${period}, CURRENT_DATE)), 0)`;
+
 // Resumo do mês corrente. Os KPIs completos (ticket médio, conversão, funil) chegam na semana 3.
 export async function getDashboard(ctx: Ctx) {
   authorize(ctx, 'analytics.read');
@@ -21,7 +29,8 @@ export async function getDashboard(ctx: Ctx) {
     SELECT
       COALESCE((SELECT SUM(total) FROM orders
                 WHERE company_id = ${companyId} AND status IN ('paid', 'completed')
-                  AND order_date >= date_trunc('month', CURRENT_DATE)), 0) AS revenue_month,
+                  AND order_date >= date_trunc('month', CURRENT_DATE)), 0)
+      + ${settlementAdjustment(companyId, 'month')} AS revenue_month,
       COALESCE((SELECT SUM(amount) FROM expenses
                 WHERE company_id = ${companyId} AND status = 'paid'
                   AND expense_date >= date_trunc('month', CURRENT_DATE)), 0) AS expenses_month,
@@ -34,7 +43,8 @@ export async function getDashboard(ctx: Ctx) {
       (SELECT COUNT(*)::int FROM orders WHERE company_id = ${companyId} AND status = 'pending') AS pending_orders,
       COALESCE((SELECT SUM(total) FROM orders
                 WHERE company_id = ${companyId} AND status IN ('paid', 'completed')
-                  AND order_date >= date_trunc('year', CURRENT_DATE)), 0) AS revenue_year,
+                  AND order_date >= date_trunc('year', CURRENT_DATE)), 0)
+      + ${settlementAdjustment(companyId, 'year')} AS revenue_year,
       (SELECT mei_annual_limit FROM companies WHERE id = ${companyId}) AS mei_annual_limit
   `);
 

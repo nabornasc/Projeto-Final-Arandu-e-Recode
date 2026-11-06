@@ -70,7 +70,7 @@ export interface RecordAction<T> {
   when?: (record: T) => boolean;
   // Além das permissões: nenhum grupo pode receber esta ação, só o Proprietário.
   ownerOnly?: (record: T) => boolean;
-  confirm?: (record: T) => string;
+  confirm?: (record: T) => string | null;
   danger?: boolean;
   run(record: T, kit: ActionKit): void | Promise<void>;
 }
@@ -276,6 +276,11 @@ const baseQuoteActions: RecordAction<Quote>[] = [
 const setOrderStatus = (order: Order, kit: ActionKit, status: string, message: string) =>
   kit.request(`/orders/${order.id}`, { method: 'PUT', body: { status } }).then(() => kit.done(message));
 
+const hasPayments = (order: Order) => order.receivables.some((item) => item.paidAmount > 0);
+const undoPayments =
+  (order: Order, kit: ActionKit, action: 'cancel' | 'delete') => (reason: string, password: string) =>
+    kit.request(`/orders/${order.id}/undo-payments`, { method: 'POST', body: { action, reason, password } });
+
 const baseOrderActions: RecordAction<Order>[] = [
   {
     id: 'order.open',
@@ -306,19 +311,27 @@ const baseOrderActions: RecordAction<Order>[] = [
     label: 'Cancelar pedido',
     icon: XCircle,
     danger: true,
-    // Cancelar um pedido já recebido também mexe no caixa.
-    permissions: (o) =>
-      RECEIVED.includes(o.status) ? ['orders.cancel', 'receivables.settle'] : ['orders.cancel'],
+    // Cancelar um pedido já recebido também mexe no caixa, e com baixa registrada, estorna.
+    permissions: (o) => [
+      'orders.cancel',
+      ...(RECEIVED.includes(o.status) ? (['receivables.settle'] as const) : []),
+      ...(hasPayments(o) ? (['receivables.reverse'] as const) : []),
+    ],
     when: (o) => o.status !== 'cancelled',
     run: async (o, kit) =>
       kit.askReason({
         eyebrow: 'PEDIDO',
         title: `Cancelar o pedido ${formatCode(o.number)}`,
-        description: 'O estoque será devolvido.',
+        description: hasPayments(o)
+          ? 'O estoque será devolvido, e as baixas serão estornadas: os valores saem do caixa.'
+          : 'O estoque será devolvido.',
+        withPassword: hasPayments(o),
         confirmLabel: 'Cancelar pedido',
         suggestions: ['Pedido do cliente', 'Falta de estoque', 'Erro no pedido', 'Pagamento não realizado'],
-        submit: (reason) =>
-          kit.request(`/orders/${o.id}`, { method: 'PUT', body: { status: 'cancelled', reason } }),
+        submit: hasPayments(o)
+          ? undoPayments(o, kit, 'cancel')
+          : (reason) =>
+              kit.request(`/orders/${o.id}`, { method: 'PUT', body: { status: 'cancelled', reason } }),
         message: `Pedido ${formatCode(o.number)} cancelado.`,
       }),
   },
@@ -363,12 +376,27 @@ const baseOrderActions: RecordAction<Order>[] = [
     label: 'Excluir',
     icon: Trash2,
     danger: true,
-    permissions: ['orders.delete'],
-    confirm: (o) => `Excluir o pedido ${formatCode(o.number)}? O estoque será devolvido.`,
-    run: (o, kit) =>
-      kit
-        .request(`/orders/${o.id}`, { method: 'DELETE' })
-        .then(() => kit.done(`Pedido ${formatCode(o.number)} excluído.`)),
+    permissions: (o) => (hasPayments(o) ? ['orders.delete', 'receivables.reverse'] : ['orders.delete']),
+    // Com baixa, a confirmação é o pedido de senha e motivo.
+    confirm: (o) =>
+      hasPayments(o) ? null : `Excluir o pedido ${formatCode(o.number)}? O estoque será devolvido.`,
+    run: async (o, kit) => {
+      if (!hasPayments(o)) {
+        await kit.request(`/orders/${o.id}`, { method: 'DELETE' });
+        kit.done(`Pedido ${formatCode(o.number)} excluído.`);
+        return;
+      }
+      kit.askReason({
+        eyebrow: 'PEDIDO',
+        title: `Excluir o pedido ${formatCode(o.number)}`,
+        description: 'O estoque será devolvido, e as baixas e os valores no caixa serão removidos.',
+        withPassword: true,
+        confirmLabel: 'Excluir pedido',
+        suggestions: ['Lançado por engano', 'Pedido duplicado'],
+        submit: undoPayments(o, kit, 'delete'),
+        message: `Pedido ${formatCode(o.number)} excluído.`,
+      });
+    },
   },
 ];
 

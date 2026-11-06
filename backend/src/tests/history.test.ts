@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { diffFields, diffItems, initialFields } from '../lib/changes.ts';
-import { addMember, type Client, createApp, signupCompany, today } from './helpers.ts';
+import { addMember, type Client, createApp, PASSWORD, signupCompany, today } from './helpers.ts';
 
 let app: FastifyInstance;
 let owner: Client;
@@ -147,7 +147,11 @@ describe('histórico do documento', () => {
     expect(noReason.status).toBe(400);
     expect((await owner.get(`/orders/${order.id}`)).body.status).toBe('paid');
 
-    await owner.put(`/orders/${order.id}`, { status: 'cancelled', reason: 'Cliente desistiu' });
+    await owner.post(`/orders/${order.id}/undo-payments`, {
+      action: 'cancel',
+      reason: 'Cliente desistiu',
+      password: PASSWORD,
+    });
     expect(await latestEntry('order', order.id)).toMatchObject({
       summary: 'Cancelou',
       reason: 'Cliente desistiu',

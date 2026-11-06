@@ -520,12 +520,43 @@ export const receivables = pgTable(
     position: integer().notNull(),
     dueDate: date({ mode: 'string' }).notNull(),
     amount: money().notNull(),
+    // Quanto já saiu do saldo, somando os descontos da baixa.
     paidAmount: money().notNull().default(0),
     method: varchar({ length: 40 }),
     status: receivableStatusEnum().notNull().default('open'),
     createdAt: createdAt(),
   },
   (t) => [index().on(t.companyId, t.status, t.dueDate), uniqueIndex().on(t.orderId, t.position)],
+);
+
+// Cada baixa de uma conta. principal é o que sai do saldo: received = principal + interest - discount.
+// O estorno mantém o registro, com o motivo, e tira a entrada do caixa.
+export const receivablePayments = pgTable(
+  'receivable_payments',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    companyId: companyId(),
+    orderId: integer()
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    receivableId: integer()
+      .notNull()
+      .references(() => receivables.id, { onDelete: 'cascade' }),
+    bankAccountId: integer().references(() => bankAccounts.id, { onDelete: 'set null' }),
+    paidOn: date({ mode: 'string' }).notNull(),
+    principal: money().notNull(),
+    interest: money().notNull().default(0),
+    discount: money().notNull().default(0),
+    received: money().notNull(),
+    method: varchar({ length: 40 }),
+    notes: varchar({ length: 255 }),
+    createdBy: integer().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+    reversedAt: timestamp({ withTimezone: true }),
+    reversedBy: integer().references(() => users.id, { onDelete: 'set null' }),
+    reversalReason: varchar({ length: 255 }),
+  },
+  (t) => [index().on(t.receivableId), index().on(t.orderId), index().on(t.bankAccountId)],
 );
 
 export const cashTransactions = pgTable(
@@ -542,14 +573,14 @@ export const cashTransactions = pgTable(
     // Preenchidos quando a movimentação é gerada automaticamente (no máximo uma por pedido/despesa).
     orderId: integer().references(() => orders.id, { onDelete: 'cascade' }),
     expenseId: integer().references(() => expenses.id, { onDelete: 'cascade' }),
-    receivableId: integer().references(() => receivables.id, { onDelete: 'cascade' }),
+    paymentId: integer().references(() => receivablePayments.id, { onDelete: 'cascade' }),
     createdAt: createdAt(),
   },
   (t) => [
     index().on(t.companyId, t.transactionDate),
     index().on(t.bankAccountId),
     index().on(t.orderId),
-    uniqueIndex().on(t.receivableId),
+    uniqueIndex().on(t.paymentId),
     uniqueIndex().on(t.expenseId),
   ],
 );

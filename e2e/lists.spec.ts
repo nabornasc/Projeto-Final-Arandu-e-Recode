@@ -1,5 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
-import { CUSTOMER, capture, chooseOption, itemSelect, login, OWNER, SERVICE, toast } from './helpers.ts';
+import {
+  CUSTOMER,
+  capture,
+  chooseOption,
+  itemSelect,
+  login,
+  OWNER,
+  PASSWORD,
+  SERVICE,
+  toast,
+} from './helpers.ts';
 
 const totalOf = (page: Page, name: string) =>
   page.locator('.list-totals dl > div').filter({ hasText: name }).locator('dd');
@@ -151,6 +161,63 @@ test('pedido parcelado gera contas, baixa por parcela e fica pago só na última
   await expect(toast(page, 'registrada no caixa')).toBeVisible();
   await expect(page.locator('tbody tr').getByText('Pago', { exact: true })).toBeVisible();
   await expect(page.getByText('· parcial')).toHaveCount(0);
+});
+
+test('baixa parcial com juros, baixa em lote e estorno com motivo', async ({ page }) => {
+  const createOrder = async () => {
+    await page.goto('/pedidos/novo');
+    await chooseOption(page.getByLabel('Cliente'), CUSTOMER);
+    await chooseOption(itemSelect(page, 0), SERVICE);
+    await page.getByRole('button', { name: 'Criar pedido' }).click();
+    await expect(page).toHaveURL(/\/pedidos\/\d+$/);
+    const heading = await page.getByRole('heading', { name: /Pedido #\d+/ }).innerText();
+    return heading.match(/#\d+/)?.[0] ?? '';
+  };
+  const first = await createOrder();
+  const second = await createOrder();
+  const filter = (code: string) => page.getByLabel('Cliente ou número').fill(code);
+
+  await page.goto('/contas-a-receber');
+  await filter(first);
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  const label = `pedido ${first}`;
+  await page.getByRole('button', { name: `Dar baixa: ${label}` }).click();
+  const dialog = page.getByRole('dialog');
+  const received = dialog.getByLabel(`Valor recebido: ${label}`);
+  const balance = Number(await received.inputValue());
+  await dialog.getByLabel(`Juros: ${label}`).fill('5');
+  await expect(received).toHaveValue(String(balance + 5));
+  await received.fill(String(balance / 2 + 5));
+  await capture(page, 'baixa-parcial');
+  await dialog.getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect(toast(page, 'registrada no caixa')).toBeVisible();
+  await expect(page.locator('tbody tr').getByText('Parcial', { exact: true })).toBeVisible();
+
+  // As duas contas juntas: a primeira com o saldo que restou.
+  await filter('');
+  await page.getByLabel(`Selecionar pedido ${first}`).check();
+  await page.getByLabel(`Selecionar pedido ${second}`).check();
+  await page.getByRole('button', { name: 'Dar baixa nas selecionadas' }).click();
+  await expect(page.getByRole('heading', { name: 'Dar baixa em 2 contas' })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect(toast(page, 'Baixa de 2 contas')).toBeVisible();
+
+  await page.goto('/contas-a-receber');
+  await page.getByLabel('Status').selectOption({ label: 'Todos' });
+  await filter(first);
+  await page.getByRole('link', { name: first }).click();
+  await expect(page).toHaveURL(/\/pedidos\/\d+$/);
+  const payments = page.getByRole('table', { name: 'Baixas do pedido' });
+  await expect(payments.getByRole('row')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Estornar baixa da parcela 1/1' }).first().click();
+  await page.getByLabel('Motivo').fill('Pagamento não compensado');
+  await page.getByLabel('Sua senha de login').fill('senha-errada');
+  await page.getByRole('dialog').getByRole('button', { name: 'Estornar baixa' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Senha incorreta.');
+  await page.getByLabel('Sua senha de login').fill(PASSWORD);
+  await page.getByRole('dialog').getByRole('button', { name: 'Estornar baixa' }).click();
+  await expect(toast(page, 'Baixa estornada')).toBeVisible();
+  await expect(payments.getByText('Estornada: Pagamento não compensado')).toBeVisible();
 });
 
 test('despesa com fornecedor aparece na lista e na busca', async ({ page }) => {

@@ -327,6 +327,42 @@ export const receivableSettleSchema = z.object({
 });
 export type ReceivableSettleInput = z.input<typeof receivableSettleSchema>;
 
+// Desfazer uma baixa exige a senha de quem está logado e o motivo, que fica no histórico.
+export const passwordConfirmationSchema = z.object({
+  password: z.string().min(1, 'Informe a sua senha').max(128),
+  reason: requiredText(255, 'Informe o motivo'),
+});
+export const orderUndoPaymentsSchema = passwordConfirmationSchema.extend({
+  action: z.enum(['cancel', 'pending', 'delete']),
+});
+
+const cents = money.refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, {
+  message: 'O valor deve ter no máximo duas casas decimais',
+});
+
+// Baixa em uma ou mais contas. Sem valor recebido, quita o saldo (mais juros, menos desconto).
+export const receivablesSettleSchema = z.object({
+  bankAccountId: id.nullish(),
+  settledOn: isoDate.optional(),
+  method: optionalText(40),
+  notes: optionalText(255),
+  items: z
+    .array(
+      z.object({
+        receivableId: id,
+        received: cents.optional(),
+        interest: cents.default(0),
+        discount: cents.default(0),
+      }),
+    )
+    .min(1, 'Selecione ao menos uma conta')
+    .max(100, 'Selecione no máximo 100 contas')
+    .refine((items) => new Set(items.map((item) => item.receivableId)).size === items.length, {
+      message: 'A mesma conta foi informada mais de uma vez',
+    }),
+});
+export type ReceivablesSettleInput = z.input<typeof receivablesSettleSchema>;
+
 export const QUOTE_STATUSES = ['draft', 'sent', 'approved', 'rejected', 'cancelled'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 

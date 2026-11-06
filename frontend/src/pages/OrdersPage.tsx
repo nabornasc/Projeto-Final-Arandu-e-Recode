@@ -97,7 +97,7 @@ export default function OrdersPage() {
                       <td>
                         <span className={`status ${order.status}`}>{label(order.status)}</span>
                         {order.status === 'pending' &&
-                          order.receivables.some((item) => item.status === 'settled') && (
+                          order.receivables.some((item) => item.paidAmount > 0) && (
                             <small className="muted"> · parcial</small>
                           )}
                       </td>

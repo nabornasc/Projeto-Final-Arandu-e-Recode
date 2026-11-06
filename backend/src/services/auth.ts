@@ -7,7 +7,7 @@ import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { accessGroupPermissions, accessGroups, companies, sessions, users } from '../db/schema.ts';
 import type { Ctx } from '../lib/context.ts';
-import { conflict, unauthorized } from '../lib/errors.ts';
+import { conflict, forbidden, unauthorized } from '../lib/errors.ts';
 import { parse } from '../lib/validate.ts';
 import { createDefaultGroups } from './accessGroups.ts';
 import { audit } from './audit.ts';
@@ -138,6 +138,15 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   const ctx = toCtx(user);
   await audit(db, ctx, 'login', 'user', user.userId);
   return { session: await createSession(user.userId), ctx };
+}
+
+// Confirma a senha de quem está logado antes de uma operação sensível.
+export async function confirmPassword(ctx: Ctx, password: string): Promise<void> {
+  const [user] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, ctx.userId));
+  if (!user || !(await verify(user.passwordHash, password))) throw forbidden('Senha incorreta.');
 }
 
 export async function logout(token: string): Promise<void> {

@@ -22,6 +22,7 @@ import {
   newLine,
   type Product,
 } from '../components/ItemLines.tsx';
+import { OrderPayments } from '../components/OrderPayments.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { TracePanel } from '../components/TracePanel.tsx';
 import { api } from '../lib/api.ts';
@@ -286,6 +287,7 @@ function OrderEditor({ order }: { order: Order | null }) {
           </p>
         )}
       </form>
+      {order && <OrderPayments order={order} />}
       {order && !showHistory && <TracePanel type="order" id={order.id} />}
       {order && showHistory && <HistoryPanel type="order" id={order.id} />}
     </section>

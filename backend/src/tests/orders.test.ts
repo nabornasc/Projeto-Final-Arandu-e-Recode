@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Client, createApp, signupCompany, today } from './helpers.ts';
+import { type Client, createApp, PASSWORD, signupCompany, today } from './helpers.ts';
 
 let app: FastifyInstance;
 let owner: Client;
@@ -113,7 +113,11 @@ describe('pedidos, estoque e caixa', () => {
     await owner.put(`/orders/${order.id}`, { discount: 10 });
     expect((await incomeFor(order.id))[0].amount).toBe(30);
 
-    await owner.put(`/orders/${order.id}`, { status: 'pending' });
+    await owner.post(`/orders/${order.id}/undo-payments`, {
+      action: 'pending',
+      reason: 'Pagamento não compensado',
+      password: PASSWORD,
+    });
     expect(await incomeFor(order.id)).toHaveLength(0);
 
     expect((await owner.del(`/orders/${order.id}`)).status).toBe(204);

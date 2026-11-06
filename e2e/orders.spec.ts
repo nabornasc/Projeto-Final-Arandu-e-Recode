@@ -8,6 +8,7 @@ import {
   OWNER,
   openHistory,
   openMenuItem,
+  PASSWORD,
   STOCK_PRODUCT,
   toast,
 } from './helpers.ts';
@@ -33,6 +34,7 @@ test('baixa, cancelamento com motivo e reativação ficam no histórico, e o est
   await expect(page.getByRole('heading', { name: /Pago/ })).toBeVisible();
 
   await openMenuItem(page, 'Cancelar pedido');
+  await page.getByLabel('Sua senha de login').fill(PASSWORD);
   await confirmWithReason(page, 'Cancelar pedido', 'Falta de estoque');
   await expect(page.getByRole('heading', { name: /Cancelado/ })).toBeVisible();
   expect(await stockInForm(page)).toBe(before);
