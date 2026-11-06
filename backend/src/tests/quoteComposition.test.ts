@@ -58,6 +58,13 @@ describe('parcelas', () => {
     expect((await owner.get(`/quotes/${created.body.id}`)).body.total).toBe(100);
   });
 
+  it('valor com fração de centavo é recusado, mesmo com a soma fechando', async () => {
+    const fractions = await quote({ installments: [installment(50.001), installment(49.999)] });
+    expect(fractions.status).toBe(400);
+    const cents = await quote({ installments: [installment(33.34), installment(33.33), installment(33.33)] });
+    expect(cents.status).toBe(201);
+  });
+
   it('são opcionais, e a cópia nasce sem elas', async () => {
     expect((await quote()).body.installments).toEqual([]);
     const created = await quote({ installments: [installment(100)] });

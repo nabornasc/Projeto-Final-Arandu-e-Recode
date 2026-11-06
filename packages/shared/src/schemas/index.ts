@@ -335,7 +335,14 @@ export const quoteItemSchema = orderItemSchema
 
 export const quoteInstallmentSchema = z.object({
   dueDate: isoDate,
-  amount: z.number().positive('O valor da parcela deve ser maior que zero').max(1e10),
+  amount: z
+    .number()
+    .positive('O valor da parcela deve ser maior que zero')
+    .max(1e10)
+    // Fica em JSON, sem o arredondamento da coluna numérica do banco.
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, {
+      message: 'O valor da parcela deve ter no máximo duas casas decimais',
+    }),
   method: optionalText(40),
 });
 export type QuoteInstallment = z.output<typeof quoteInstallmentSchema>;
