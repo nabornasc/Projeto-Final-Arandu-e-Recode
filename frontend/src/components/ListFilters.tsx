@@ -20,7 +20,7 @@ export function ListFilters({ control, dateLabel, textLabel, statuses }: Filters
     <>
       <details className="list-filters panel" open>
         <summary>Filtros</summary>
-        <div className="list-filters-grid">
+        <div className="form-grid list-filters-grid">
           <label>
             {dateLabel}
             <select
