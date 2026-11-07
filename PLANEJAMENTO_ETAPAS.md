@@ -32,6 +32,7 @@ Nada aqui tem data. Uma etapa só começa com pedido do dono do projeto, e a ord
 ### Etapa 1: fechar o que já está na `main`
 
 - Fechar o `[Não lançado]` do `CHANGELOG.md` em uma versão com tag.
+- Corrigir `backend/src/tests/customerFile.test.ts`: `dayOffset` usa a data em UTC, e o servidor usa `todayInBrazil()`. O teste falha das 21h à meia-noite de Brasília, e isso trava o CI nesse horário.
 - Verificar o espelho no Lighthouse.
 - Revisar o rótulo da permissão "Cancelar ou reativar".
 - Atualizar as dependências, sem `npm audit fix --force`.
