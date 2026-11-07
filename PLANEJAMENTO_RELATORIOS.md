@@ -2,6 +2,8 @@
 
 Análise de 05/11/2026, feita a partir de três prints do menu de relatórios de um ERP de mercado. **Guardada para depois: nada aqui foi implementado nem tem versão definida.**
 
+> **Ordem de trabalho:** a sequência atual está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md). Este arquivo guarda os detalhes.
+
 Hoje o projeto tem o dashboard, o histórico geral e as listas de cada módulo, mas não tem uma tela de relatórios nem exportação em CSV ou Excel.
 
 Os prints mostram 42 relatórios. A lista pode ter mais, porque o trecho entre Estoque e o início do Financeiro não aparece. O nome "Financeiro" também não aparece: foi deduzido pelos itens. O conteúdo de cada relatório também foi deduzido pelo nome.
@@ -74,5 +76,5 @@ Ficam de fora por exigirem controle de fábrica ou por terem pouco uso em um sis
 
 ## 7. Decisões em aberto
 
-- Em qual versão entra. O roteiro atual não prevê essa tela; o plano de escalabilidade cita relatórios exportáveis, sem data.
+- Entra na etapa 4 de [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md).
 - Se a exportação terá permissão própria, separada da leitura.

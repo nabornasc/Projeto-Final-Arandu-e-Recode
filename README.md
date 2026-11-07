@@ -97,7 +97,7 @@ O plano completo está em [PLANEJAMENTO_ORCAMENTOS_HISTORICO.md](PLANEJAMENTO_OR
 - **Reabrir orçamento** enviado, aprovado ou recusado, com motivo. Depois de reaberto, só o Proprietário pode excluí-lo.
 - **Monitoramento** com Sentry, sem dados pessoais, e novo nome: **Arandu Gestão**.
 
-**Próxima versão:** v2.5, navegação e produtividade. Antes dela, ficam as fases 4 e 5 do [plano de orçamentos](PLANEJAMENTO_ORCAMENTOS_HISTORICO.md). O roadmap completo está na seção 11 do [planejamento](PLANEJAMENTO_V2.md).
+**Próximos passos:** a sequência está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md).
 
 ## Tecnologias
 
@@ -270,6 +270,7 @@ Eles não tocam no banco de desenvolvimento, mas precisam do PostgreSQL ativo e 
 │   ├── pages/                  # Telas (carregadas sob demanda)
 │   └── styles.css
 ├── compose.yaml                # PostgreSQL local
+├── PLANEJAMENTO_ETAPAS.md      # Ordem de trabalho: fonte única da sequência
 ├── PLANEJAMENTO_V2.md          # Plano da versão 2 (4 semanas)
 └── PLANEJAMENTO_ESCALABILIDADE.md
 ```
@@ -284,6 +285,7 @@ Eles não tocam no banco de desenvolvimento, mas precisam do PostgreSQL ativo e 
 
 ## Planejamento
 
+- [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md): sequência de trabalho em etapas e decisões pendentes.
 - [PLANEJAMENTO_V2.md](PLANEJAMENTO_V2.md): escopo, stack, cronograma e riscos da versão 2.
 - [PLANEJAMENTO_ESCALABILIDADE.md](PLANEJAMENTO_ESCALABILIDADE.md): evolução de longo prazo para um SaaS comercial.
 
