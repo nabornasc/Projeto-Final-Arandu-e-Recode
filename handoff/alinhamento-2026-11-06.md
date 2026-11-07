@@ -36,34 +36,24 @@ Regras novas que valem para quem mexer nesse código:
 
 ## 3. O que falta no planejamento
 
-Nada tem data definida. Só comece um item com pedido do usuário.
+**A ordem de trabalho agora está em `PLANEJAMENTO_ETAPAS.md`**, fonte única para as duas estações. Nada tem data, e cada etapa só começa com pedido do usuário.
 
-**`PLANEJAMENTO_OPERACOES.md`**
-
-| Etapa | O que falta |
+| Etapa | Conteúdo |
 |---|---|
-| 4 (em andamento) | Unidade e grupo no produto, estoque mínimo com aviso |
-| 5 | Agenda (dia, semana, mês e lista) e ajuste de estoque com motivo |
-| 6 | Compras simples, entrega no pedido, renegociação e adiantamentos, só se ainda houver interesse |
+| 1 (próxima) | Fechar o `[Não lançado]` em uma versão e resolver pendências pequenas |
+| 2 | Estoque: mínimo com aviso, ajuste com motivo e unidade no produto |
+| 3 | Listas configuráveis e grupo do produto |
+| 4 | Central de relatórios com exportação em CSV |
+| 5 | Agenda |
+| 6 | Navegação: menu por módulos, cadastro rápido, paginação, busca e atalhos |
+| 7 | Restante dos documentos |
+| 8 | Gestão: precificação, dashboard modular e metas |
+| 9 | Operações opcionais, só se ainda houver interesse |
+| 10 | Assistente de IA |
 
-A baixa parcial, em lote e com estorno só existe em contas a receber. As contas a pagar continuam em lançamento único.
+As decisões pendentes e a correspondência com os rótulos antigos de versão estão no mesmo arquivo.
 
-**Outros planos guardados**
-
-- `PLANEJAMENTO_RELATORIOS.md`: tela de relatórios com exportação em CSV ou Excel.
-- `PLANEJAMENTO_LISTAS.md`: transformar campos de texto livre, como a categoria, em listas cadastráveis.
-
-**Decisão do usuário:** se o registro manual de notas fiscais interessa como estudo. As decisões em aberto de relatórios e listas só precisam de resposta quando esses planos começarem.
-
-**Sugestão para o próximo passo:** estoque mínimo com ajuste de estoque, que são pequenos e se complementam.
-
-**Pendências pequenas**
-
-- `npm run lint` local dá erros falsos por causa de `.vercel/output`, só onde essa pasta existe. Rode o Biome nos arquivos versionados.
-- O espelho ainda precisa da verificação no Lighthouse.
-- As dependências precisam de atualização, sem `npm audit fix --force`.
-- O rótulo da permissão "Cancelar ou reativar" precisa de revisão.
-- Há branches já mescladas para apagar. Apagar só com pedido do usuário.
+**Situação da publicação:** o arquivo está no PR #14, branch `docs/etapas`, ainda fora da `main`. Veja `handoff/resposta-arch.md`.
 
 ## 4. Como trabalhamos
 

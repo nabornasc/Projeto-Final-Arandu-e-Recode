@@ -19,6 +19,27 @@ Commit testado: 4ec4ab5
 
 Nenhum.
 
+Nenhuma decisão pendente na passagem inicial. O backup do banco local anterior ao seed fica só na pasta temporária do notebook e não vai para o Git.
+
+## Atualização de 06/11/2026
+
+Notebook atualizado com a seção 1 do alinhamento:
+
+| Comando | Resultado |
+|---|---|
+| `git switch main` e `git pull --ff-only` | OK, em `dfa48e0` |
+| `npm install` | OK |
+| `npm run db:migrate` | OK, 16 de 16 migrações no banco local (`127.0.0.1`) |
+| `npm run typecheck` | Sem erros |
+
+Os planos guardados foram organizados em `PLANEJAMENTO_ETAPAS.md`, no PR #14 (branch `docs/etapas`). Ele só muda documentação e **ainda não foi mesclado**, porque o CI está vermelho.
+
+## Problemas
+
+**Teste que falha à noite, sem relação com o PR #14:** `backend/src/tests/customerFile.test.ts:124`, com `AssertionError: expected 4 to be 5`. Reproduzido localmente às 01:23 UTC, com `TZ=UTC` e sem ele. O `dayOffset` do teste usa a data em UTC, e o servidor usa `todayInBrazil()`, então a falha ocorre das 21h à meia-noite de Brasília. O código de produção não foi alterado. A correção está na etapa 1, aguardando decisão do usuário.
+
+**Revisão do Copilot no PR #14:** não rodou. Mensagem: `Copilot was unable to review this pull request because the user who requested the review has insufficient remaining quota.`
+
 ## Decisões pendentes do usuário
 
-Nenhuma nesta passagem. O backup do banco local anterior ao seed fica só na pasta temporária do notebook e não vai para o Git.
+- Corrigir o teste agora, ou mesclar o PR #14 depois de repetir o CI a partir das 00h de Brasília.
