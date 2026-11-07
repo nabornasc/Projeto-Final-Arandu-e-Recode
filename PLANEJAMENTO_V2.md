@@ -535,7 +535,7 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 
 ## 11. Roadmap contínuo (versões)
 
-> A partir de 02/11 o projeto não tem data de término. Cada versão é um ciclo: plano curto (nesta seção), implementação, testes (unitários, integração e ponta a ponta), notas da versão (`CHANGELOG.md`), tag `vX.Y.0`, push e, depois do primeiro deploy, publicação. As versões seguem a ordem abaixo, mas podem ser reordenadas a cada ciclo.
+> A partir de 02/11 o projeto não tem data de término. Cada versão é um ciclo: plano curto (nesta seção), implementação, testes (unitários, integração e ponta a ponta), notas da versão (`CHANGELOG.md`), tag `vX.Y.0`, push e, depois do primeiro deploy, publicação. As versões concluídas ficam abaixo. **A ordem do que falta está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md)**, e o número da versão é definido ao fechar cada etapa.
 
 | Versão | Conteúdo | Situação |
 |---|---|---|
@@ -544,11 +544,11 @@ Cada avanço gera um evento no histórico ("Pedido #008 recebido → Ganho"). Pe
 | **v2.2** | Oportunidades e rastreio comercial (seção 9); menu ⋯ em grupos | **Concluída em 03/11** |
 | **v2.3** | **Publicação**: deploy (Supabase `sa-east-1` + Vercel `gru1`), Sentry, Playwright nos fluxos principais, demo no portfólio. A partir daqui, cada versão vai para produção | **Concluída em 05/11** |
 | **v2.4** | Espelho do cliente em A4 com dados da empresa e cópia guardada no envio, frete e outras despesas, reabrir orçamento, Sentry ligado e novo nome, Arandu Gestão | **Concluída em 05/11** |
-| **v2.5** | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
-| **v2.6** | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, grupos de itens, biblioteca de textos, espelho interno e DOCX. Espelho do cliente, campos de entrega e observação interna já entraram na v2.4 | Planejada |
-| **v2.7** | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
-| **v2.8** | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
-| **v3.0** | Assistente de IA: chat de ajuda e bot do Telegram (seção 10) | Planejada |
+| Etapa 6 (antiga v2.5) | Navegação e produtividade: menu por módulos e páginas de módulo, cadastro rápido, filtros avançados e paginação, busca rápida e atalhos (seção 7) | Planejada |
+| Etapa 7 (antiga v2.6) | Documentos: orçamento em seções, condições de pagamento e parcelas no contas a receber, grupos de itens, biblioteca de textos, espelho interno e DOCX. Espelho do cliente, campos de entrega e observação interna já entraram na v2.4 | Planejada |
+| Etapa 8 (antiga v2.7) | Gestão: assistente de precificação, dashboard modular com KPIs e metas de venda | Planejada |
+| Etapa 5 (antiga v2.8) | Agenda (próximas ações, validades, entregas, eventos manuais) | Planejada |
+| Etapa 10 (antiga v3.0) | Assistente de IA: chat de ajuda e bot do Telegram (seção 10) | Planejada |
 
 ### Notas por versão (referência: telas de ERPs de mercado analisadas em 02/11)
 
@@ -699,4 +699,4 @@ O CRM ficou pronto em 02/11. A semana 3 passa a ter dashboard modular com KPIs e
 
 ## 14. Próximos passos imediatos
 
-1. A v2.5 (navegação e produtividade), conforme o roadmap da seção 11.
+A sequência está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md).

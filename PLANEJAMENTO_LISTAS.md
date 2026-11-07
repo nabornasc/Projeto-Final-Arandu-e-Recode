@@ -2,6 +2,8 @@
 
 Análise de 05/11/2026, feita a partir de prints do menu "Listas" de um ERP de mercado. **Guardada para depois: nada aqui foi implementado nem tem versão definida.**
 
+> **Ordem de trabalho:** a sequência atual está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md). Este arquivo guarda os detalhes.
+
 Os prints mostram 40 listas. Pode faltar alguma entre "Histórico financeiro" e "Indicações", porque esse trecho da rolagem não aparece com certeza. O conteúdo de cada lista foi deduzido pelo nome.
 
 | Situação | Quantidade |
@@ -83,5 +85,5 @@ Hoje a empresa não consegue ajustar esses valores. Parte tem sugestões fixas n
 
 ## 7. Decisões em aberto
 
-- Em qual versão entra. A proposta é antes dos relatórios (`PLANEJAMENTO_RELATORIOS.md`), porque filtros por categoria e forma de pagamento dependem de dados padronizados.
+- Entra na etapa 3 de [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md), antes dos relatórios, porque filtros por categoria e forma de pagamento dependem de dados padronizados.
 - Se o campo aceita digitar um valor fora da lista, o que é mais simples para o MEI, ou se só permite escolher, o que deixa os dados mais limpos.

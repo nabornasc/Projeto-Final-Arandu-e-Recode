@@ -2,6 +2,8 @@
 
 Análise de 06/11/2026, feita a partir de 26 prints de um ERP de mercado voltado a marmorarias. **As etapas 1, 2 e 3 e o histórico do cliente, da etapa 4, foram feitos em 06/11/2026. As demais continuam guardadas, sem versão definida.**
 
+> **Ordem de trabalho:** a sequência atual está em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md). Este arquivo guarda os detalhes.
+
 Os prints têm dados reais de empresas e pessoas. Eles não entram no repositório, e este arquivo só registra a estrutura das telas.
 
 O Arandu Gestão é um projeto de estudo com demonstração pública. Por isso, o critério é o que ensina e cabe no MEI, e não a paridade com o ERP.
@@ -144,6 +146,8 @@ Segundo grupo de prints, também de 06/11/2026.
 | Transferência entre empresas | Fora: várias empresas por usuário seguem no backlog |
 
 ## 10. Ordem sugerida
+
+As etapas abaixo são as deste plano. A numeração e a ordem atuais estão em [PLANEJAMENTO_ETAPAS.md](PLANEJAMENTO_ETAPAS.md).
 
 | Etapa | Conteúdo | Por quê |
 |---|---|---|
